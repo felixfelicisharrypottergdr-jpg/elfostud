@@ -35,10 +35,10 @@
     --green:#7a3b12; --green-dark:#4a230a; --gold:#d4af37; --body-bg-top:#8a4415;
   }
   * { box-sizing: border-box; }
-  html, body, body *{ font-family: 'magic', Georgia, 'Times New Roman', serif !important; }
-  body{ margin:0; padding:0; background: radial-gradient(circle at top, var(--body-bg-top), var(--green-dark)); font-family: 'magic', Georgia, 'Times New Roman', serif; color: var(--ink); }
+  html, body, body *{ font-family: system-ui, -apple-system, "Segoe UI", Arial, Helvetica, sans-serif !important; }
+  body{ margin:0; padding:0; background: radial-gradient(circle at top, var(--body-bg-top), var(--green-dark)); font-family: system-ui, -apple-system, "Segoe UI", Arial, Helvetica, sans-serif; color: var(--ink); }
   .wrap{ max-width: 1080px; margin: 0 auto; padding: 24px 16px 60px; }
-  h1.main-title{ text-align:center; color: var(--parch); letter-spacing: 2px; font-size: 1.85rem; margin-bottom: 4px; text-shadow: 0 2px 6px rgba(0,0,0,.5); }
+  h1.main-title{ font-family: 'magic', Georgia, 'Times New Roman', serif !important; text-align:center; color: var(--parch); letter-spacing: 2px; font-size: 1.85rem; margin-bottom: 4px; text-shadow: 0 2px 6px rgba(0,0,0,.5); }
   p.subtitle{ text-align:center; color: var(--parch-dark); margin-top:0; margin-bottom: 24px; font-style: italic; }
   .steps-nav{ display:flex; flex-wrap:wrap; gap:6px; justify-content:center; margin-bottom: 20px; }
   .step-btn{ background: var(--green); color: var(--parch); border: 1px solid var(--gold); border-radius: 6px; padding: 8px 12px; font-size: .78rem; cursor: pointer; font-family: inherit; opacity:.75; }
@@ -66,7 +66,7 @@
   table.posts th, table.posts td{ border:1px solid var(--gold); padding:5px 6px; text-align:left; }
   table.posts th{ background: var(--parch-dark); }
   table.posts input{ padding:4px 5px; font-size:.78rem; }
-  .dice-code{ font-family: 'magic', Georgia, 'Times New Roman', serif; font-size:.76rem; background:#efe4c4; border:1px dashed var(--gold); border-radius:5px; padding:10px; white-space: pre-wrap; max-height: 480px; overflow-y: auto; }
+  .dice-code{ font-family: system-ui, -apple-system, "Segoe UI", Arial, Helvetica, sans-serif; font-size:.76rem; background:#efe4c4; border:1px dashed var(--gold); border-radius:5px; padding:10px; white-space: pre-wrap; max-height: 480px; overflow-y: auto; }
   .copy-btn{ background: var(--gold); color: var(--green-dark); border:none; border-radius:5px; padding: 8px 12px; cursor:pointer; font-size:.83rem; margin-top:10px; }
   .small-note{ font-size:.76rem; color:#5a4a30; font-style:italic; margin-top:4px; }
   .totals{ display:flex; gap:16px; flex-wrap:wrap; margin-top:12px; }
