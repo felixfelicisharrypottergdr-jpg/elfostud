@@ -1450,16 +1450,26 @@
     p.appendChild(el("div", "divider"));
     var globalDet = el("details", "stage");
     keepDetailsState(globalDet, "posts:globali", false);
-    globalDet.appendChild(el("summary", null, "Numerazione dei Post globali (" + POSTS.length + ")"));
-    globalDet.appendChild(el("div", "guide-text", "Questa numerazione serve ai conteggi progressivi di Postazione, Cubicolo e Recinto. Il numero viene assegnato una sola volta quando il post riceve un link e resta permanente: l’archiviazione o la pulizia dei mesi vecchi non rinumera mai i post successivi. L’elenco è mostrato dal numero più recente al più vecchio. Dopo una pulizia del database possono esserci dei salti nella numerazione: è normale, perché i numeri già assegnati non vengono mai riutilizzati."));
-    if(POSTS.length === 0){
-      globalDet.appendChild(el("p", "small-note", "Non ci sono ancora post con un link inserito."));
+    var archivedGlobalCount = 0;
+    for(var agm=0;agm<MESI.length;agm++){
+      var archivedMese = MESI[agm];
+      if(!archivedMese || !archivedMese.chiuso){ continue; }
+      var archivedPosts = Array.isArray(archivedMese.posts) ? archivedMese.posts : [];
+      for(var agp=0;agp<archivedPosts.length;agp++){
+        if(String((archivedPosts[agp]&&archivedPosts[agp].link)||"").trim() !== ""){ archivedGlobalCount++; }
+      }
+    }
+    globalDet.appendChild(el("summary", null, "Storico numerazione globale — Mesi archiviati (" + archivedGlobalCount + ")"));
+    globalDet.appendChild(el("div", "guide-text", "Nei Mesi attivi il numero globale compare direttamente accanto al link del Post. Qui restano invece i Post dei Mesi archiviati, dal numero più recente al più vecchio. La numerazione serve ai conteggi progressivi di Postazione, Cubicolo e Recinto e viene assegnata una sola volta quando il Post riceve un link valido: archiviazione e pulizia del database non rinumerano mai i Post successivi. Eventuali salti sono quindi normali e i numeri già assegnati non vengono riutilizzati."));
+    if(archivedGlobalCount === 0){
+      globalDet.appendChild(el("p", "small-note", "Non ci sono ancora Post con link nei Mesi archiviati."));
     } else {
       var gtbl = el("table", "posts");
       gtbl.appendChild(el("tr", null, "<th>Post globale n°</th><th>Mese</th><th>Post nel mese</th><th>Link</th>"));
       var globalRows = [];
       for(var gm=0;gm<MESI.length;gm++){
         var gmese = MESI[gm];
+        if(!gmese || !gmese.chiuso){ continue; }
         for(var gp=0;gp<gmese.posts.length;gp++){
           var gpost = gmese.posts[gp];
           if(String(gpost.link || "").trim() === ""){ continue; }
@@ -1536,16 +1546,29 @@
     dNome.appendChild(iNome); card.appendChild(dNome);
 
     var tbl = el("table", "posts");
-    tbl.appendChild(el("tr", null, "<th>N.</th><th>Link al post</th><th></th>"));
+    var showInlineGlobal = !mese.chiuso;
+    tbl.appendChild(el("tr", null, "<th>N.</th><th>Link al post</th>"+(showInlineGlobal?"<th>N. globale</th>":"")+"<th></th>"));
     for(var i=0;i<mese.posts.length;i++){
       (function(post, idx){
         var tr = el("tr");
         tr.appendChild(el("td", null, "" + (idx+1)));
         var tdLink = el("td");
+        var globalSpan = null;
         var iLink = el("input"); iLink.type="text"; iLink.value = post.link; iLink.placeholder="https://..."; iLink.disabled = contentLocked;
-        iLink.addEventListener("input", function(){ if(blockIfMonthReadOnly(mese)){return;} post.link = iLink.value; ensurePostGlobalNo(post); scheduleSave(450); });
+        function refreshInlineGlobal(){
+          if(!globalSpan){ return; }
+          var valid = String(post.link || "").trim() !== "";
+          var gn = parseInt(post.globalNo,10);
+          globalSpan.textContent = valid && !isNaN(gn) && gn>0 ? String(gn) : "—";
+        }
+        iLink.addEventListener("input", function(){ if(blockIfMonthReadOnly(mese)){return;} post.link = iLink.value; ensurePostGlobalNo(post); refreshInlineGlobal(); scheduleSave(450); });
         iLink.addEventListener("change", function(){ if(blockIfMonthReadOnly(mese)){return;} post.link = iLink.value; ensurePostGlobalNo(post); scheduleSave(0); renderAll(); });
         tdLink.appendChild(iLink); tr.appendChild(tdLink);
+        if(showInlineGlobal){
+          var tdGlobal = el("td", "global-number-cell");
+          globalSpan = el("span", "global-post-number", "—");
+          tdGlobal.appendChild(globalSpan); tr.appendChild(tdGlobal); refreshInlineGlobal();
+        }
         var tdRm = el("td");
         var rmBtn = el("button", "action danger small", "Rimuovi");
         rmBtn.disabled = contentLocked;
