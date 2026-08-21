@@ -140,13 +140,16 @@
   .security-note{background:#dfeaf2;border:1px solid #5c8198;border-radius:7px;padding:10px 12px;margin:10px 0;font-size:.82rem;color:#31566c;font-weight:600;}
   .dispensa-quick{background:rgba(255,255,255,.42);border:1px solid var(--gold);border-radius:7px;padding:12px;margin:12px 0;}
   .ingredient-group{margin:12px 0;border:1px solid #9eb086;border-radius:7px;padding:8px;background:rgba(226,238,218,.72);}
-  .ingredient-group>summary{font-weight:bold;cursor:pointer;padding:2px 2px 6px;color:#314526;}
+  .ingredient-group>summary{font-weight:bold;cursor:pointer;padding:2px 2px 6px;color:#314526;display:flex;align-items:center;gap:7px;list-style:none;}
+  .ingredient-group>summary::-webkit-details-marker,.ingredient-entry>summary::-webkit-details-marker{display:none;}
+  .ingredient-group>summary::before,.ingredient-entry>summary::before{content:"▸";display:inline-block;flex:0 0 auto;line-height:1;transform:translateY(-1px);}
+  .ingredient-group[open]>summary::before,.ingredient-entry[open]>summary::before{content:"▾";}
   .ingredient-group[open]>summary{text-decoration:underline;text-underline-offset:3px;text-decoration-thickness:1px;}
   .ingredient-entry{margin:0; border-top:1px solid rgba(90,65,30,.20); background:transparent;}
   .ingredient-entry:first-of-type{border-top:0;}
-  .ingredient-entry > summary{cursor:pointer; padding:8px 6px; font-weight:500; font-size:.92rem; background:transparent; list-style-position:inside;}
+  .ingredient-entry > summary{cursor:pointer; padding:8px 6px; font-weight:500; font-size:.92rem; background:transparent;display:flex;align-items:center;gap:7px;list-style:none;}
   .ingredient-entry-body{padding:4px 6px 12px;}
-  .ingredient-line{display:flex; flex-wrap:wrap; align-items:center; gap:8px;}
+  .ingredient-line{display:flex; flex:1 1 auto; min-width:0; flex-wrap:wrap; align-items:center; gap:8px;}
   .ingredient-name{font-weight:500; color:#3f321e;}
   .ingredient-qty{font-size:.80rem; color:#6b5a3c;}
   .ingredient-mini-badge{display:inline-flex; align-items:center; gap:4px; padding:2px 8px; border:1px solid rgba(90,65,30,.24); border-radius:999px; background:rgba(255,248,223,.78); color:#5c492d; font-size:.74rem; line-height:1.2;}
@@ -155,6 +158,21 @@
   .ingredient-mini-badge.craft{background:#e2ecf2; border-color:#8ea7b6; color:#31566c;}
   .ingredient-meta{font-size:.78rem;opacity:.82;margin:6px 0;}
   .ingredient-symbols{white-space:nowrap;font-weight:bold;}
+  .ingredient-lots{margin:10px 0 12px;border-top:1px solid rgba(90,65,30,.18);}
+  .ingredient-lots-title{font-size:.82rem;font-weight:700;color:#314526;margin:9px 0 5px;}
+  .ingredient-lot-row{display:flex;align-items:center;gap:7px;flex-wrap:wrap;padding:7px 2px;border-bottom:1px solid rgba(90,65,30,.14);font-size:.80rem;}
+  .ingredient-lot-qty{font-weight:700;color:#314526;min-width:54px;}
+  .ingredient-lot-origin{color:#4e4434;}
+  .ingredient-lot-producer{color:#6b5a3c;font-style:italic;}
+  .ingredient-lot-edit{margin-left:auto;}
+  .ingredient-lot-edit>summary{list-style:none;cursor:pointer;border:1px solid rgba(90,65,30,.25);border-radius:5px;padding:2px 7px;background:rgba(255,255,255,.45);font-size:.76rem;}
+  .ingredient-lot-edit>summary::-webkit-details-marker{display:none;}
+  .ingredient-lot-editor{width:100%;padding:8px 0 4px;}
+  .lot-picker{margin:7px 0;padding:8px 10px;border:1px solid #c7b67e;border-radius:6px;background:#fff8df;font-size:.78rem;}
+  .lot-picker-title{font-weight:700;margin-bottom:5px;color:#5c492d;}
+  .lot-picker-row{display:grid;grid-template-columns:minmax(150px,1fr) 88px;gap:8px;align-items:center;margin:5px 0;}
+  .lot-picker-row input{width:88px;min-width:88px;}
+  .lot-picker-note{font-size:.72rem;color:#6b5a3c;margin-top:4px;}
   .save-size-warning{display:block;background:#f7dddd;border:1px solid #a94a4a;border-radius:7px;padding:9px 11px;color:#7a2929;font-weight:bold;}
 
   .archive-locked{position:relative;opacity:1;border-color:#64727a!important;background:rgba(100,114,122,.08)!important}
@@ -441,8 +459,8 @@
   var ARCHIVIO_CREATURE = [];
   var MEDICHERIA = { nome:"", specie:"", classificazione:"X", link:"" };
   var DISPENSA = { ingredienti:[], movimenti:[], archivioTotali:{ galeoniVendite:0, perCommercianteTipo:{}, conteggiMovimenti:{} } }; var ingredienteCounter = 0; var movimentoCounter = 0;
-  var DISPENSA_BATCH = { selected:{}, tipo:"Usato ONGame in purezza", data:"", link:"", commerciante:"Lo Zoppo", galeoni:0 };
-  function resetDispensaBatch(){ DISPENSA_BATCH = { selected:{}, tipo:"Usato ONGame in purezza", data:"", link:"", commerciante:"Lo Zoppo", galeoni:0 }; }
+  var DISPENSA_BATCH = { selected:{}, lotti:{}, tipo:"Usato ONGame in purezza", data:"", link:"", commerciante:"Lo Zoppo", galeoni:0 };
+  function resetDispensaBatch(){ DISPENSA_BATCH = { selected:{}, lotti:{}, tipo:"Usato ONGame in purezza", data:"", link:"", commerciante:"Lo Zoppo", galeoni:0 }; }
 
   /* Mantiene aperte tutte le tendine durante i ridisegni dell'interfaccia. */
   var OPEN_DETAILS = {};
@@ -903,6 +921,7 @@
     if(!DISPENSA.archivioTotali.conteggiMovimenti){ DISPENSA.archivioTotali.conteggiMovimenti = {}; }
     if(Array.isArray(DISPENSA.movimenti)){ for(var dmi=0;dmi<DISPENSA.movimenti.length;dmi++){ if(DISPENSA.movimenti[dmi].tipo==="Utilizzo ONGame"){ DISPENSA.movimenti[dmi].tipo="Usato ONGame in purezza"; } } }
     syncAllDispensaCatalog();
+    normalizeDispensaLots();
     if(data.ingredienteCounter){ ingredienteCounter = data.ingredienteCounter; }
     if(data.movimentoCounter){ movimentoCounter = data.movimentoCounter; }
     PG_ARCHIVIATO = !!data._archiviato;
@@ -1438,13 +1457,73 @@
     ing.nome=rec.nome; ing.classificazione=rec.classificazione; ing.classeBene=rec.classeBene; ing.provenienzaGlossario=rec.provenienzaGlossario; ing.esotico=!!rec.esotico; ing.illegale=!!rec.illegale; ing.pozionista=!!rec.pozionista; return rec;
   }
   function syncAllDispensaCatalog(){ if(!DISPENSA || !Array.isArray(DISPENSA.ingredienti)){return;} for(var i=0;i<DISPENSA.ingredienti.length;i++){syncIngredienteFromCatalog(DISPENSA.ingredienti[i]);} }
+  function makeDispensaLotId(){ return "lot_"+Date.now().toString(36)+"_"+Math.random().toString(36).slice(2,8); }
+  function newDispensaLot(qty, provenienza, link, produttore, parametro, sourceIngredientId){
+    return {id:makeDispensaLotId(),quantita:Math.max(0,num(qty,0)),provenienza:provenienza||"Trovato",link:String(link||"").trim(),produttore:String(produttore||"").trim(),parametro:String(parametro||"").trim(),sourceIngredientId:sourceIngredientId==null?"":String(sourceIngredientId)};
+  }
+  function syncIngredientQuantity(ing){
+    if(!ing){return 0;} if(!Array.isArray(ing.lotti)){ing.lotti=[];}
+    var total=0; for(var i=0;i<ing.lotti.length;i++){ing.lotti[i].quantita=Math.max(0,num(ing.lotti[i].quantita,0));total+=ing.lotti[i].quantita;}
+    ing.quantita=total;
+    if(ing.lotti.length===1){var l=ing.lotti[0];ing.provenienza=l.provenienza||"Trovato";ing.link=l.link||"";ing.produttore=l.produttore||"";ing.parametro=l.parametro||"";}
+    else if(ing.lotti.length>1){ing.provenienza="Mista";ing.link="";ing.produttore="";ing.parametro="";}
+    return total;
+  }
+  function ensureIngredientLots(ing){
+    if(!ing){return [];}
+    if(!Array.isArray(ing.legacyIds)){ing.legacyIds=[String(ing.id)];}else if(ing.legacyIds.indexOf(String(ing.id))<0){ing.legacyIds.push(String(ing.id));}
+    if(!Array.isArray(ing.lotti)){ing.lotti=[];}
+    if(!ing.lotti.length && Math.max(0,num(ing.quantita,0))>0){ing.lotti.push(newDispensaLot(ing.quantita,ing.provenienza||"Trovato",ing.link||"",ing.produttore||"",ing.parametro||"",ing.id));}
+    for(var i=0;i<ing.lotti.length;i++){var l=ing.lotti[i];if(!l.id){l.id=makeDispensaLotId();}l.quantita=Math.max(0,num(l.quantita,0));l.provenienza=l.provenienza||"Trovato";l.link=String(l.link||"").trim();l.produttore=String(l.produttore||"").trim();l.parametro=String(l.parametro||"").trim();if(l.sourceIngredientId==null||l.sourceIngredientId===""){l.sourceIngredientId=String(ing.id);}}
+    ing.lotti=ing.lotti.filter(function(l){return num(l.quantita,0)>0;}); syncIngredientQuantity(ing); return ing.lotti;
+  }
+  function ingredientTotalQty(ing){ensureIngredientLots(ing);return Math.max(0,num(ing&&ing.quantita,0));}
+  function sameLotOrigin(l, provenienza, link, produttore, parametro){return String(l.provenienza||"")===String(provenienza||"Trovato")&&String(l.link||"").trim()===String(link||"").trim()&&String(l.produttore||"").trim()===String(produttore||"").trim()&&String(l.parametro||"").trim()===String(parametro||"").trim();}
+  function addLotToIngredient(ing,qty,provenienza,link,produttore,parametro,sourceIngredientId){
+    ensureIngredientLots(ing);qty=Math.max(1,num(qty,1));provenienza=provenienza||"Trovato";link=String(link||"").trim();produttore=String(produttore||"").trim();parametro=String(parametro||"").trim();
+    var found=null;for(var i=0;i<ing.lotti.length;i++){if(sameLotOrigin(ing.lotti[i],provenienza,link,produttore,parametro)){found=ing.lotti[i];break;}}
+    if(found){found.quantita+=qty;if(sourceIngredientId!=null&&found.sourceIngredientId===""){found.sourceIngredientId=String(sourceIngredientId);}}else{ing.lotti.push(newDispensaLot(qty,provenienza,link,produttore,parametro,sourceIngredientId==null?ing.id:sourceIngredientId));}
+    syncIngredientQuantity(ing);return ing;
+  }
+  function normalizeDispensaLots(){
+    if(!DISPENSA||!Array.isArray(DISPENSA.ingredienti)){return;}var merged=[],byName={};
+    for(var i=0;i<DISPENSA.ingredienti.length;i++){var ing=DISPENSA.ingredienti[i];syncIngredienteFromCatalog(ing);ensureIngredientLots(ing);var key=normalizeIngredientName(ing.nome)||"__"+String(ing.id);
+      if(!byName[key]){byName[key]=ing;merged.push(ing);continue;}
+      var target=byName[key];ensureIngredientLots(target);if(!Array.isArray(target.legacyIds)){target.legacyIds=[String(target.id)];}
+      var ids=(ing.legacyIds||[String(ing.id)]);for(var a=0;a<ids.length;a++){if(target.legacyIds.indexOf(String(ids[a]))<0){target.legacyIds.push(String(ids[a]));}}
+      for(var l=0;l<ing.lotti.length;l++){target.lotti.push(JSON.parse(JSON.stringify(ing.lotti[l])));}
+      if(String(ing.note||"").trim()&&String(target.note||"").indexOf(String(ing.note||"").trim())<0){target.note=(String(target.note||"").trim()?String(target.note).trim()+"\n":"")+String(ing.note).trim();}
+      syncIngredientQuantity(target);
+    }
+    DISPENSA.ingredienti=merged;for(var j=0;j<merged.length;j++){ensureIngredientLots(merged[j]);}
+  }
+  function activeIngredientLots(ing){return ensureIngredientLots(ing).filter(function(l){return num(l.quantita,0)>0;});}
+  function lotSummaryText(l){var s=(l.provenienza||"Trovato");if(l.provenienza==="Autoprodotto"&&l.produttore){s+=" · "+l.produttore;}return s;}
+  function resolveLotSelection(ing,qty,selection){
+    qty=Math.max(1,num(qty,1));var lots=activeIngredientLots(ing);if(ingredientTotalQty(ing)<qty){return {ok:false,error:"Non ci sono abbastanza dosi disponibili."};}
+    if(lots.length===1){var one={};one[String(lots[0].id)]=qty;return {ok:true,map:one};}
+    selection=selection||{};var total=0,map={};for(var i=0;i<lots.length;i++){var id=String(lots[i].id),v=Math.max(0,num(selection[id],0));if(v>num(lots[i].quantita,0)){return {ok:false,error:"Hai selezionato più dosi di quelle disponibili in uno dei lotti."};}if(v>0){map[id]=v;total+=v;}}
+    if(total!==qty){return {ok:false,error:"Scegli da quali lotti prelevare esattamente "+qty+" dose/i (selezionate: "+total+")."};}return {ok:true,map:map};
+  }
+  function consumeIngredientLots(ing,qty,selection){
+    var resolved=resolveLotSelection(ing,qty,selection);if(!resolved.ok){return resolved;}var used=[];ensureIngredientLots(ing);
+    Object.keys(resolved.map).forEach(function(id){var take=resolved.map[id];for(var i=0;i<ing.lotti.length;i++){var l=ing.lotti[i];if(String(l.id)===String(id)){used.push({lotId:l.id,quantita:take,provenienza:l.provenienza||"Trovato",link:l.link||"",produttore:l.produttore||"",parametro:l.parametro||"",sourceIngredientId:l.sourceIngredientId||String(ing.id)});l.quantita=Math.max(0,num(l.quantita,0)-take);break;}}});
+    ing.lotti=ing.lotti.filter(function(l){return num(l.quantita,0)>0;});syncIngredientQuantity(ing);return {ok:true,used:used};
+  }
+  function restoreIngredientLots(ing,used,sourceIngredientId,fallbackQty){
+    if(!ing){return;}ensureIngredientLots(ing);if(Array.isArray(used)&&used.length){for(var u=0;u<used.length;u++){var row=used[u],found=null;for(var i=0;i<ing.lotti.length;i++){if(String(ing.lotti[i].id)===String(row.lotId)){found=ing.lotti[i];break;}}if(found){found.quantita+=Math.max(0,num(row.quantita,0));}else{var nl=newDispensaLot(row.quantita,row.provenienza,row.link,row.produttore,row.parametro,row.sourceIngredientId||sourceIngredientId||ing.id);nl.id=row.lotId||nl.id;ing.lotti.push(nl);}}}else{var qty=Math.max(0,num(fallbackQty,0)),legacy=null;for(var j=0;j<ing.lotti.length;j++){if(String(ing.lotti[j].sourceIngredientId||"")===String(sourceIngredientId||"")){legacy=ing.lotti[j];break;}}if(legacy){legacy.quantita+=qty;}else if(qty>0){ing.lotti.push(newDispensaLot(qty,ing.provenienza&&ing.provenienza!=="Mista"?ing.provenienza:"Trovato",ing.link||"",ing.produttore||"",ing.parametro||"",sourceIngredientId||ing.id));}}syncIngredientQuantity(ing);
+  }
+  function appendLotPicker(parent,ing,selection,disabled){
+    var lots=activeIngredientLots(ing);if(lots.length<=1){return;}selection=selection||{};var box=el("div","lot-picker");box.appendChild(el("div","lot-picker-title","Da quali dosi vuoi prelevare?"));
+    for(var i=0;i<lots.length;i++){(function(l){var row=el("div","lot-picker-row");var info=el("div",null,lotSummaryText(l)+" · "+l.quantita+" disponibili");var inp=el("input");inp.type="number";inp.min="0";inp.max=String(l.quantita);inp.step="1";inp.value=String(Math.max(0,num(selection[String(l.id)],0)));inp.disabled=!!disabled;inp.addEventListener("input",function(){var v=Math.max(0,Math.min(num(l.quantita,0),num(inp.value,0)));inp.value=String(v);if(v>0){selection[String(l.id)]=v;}else{delete selection[String(l.id)];}});row.appendChild(info);row.appendChild(inp);box.appendChild(row);})(lots[i]);}
+    box.appendChild(el("div","lot-picker-note","Se le dosi hanno provenienze diverse, indica quante prenderne da ciascun lotto."));parent.appendChild(box);
+  }
   function addIngredienteCatalogo(nome, quantita, provenienza, link, produttore){
     var rec=catalogIngredient(nome); if(!rec){return {ok:false,error:"Ingrediente non riconosciuto nel Glossario."};}
     quantita=Math.max(1,parseInt(quantita,10)||1); provenienza=provenienza||"Trovato"; link=String(link||"").trim(); produttore=String(produttore||"").trim();
-    var existing=null;
-    for(var i=0;i<DISPENSA.ingredienti.length;i++){var x=DISPENSA.ingredienti[i]; if(normalizeIngredientName(x.nome)===normalizeIngredientName(rec.nome) && x.provenienza===provenienza && String(x.link||"").trim()===link && String(x.produttore||"").trim()===produttore){existing=x;break;}}
-    if(existing){existing.quantita=Math.max(0,num(existing.quantita,0))+quantita; syncIngredienteFromCatalog(existing); return {ok:true,merged:true,id:existing.id};}
-    var ing=newIngredienteDispensa(); ing.nome=rec.nome; ing.quantita=quantita; ing.provenienza=provenienza; ing.link=link; ing.produttore=produttore; syncIngredienteFromCatalog(ing); DISPENSA.ingredienti.push(ing); return {ok:true,merged:false,id:ing.id};
+    var existing=null;for(var i=0;i<DISPENSA.ingredienti.length;i++){var x=DISPENSA.ingredienti[i];if(normalizeIngredientName(x.nome)===normalizeIngredientName(rec.nome)){existing=x;break;}}
+    if(existing){addLotToIngredient(existing,quantita,provenienza,link,produttore,"",existing.id);syncIngredienteFromCatalog(existing);return {ok:true,merged:true,id:existing.id};}
+    var ing=newIngredienteDispensa();ing.nome=rec.nome;ing.lotti=[];ing.quantita=0;addLotToIngredient(ing,quantita,provenienza,link,produttore,"",ing.id);syncIngredienteFromCatalog(ing);DISPENSA.ingredienti.push(ing);return {ok:true,merged:false,id:ing.id};
   }
   function enrichMovementRow(r){var x=Object.assign({},r||{}),rec=catalogIngredient(x.nomeIngrediente);if(rec){x.classificazione=rec.classificazione;x.illegale=!!rec.illegale;x.esotico=!!rec.esotico;x.pozionista=!!rec.pozionista;x.classeBene=rec.classeBene;}return x;}
   function movementRows(m){
@@ -1464,19 +1543,19 @@
 
   function newIngredienteDispensa(){
     ingredienteCounter++;
-    return { id:ingredienteCounter, nome:"", quantita:1, classificazione:"Non classificato", provenienza:"Trovato", link:"", produttore:"", parametro:"", note:"", classeBene:"", provenienzaGlossario:"", esotico:false, illegale:false, pozionista:false };
+    return { id:ingredienteCounter, nome:"", quantita:0, lotti:[], legacyIds:[String(ingredienteCounter)], classificazione:"Non classificato", provenienza:"Trovato", link:"", produttore:"", parametro:"", note:"", classeBene:"", provenienzaGlossario:"", esotico:false, illegale:false, pozionista:false };
   }
   function newMovimentoDispensa(){
     movimentoCounter++;
     var firstId = DISPENSA.ingredienti.length ? DISPENSA.ingredienti[0].id : "";
-    return { id:movimentoCounter, ingredienteId:firstId, nomeIngrediente:"", classificazione:"X", tipo:"Usato ONGame in purezza", quantita:1, galeoni:0, link:"", data:"", commerciante:"Lo Zoppo", applicato:false };
+    return { id:movimentoCounter, ingredienteId:firstId, nomeIngrediente:"", classificazione:"X", tipo:"Usato ONGame in purezza", quantita:1, galeoni:0, link:"", data:"", commerciante:"Lo Zoppo", applicato:false, lottiScelti:{}, lottiUsati:[] };
   }
   function getIngredienteDispensa(id){
-    for(var i=0;i<DISPENSA.ingredienti.length;i++){ if(String(DISPENSA.ingredienti[i].id) === String(id)){ return DISPENSA.ingredienti[i]; } }
+    for(var i=0;i<DISPENSA.ingredienti.length;i++){var ing=DISPENSA.ingredienti[i];if(String(ing.id)===String(id)){return ing;}if(Array.isArray(ing.legacyIds)&&ing.legacyIds.indexOf(String(id))>=0){return ing;}}
     return null;
   }
   function totalDosiDispensa(){
-    var t=0; for(var i=0;i<DISPENSA.ingredienti.length;i++){ t += Math.max(0, num(DISPENSA.ingredienti[i].quantita,0)); } return t;
+    var t=0; for(var i=0;i<DISPENSA.ingredienti.length;i++){ t += ingredientTotalQty(DISPENSA.ingredienti[i]); } return t;
   }
   function totalGaleoniDispensa(){
     var t=Math.max(0,num(DISPENSA.archivioTotali && DISPENSA.archivioTotali.galeoniVendite,0)); for(var i=0;i<DISPENSA.movimenti.length;i++){ var m=DISPENSA.movimenti[i]; if(m.applicato && /^Vendita/.test(m.tipo)){ t += Math.max(0,num(m.galeoni,0)); } } return t;
@@ -1489,7 +1568,7 @@
     var sel=el("select");
     var blank=el("option",null,"— scegli Ingrediente —"); blank.value=""; sel.appendChild(blank);
     for(var i=0;i<DISPENSA.ingredienti.length;i++){
-      var ing=DISPENSA.ingredienti[i]; var label=ingredientDisplay(ing)+" — "+ing.classificazione+" — "+ing.quantita+" dose/i";
+      var ing=DISPENSA.ingredienti[i]; var label=ingredientDisplay(ing)+" — "+ing.classificazione+" — "+ingredientTotalQty(ing)+" dose/i";
       var o=el("option",null,label); o.value=String(ing.id); if(String(current)===String(ing.id)){o.selected=true;} sel.appendChild(o);
     }
     sel.disabled=!!disabled;
@@ -1502,49 +1581,13 @@
     var selectedCount=Object.keys(DISPENSA_BATCH.selected||{}).filter(function(id){ return num(DISPENSA_BATCH.selected[id],0)>0; }).length;
     det.appendChild(el("summary",null,"Rimozione / utilizzo / vendita multipla"+(selectedCount?" — "+selectedCount+" selezionati":"")));
     var body=el("div","dispensa-batch-body");
-    body.appendChild(el("div","guide-text","Se più Ingredienti vengono usati, venduti o scartati nella stessa role, selezionali qui e inserisci una sola volta i dati comuni. Per ogni Ingrediente puoi indicare quante dosi rimuovere."));
-
-    var tbl=el("table","dispensa-batch-table");
-    var hr=el("tr"); ["","Ingrediente","Disponibili","Dosi da rimuovere"].forEach(function(h){hr.appendChild(el("th",null,h));}); tbl.appendChild(hr);
-    var visible=0;
-    for(var i=0;i<DISPENSA.ingredienti.length;i++){
-      (function(ing){
-        var avail=Math.max(0,num(ing.quantita,0)); if(avail<=0){ return; } visible++;
-        var tr=el("tr");
-        var tdC=el("td"); var cb=el("input"); cb.type="checkbox"; cb.checked=Object.prototype.hasOwnProperty.call(DISPENSA_BATCH.selected,String(ing.id));
-        cb.addEventListener("change",function(){ if(cb.checked){ DISPENSA_BATCH.selected[String(ing.id)]=Math.max(1,Math.min(avail,num(DISPENSA_BATCH.selected[String(ing.id)],1))); } else { delete DISPENSA_BATCH.selected[String(ing.id)]; } scheduleSave(80); renderAll(); }); tdC.appendChild(cb); tr.appendChild(tdC);
-        tr.appendChild(el("td",null,ingredientDisplay(ing)+" — "+ing.classificazione));
-        tr.appendChild(el("td",null,avail+" dose/i"));
-        var tdQ=el("td"); var qi=el("input"); qi.type="number"; qi.min="1"; qi.max=String(avail); qi.step="1"; qi.value=String(Math.max(1,Math.min(avail,num(DISPENSA_BATCH.selected[String(ing.id)],1)))); qi.disabled=!cb.checked;
-        qi.addEventListener("input",function(){ var v=Math.max(1,Math.min(avail,num(qi.value,1))); qi.value=String(v); if(cb.checked){ DISPENSA_BATCH.selected[String(ing.id)]=v; } }); tdQ.appendChild(qi); tr.appendChild(tdQ); tbl.appendChild(tr);
-      })(DISPENSA.ingredienti[i]);
-    }
-    if(visible){ body.appendChild(tbl); } else { body.appendChild(el("p","small-note","Non ci sono dosi disponibili da selezionare.")); }
-
-    var r1=el("div","row");
-    var t=el("div"); t.appendChild(el("label",null,"Cosa è successo agli Ingredienti selezionati?")); t.appendChild(buildSelect(TIPI_MOVIMENTO_DISPENSA,DISPENSA_BATCH.tipo,function(v){ DISPENSA_BATCH.tipo=v; if(!/^Vendita/.test(v)){DISPENSA_BATCH.galeoni=0;} renderAll(); })); r1.appendChild(t);
-    var d=el("div"); d.appendChild(el("label",null,"Data")); d.appendChild(buildDateInput(DISPENSA_BATCH.data,function(v){DISPENSA_BATCH.data=v;})); r1.appendChild(d); body.appendChild(r1);
-
-    var r2=el("div","row");
-    if(/^Vendita/.test(DISPENSA_BATCH.tipo)){
-      var cm=el("div"); cm.appendChild(el("label",null,"Commerciante")); cm.appendChild(buildSelect(COMMERCIANTI_DISPENSA,DISPENSA_BATCH.commerciante,function(v){DISPENSA_BATCH.commerciante=v;})); r2.appendChild(cm);
-      var ga=el("div"); ga.appendChild(el("label",null,"Galeoni totali dell'operazione")); var gi=el("input"); gi.type="number"; gi.min="0"; gi.step="1"; gi.value=DISPENSA_BATCH.galeoni; gi.addEventListener("input",function(){DISPENSA_BATCH.galeoni=Math.max(0,num(gi.value,0));}); ga.appendChild(gi); r2.appendChild(ga);
-    }
-    var lk=el("div"); lk.appendChild(el("label",null,"Unico link della role / vendita / scarto")); var lki=el("input"); lki.type="text"; lki.placeholder="https://..."; lki.value=DISPENSA_BATCH.link; lki.addEventListener("input",function(){DISPENSA_BATCH.link=lki.value;}); lk.appendChild(lki); var ico=makeLinkIcon(DISPENSA_BATCH.link,"Apri il link"); if(ico){lk.appendChild(ico);} r2.appendChild(lk); body.appendChild(r2);
-
-    var acts=el("div","dispensa-batch-actions");
-    var ok=el("button","action","Conferma movimento multiplo"); ok.addEventListener(EV,function(){
-      var ids=Object.keys(DISPENSA_BATCH.selected||{}); var righe=[]; var totale=0;
-      for(var x=0;x<ids.length;x++){ var ing=getIngredienteDispensa(ids[x]); var qty=Math.max(0,num(DISPENSA_BATCH.selected[ids[x]],0)); if(!ing||qty<=0){continue;} if(num(ing.quantita,0)<qty){alert("Non hai abbastanza dosi di «"+(ing.nome||"Ingrediente")+"».");return;} var rec=syncIngredienteFromCatalog(ing); righe.push({ingredienteId:ing.id,nomeIngrediente:ing.nome,classificazione:ing.classificazione,quantita:qty,illegale:!!ing.illegale,esotico:!!ing.esotico,pozionista:!!ing.pozionista,classeBene:ing.classeBene||""}); totale+=qty; }
-      if(!righe.length){alert("Seleziona almeno un Ingrediente e indica le dosi da rimuovere.");return;}
-      if(DISPENSA_BATCH.tipo==="Vendita legale"){ for(var vl=0;vl<righe.length;vl++){ if(righe[vl].illegale || /^Non Commerciabile/i.test(righe[vl].classeBene||"")){ alert("La selezione contiene Ingredienti illegali o non commerciabili: non possono essere registrati come vendita legale."); return; } } }
-      if(DISPENSA_BATCH.tipo==="Vendita illegale"){ for(var vi=0;vi<righe.length;vi++){ if(!righe[vi].illegale){ alert("La selezione contiene Ingredienti legali: separali dagli Ingredienti venduti illegalmente."); return; } } }
-      for(var y=0;y<righe.length;y++){ var src=getIngredienteDispensa(righe[y].ingredienteId); src.quantita=Math.max(0,num(src.quantita,0)-righe[y].quantita); }
-      var m=newMovimentoDispensa(); m.ingredienteId=righe.length===1?righe[0].ingredienteId:""; m.nomeIngrediente=righe.length===1?righe[0].nomeIngrediente:(righe.length+" Ingredienti"); m.classificazione=righe.length===1?righe[0].classificazione:"Multipla"; m.quantita=totale; m.righe=righe; m.tipo=DISPENSA_BATCH.tipo; m.data=DISPENSA_BATCH.data; m.link=DISPENSA_BATCH.link; m.commerciante=DISPENSA_BATCH.commerciante; m.galeoni=/^Vendita/.test(m.tipo)?Math.max(0,num(DISPENSA_BATCH.galeoni,0)):0; m.applicato=true; DISPENSA.movimenti.push(m);
-      resetDispensaBatch(); OPEN_DETAILS["dispensa:batch"]=false; scheduleSave(0); renderAll();
-    }); acts.appendChild(ok);
-    var clear=el("button","action danger","Azzera selezione"); clear.addEventListener(EV,function(){resetDispensaBatch(); renderAll();}); acts.appendChild(clear); body.appendChild(acts);
-    det.appendChild(body); parent.appendChild(det);
+    body.appendChild(el("div","guide-text","Se più Ingredienti vengono usati, venduti o scartati nella stessa role, selezionali qui e inserisci una sola volta i dati comuni. Se uno stesso Ingrediente ha dosi di provenienze diverse, scegli anche da quali lotti prelevarle."));
+    var tbl=el("table","dispensa-batch-table");var hr=el("tr");["","Ingrediente","Disponibili","Dosi da rimuovere"].forEach(function(h){hr.appendChild(el("th",null,h));});tbl.appendChild(hr);var visible=0;
+    for(var i=0;i<DISPENSA.ingredienti.length;i++){(function(ing){var avail=ingredientTotalQty(ing);if(avail<=0){return;}visible++;var id=String(ing.id);var tr=el("tr");var tdC=el("td");var cb=el("input");cb.type="checkbox";cb.checked=Object.prototype.hasOwnProperty.call(DISPENSA_BATCH.selected,id);cb.addEventListener("change",function(){if(cb.checked){DISPENSA_BATCH.selected[id]=Math.max(1,Math.min(avail,num(DISPENSA_BATCH.selected[id],1)));if(!DISPENSA_BATCH.lotti[id]){DISPENSA_BATCH.lotti[id]={};}}else{delete DISPENSA_BATCH.selected[id];delete DISPENSA_BATCH.lotti[id];}scheduleSave(80);renderAll();});tdC.appendChild(cb);tr.appendChild(tdC);tr.appendChild(el("td",null,ingredientDisplay(ing)+" — "+ing.classificazione));tr.appendChild(el("td",null,avail+" dose/i"));var tdQ=el("td");var qi=el("input");qi.type="number";qi.min="1";qi.max=String(avail);qi.step="1";qi.value=String(Math.max(1,Math.min(avail,num(DISPENSA_BATCH.selected[id],1))));qi.disabled=!cb.checked;qi.addEventListener("input",function(){var v=Math.max(1,Math.min(avail,num(qi.value,1)));qi.value=String(v);if(cb.checked){DISPENSA_BATCH.selected[id]=v;}});tdQ.appendChild(qi);tr.appendChild(tdQ);tbl.appendChild(tr);if(cb.checked&&activeIngredientLots(ing).length>1){var sub=el("tr");var td=el("td");td.colSpan=4;if(!DISPENSA_BATCH.lotti[id]){DISPENSA_BATCH.lotti[id]={};}appendLotPicker(td,ing,DISPENSA_BATCH.lotti[id],false);sub.appendChild(td);tbl.appendChild(sub);}})(DISPENSA.ingredienti[i]);}
+    if(visible){body.appendChild(tbl);}else{body.appendChild(el("p","small-note","Non ci sono dosi disponibili da selezionare."));}
+    var r1=el("div","row");var t=el("div");t.appendChild(el("label",null,"Cosa è successo agli Ingredienti selezionati?"));t.appendChild(buildSelect(TIPI_MOVIMENTO_DISPENSA,DISPENSA_BATCH.tipo,function(v){DISPENSA_BATCH.tipo=v;if(!/^Vendita/.test(v)){DISPENSA_BATCH.galeoni=0;}renderAll();}));r1.appendChild(t);var d=el("div");d.appendChild(el("label",null,"Data"));d.appendChild(buildDateInput(DISPENSA_BATCH.data,function(v){DISPENSA_BATCH.data=v;}));r1.appendChild(d);body.appendChild(r1);
+    var r2=el("div","row");if(/^Vendita/.test(DISPENSA_BATCH.tipo)){var cm=el("div");cm.appendChild(el("label",null,"Commerciante"));cm.appendChild(buildSelect(COMMERCIANTI_DISPENSA,DISPENSA_BATCH.commerciante,function(v){DISPENSA_BATCH.commerciante=v;}));r2.appendChild(cm);var ga=el("div");ga.appendChild(el("label",null,"Galeoni totali dell'operazione"));var gi=el("input");gi.type="number";gi.min="0";gi.step="1";gi.value=DISPENSA_BATCH.galeoni;gi.addEventListener("input",function(){DISPENSA_BATCH.galeoni=Math.max(0,num(gi.value,0));});ga.appendChild(gi);r2.appendChild(ga);}var lk=el("div");lk.appendChild(el("label",null,"Unico link della role / vendita / scarto"));var lki=el("input");lki.type="text";lki.placeholder="https://...";lki.value=DISPENSA_BATCH.link;lki.addEventListener("input",function(){DISPENSA_BATCH.link=lki.value;});lk.appendChild(lki);var ico=makeLinkIcon(DISPENSA_BATCH.link,"Apri il link");if(ico){lk.appendChild(ico);}r2.appendChild(lk);body.appendChild(r2);
+    var acts=el("div","dispensa-batch-actions");var ok=el("button","action","Conferma movimento multiplo");ok.addEventListener(EV,function(){var ids=Object.keys(DISPENSA_BATCH.selected||{}),righe=[],totale=0;for(var x=0;x<ids.length;x++){var ing=getIngredienteDispensa(ids[x]),qty=Math.max(0,num(DISPENSA_BATCH.selected[ids[x]],0));if(!ing||qty<=0){continue;}var resolved=resolveLotSelection(ing,qty,(DISPENSA_BATCH.lotti||{})[ids[x]]||{});if(!resolved.ok){alert("«"+(ing.nome||"Ingrediente")+"»: "+resolved.error);return;}syncIngredienteFromCatalog(ing);righe.push({ingredienteId:ing.id,nomeIngrediente:ing.nome,classificazione:ing.classificazione,quantita:qty,illegale:!!ing.illegale,esotico:!!ing.esotico,pozionista:!!ing.pozionista,classeBene:ing.classeBene||"",lotSelection:resolved.map});totale+=qty;}if(!righe.length){alert("Seleziona almeno un Ingrediente e indica le dosi da rimuovere.");return;}if(DISPENSA_BATCH.tipo==="Vendita legale"){for(var vl=0;vl<righe.length;vl++){if(righe[vl].illegale||/^Non Commerciabile/i.test(righe[vl].classeBene||"")){alert("La selezione contiene Ingredienti illegali o non commerciabili: non possono essere registrati come vendita legale.");return;}}}if(DISPENSA_BATCH.tipo==="Vendita illegale"){for(var vi=0;vi<righe.length;vi++){if(!righe[vi].illegale){alert("La selezione contiene Ingredienti legali: separali dagli Ingredienti venduti illegalmente.");return;}}}for(var y=0;y<righe.length;y++){var src=getIngredienteDispensa(righe[y].ingredienteId),cons=consumeIngredientLots(src,righe[y].quantita,righe[y].lotSelection);if(!cons.ok){alert(cons.error);return;}righe[y].lottiUsati=cons.used;delete righe[y].lotSelection;}var m=newMovimentoDispensa();m.ingredienteId=righe.length===1?righe[0].ingredienteId:"";m.nomeIngrediente=righe.length===1?righe[0].nomeIngrediente:(righe.length+" Ingredienti");m.classificazione=righe.length===1?righe[0].classificazione:"Multipla";m.quantita=totale;m.righe=righe;m.tipo=DISPENSA_BATCH.tipo;m.data=DISPENSA_BATCH.data;m.link=DISPENSA_BATCH.link;m.commerciante=DISPENSA_BATCH.commerciante;m.galeoni=/^Vendita/.test(m.tipo)?Math.max(0,num(DISPENSA_BATCH.galeoni,0)):0;m.applicato=true;DISPENSA.movimenti.push(m);resetDispensaBatch();OPEN_DETAILS["dispensa:batch"]=false;scheduleSave(0);renderAll();});acts.appendChild(ok);var clear=el("button","action danger","Azzera selezione");clear.addEventListener(EV,function(){resetDispensaBatch();renderAll();});acts.appendChild(clear);body.appendChild(acts);det.appendChild(body);parent.appendChild(det);
   }
 
   function renderDispensaStep(container){
@@ -1593,38 +1636,15 @@
       if(!groupItems.length){continue;} var group=el("details","ingredient-group");keepDetailsState(group,"dispensa:class:"+className,true);group.appendChild(el("summary",null,"Ingredienti "+className+" — "+groupItems.length+" voce/i"));
       for(var ii=0;ii<groupItems.length;ii++){
       (function(ing){
-        var det=el("details","ingredient-entry"); keepDetailsState(det,"dispensa:ing:"+ing.id,false);
-        var recMeta=catalogIngredient(ing.nome) || syncIngredienteFromCatalog(ing) || ing;
-        var summary=document.createElement("summary"); summary.className="ingredient-entry-summary";
-        var line=el("div","ingredient-line");
-        var name=document.createElement("span"); name.className="ingredient-name"; name.textContent=ing.nome || "Ingrediente senza nome"; line.appendChild(name);
-        if((recMeta||{}).esotico){ line.appendChild(el("span","ingredient-mini-badge exotic","🌴 Esotico")); }
-        if((recMeta||{}).illegale){ line.appendChild(el("span","ingredient-mini-badge warn","🚫 Illegale")); }
-        if((recMeta||{}).pozionista){ line.appendChild(el("span","ingredient-mini-badge craft","⚗ ✔ Pozionista")); }
-        line.appendChild(el("span","ingredient-qty",String(ing.quantita)+" dose/i"));
-        summary.appendChild(line);
-        det.appendChild(summary);
-        var body=el("div","ingredient-entry-body");
-        var r1=el("div","row");
-        var d1=el("div"); d1.appendChild(el("label",null,"Nome Ingrediente")); var n1=el("input"); n1.type="text"; n1.value=ing.nome; n1.setAttribute("list","ingredienti-glossario"); n1.addEventListener("change",function(){ing.nome=n1.value;var rec=syncIngredienteFromCatalog(ing);if(!rec){ing.classificazione=ing.classificazione||"Non classificato";}renderAll();}); d1.appendChild(n1); r1.appendChild(d1);
-        var d2=el("div"); d2.appendChild(el("label",null,"Quantità (dosi)")); var q=el("input"); q.type="number"; q.min="0"; q.step="1"; q.value=ing.quantita; q.addEventListener("input",function(){ing.quantita=Math.max(0,num(q.value,0));}); d2.appendChild(q); r1.appendChild(d2);
-        var d3=el("div"); d3.appendChild(el("label",null,"Classificazione (dal Glossario)")); var cl=el("input");cl.type="text";cl.value=ing.classificazione||"Non classificato";cl.readOnly=!!catalogIngredient(ing.nome);cl.addEventListener("change",function(){if(!cl.readOnly){ing.classificazione=cl.value||"Non classificato";renderAll();}});d3.appendChild(cl);r1.appendChild(d3); body.appendChild(r1); if(recMeta && recMeta.classeBene){body.appendChild(el("div","ingredient-meta","<b>Glossario:</b> "+recMeta.classeBene+" · Provenienza: "+recMeta.provenienzaGlossario));}
-        var r2=el("div","row");
-        var d4=el("div"); d4.appendChild(el("label",null,"Provenienza")); d4.appendChild(buildSelect(PROVENIENZE_DISPENSA,ing.provenienza,function(v){ing.provenienza=v;renderAll();})); r2.appendChild(d4);
-        var d5=el("div"); d5.appendChild(el("label",null,"Link ottenimento")); var li=el("input"); li.type="text"; li.placeholder="https://..."; li.value=ing.link; li.addEventListener("input",function(){ing.link=li.value;}); d5.appendChild(li); r2.appendChild(d5); body.appendChild(r2);
-        if(ing.provenienza==="Autoprodotto"){
-          var auto=el("div","guide-text","<b>Ingrediente autoprodotto:</b> mantieni tracciabile la provenienza. Ogni dose autoprodotta utilizzata in una Pozione aumenta la Forza della Pozione di +5%."); body.appendChild(auto);
-          var ar=el("div","row");
-          var ap=el("div"); ap.appendChild(el("label",null,"PG che ha prodotto l'Ingrediente")); var api=el("input"); api.type="text"; api.value=ing.produttore; api.addEventListener("input",function(){ing.produttore=api.value;}); ap.appendChild(api); ar.appendChild(ap);
-          var prm=el("div"); prm.appendChild(el("label",null,"Parametro / riferimento della produzione (facoltativo)")); var prmi=el("input"); prmi.type="text"; prmi.value=ing.parametro; prmi.addEventListener("input",function(){ing.parametro=prmi.value;}); prm.appendChild(prmi); ar.appendChild(prm); body.appendChild(ar);
-        }
-        var nd=el("div"); nd.appendChild(el("label",null,"Note")); var nta=el("textarea"); nta.value=ing.note; nta.addEventListener("input",function(){ing.note=nta.value;}); nd.appendChild(nta); body.appendChild(nd);
-        var use=el("button","action","× Usa / vendi / rimuovi"); use.addEventListener(EV,function(){ if(num(ing.quantita,0)<=0){alert("Non risultano dosi disponibili di questo Ingrediente.");return;} DISPENSA_BATCH.selected[String(ing.id)]=Math.max(1,Math.min(num(ing.quantita,0),num(DISPENSA_BATCH.selected[String(ing.id)],1))); OPEN_DETAILS["dispensa:batch"]=true; renderAll(); }); body.appendChild(use);
-        var rm=el("button","action danger","Elimina voce inserita per errore"); rm.style.marginLeft="8px"; rm.addEventListener(EV,function(){
-          var used=DISPENSA.movimenti.some(function(m){ if(!m.applicato){return false;} if(Array.isArray(m.righe)){return m.righe.some(function(r){return String(r.ingredienteId)===String(ing.id);});} return String(m.ingredienteId)===String(ing.id); });
-          if(used){ alert("Questa voce ha già uno storico: usa i movimenti per rimuovere le dosi, oppure annulla prima i movimenti collegati."); return; }
-          if(confirm("Eliminare definitivamente questa voce perché inserita per errore?")){ DISPENSA.ingredienti=DISPENSA.ingredienti.filter(function(x){return x.id!==ing.id;}); delete DISPENSA_BATCH.selected[String(ing.id)]; renderAll(); }
-        }); body.appendChild(rm); det.appendChild(body); group.appendChild(det);
+        syncIngredienteFromCatalog(ing);ensureIngredientLots(ing);var recMeta=catalogIngredient(ing.nome)||ing;var det=el("details","ingredient-entry");keepDetailsState(det,"dispensa:ing:"+ing.id,false);
+        var summary=document.createElement("summary");summary.className="ingredient-entry-summary";var line=el("div","ingredient-line");var name=document.createElement("span");name.className="ingredient-name";name.textContent=ing.nome||"Ingrediente senza nome";line.appendChild(name);if(recMeta.esotico){line.appendChild(el("span","ingredient-mini-badge exotic","🌴 Esotico"));}if(recMeta.illegale){line.appendChild(el("span","ingredient-mini-badge warn","🚫 Illegale"));}if(recMeta.pozionista){line.appendChild(el("span","ingredient-mini-badge craft","⚗ ✔ Pozionista"));}line.appendChild(el("span","ingredient-qty",ingredientTotalQty(ing)+" dose/i"));summary.appendChild(line);det.appendChild(summary);var body=el("div","ingredient-entry-body");
+        var r1=el("div","row");var d1=el("div");d1.appendChild(el("label",null,"Nome Ingrediente"));var n1=el("input");n1.type="text";n1.value=ing.nome;n1.setAttribute("list","ingredienti-glossario");n1.addEventListener("change",function(){ing.nome=n1.value;var rec=syncIngredienteFromCatalog(ing);if(!rec){ing.classificazione=ing.classificazione||"Non classificato";}normalizeDispensaLots();renderAll();});d1.appendChild(n1);r1.appendChild(d1);var d3=el("div");d3.appendChild(el("label",null,"Classificazione (dal Glossario)"));var cl=el("input");cl.type="text";cl.value=ing.classificazione||"Non classificato";cl.readOnly=!!catalogIngredient(ing.nome);cl.addEventListener("change",function(){if(!cl.readOnly){ing.classificazione=cl.value||"Non classificato";renderAll();}});d3.appendChild(cl);r1.appendChild(d3);body.appendChild(r1);if(recMeta&&recMeta.classeBene){body.appendChild(el("div","ingredient-meta","<b>Glossario:</b> "+recMeta.classeBene+" · Provenienza: "+recMeta.provenienzaGlossario));}
+        var lotsBox=el("div","ingredient-lots");lotsBox.appendChild(el("div","ingredient-lots-title","Dosi possedute — "+ingredientTotalQty(ing)+" totali"));var lots=activeIngredientLots(ing);if(!lots.length){lotsBox.appendChild(el("div","small-note","Nessuna dose attualmente posseduta."));}
+        for(var lii=0;lii<lots.length;lii++){(function(lot){var lr=el("div","ingredient-lot-row");lr.appendChild(el("span","ingredient-lot-qty",lot.quantita+" dose/i"));lr.appendChild(el("span","ingredient-lot-origin",lot.provenienza||"Trovato"));if(lot.provenienza==="Autoprodotto"&&lot.produttore){lr.appendChild(el("span","ingredient-lot-producer","· "+lot.produttore));}var icon=makeLinkIcon(lot.link,"Apri il link di ottenimento");if(icon){lr.appendChild(icon);}var edit=el("details","ingredient-lot-edit");edit.appendChild(el("summary",null,"✎ Modifica"));var ed=el("div","ingredient-lot-editor");var er=el("div","row");var eqw=el("div");eqw.appendChild(el("label",null,"Quantità del lotto"));var eq=el("input");eq.type="number";eq.min="1";eq.step="1";eq.value=lot.quantita;eq.addEventListener("input",function(){lot.quantita=Math.max(1,num(eq.value,1));syncIngredientQuantity(ing);});eqw.appendChild(eq);er.appendChild(eqw);var epw=el("div");epw.appendChild(el("label",null,"Come è stato ottenuto?"));var eps=buildSelect(PROVENIENZE_DISPENSA,lot.provenienza,function(v){lot.provenienza=v;syncIngredientQuantity(ing);renderAll();});epw.appendChild(eps);er.appendChild(epw);ed.appendChild(er);var er2=el("div","row");var elw=el("div");elw.appendChild(el("label",null,"Link ottenimento"));var eli=el("input");eli.type="text";eli.value=lot.link||"";eli.placeholder="https://...";eli.addEventListener("input",function(){lot.link=eli.value;});elw.appendChild(eli);er2.appendChild(elw);if(lot.provenienza==="Autoprodotto"){var epr=el("div");epr.appendChild(el("label",null,"PG produttore"));var epi=el("input");epi.type="text";epi.value=lot.produttore||"";epi.addEventListener("input",function(){lot.produttore=epi.value;});epr.appendChild(epi);er2.appendChild(epr);var epa=el("div");epa.appendChild(el("label",null,"Parametro / riferimento (facoltativo)"));var epai=el("input");epai.type="text";epai.value=lot.parametro||"";epai.addEventListener("input",function(){lot.parametro=epai.value;});epa.appendChild(epai);er2.appendChild(epa);}ed.appendChild(er2);var delLot=el("button","action danger small","Elimina questo lotto inserito per errore");delLot.addEventListener(EV,function(e){e.preventDefault();if(confirm("Eliminare questo lotto dalla Dispensa?")){ing.lotti=ing.lotti.filter(function(x){return String(x.id)!==String(lot.id);});syncIngredientQuantity(ing);scheduleSave(0);renderAll();}});ed.appendChild(delLot);edit.appendChild(ed);lr.appendChild(edit);lotsBox.appendChild(lr);})(lots[lii]);}
+        var addLot=el("button","action small","+ Aggiungi altra provenienza / lotto");addLot.addEventListener(EV,function(){ing.lotti.push(newDispensaLot(1,"Trovato","","","",ing.id));syncIngredientQuantity(ing);scheduleSave(0);renderAll();});lotsBox.appendChild(addLot);body.appendChild(lotsBox);
+        if(lots.some(function(l){return l.provenienza==="Autoprodotto";})){body.appendChild(el("div","guide-text","<b>Dosi autoprodotte:</b> restano distinte dalle altre provenienze. Quando le utilizzi, il tool ti chiede da quale lotto prelevare, così il bonus previsto per le Pozioni rimane tracciabile."));}
+        var nd=el("div");nd.appendChild(el("label",null,"Note generali sull'Ingrediente"));var nta=el("textarea");nta.value=ing.note||"";nta.addEventListener("input",function(){ing.note=nta.value;});nd.appendChild(nta);body.appendChild(nd);
+        var use=el("button","action","× Usa / vendi / rimuovi");use.addEventListener(EV,function(){var total=ingredientTotalQty(ing);if(total<=0){alert("Non risultano dosi disponibili di questo Ingrediente.");return;}DISPENSA_BATCH.selected[String(ing.id)]=Math.max(1,Math.min(total,num(DISPENSA_BATCH.selected[String(ing.id)],1)));if(!DISPENSA_BATCH.lotti[String(ing.id)]){DISPENSA_BATCH.lotti[String(ing.id)]={};}OPEN_DETAILS["dispensa:batch"]=true;renderAll();});body.appendChild(use);var rm=el("button","action danger","Elimina voce inserita per errore");rm.style.marginLeft="8px";rm.addEventListener(EV,function(){var used=DISPENSA.movimenti.some(function(m){if(!m.applicato){return false;}if(Array.isArray(m.righe)){return m.righe.some(function(r){return String(r.ingredienteId)===String(ing.id)||(Array.isArray(ing.legacyIds)&&ing.legacyIds.indexOf(String(r.ingredienteId))>=0);});}return String(m.ingredienteId)===String(ing.id)||(Array.isArray(ing.legacyIds)&&ing.legacyIds.indexOf(String(m.ingredienteId))>=0);});if(used){alert("Questa voce ha già uno storico: usa i movimenti per rimuovere le dosi, oppure annulla prima i movimenti collegati.");return;}if(confirm("Eliminare definitivamente questa voce perché inserita per errore?")){DISPENSA.ingredienti=DISPENSA.ingredienti.filter(function(x){return x.id!==ing.id;});delete DISPENSA_BATCH.selected[String(ing.id)];delete DISPENSA_BATCH.lotti[String(ing.id)];renderAll();}});body.appendChild(rm);det.appendChild(body);group.appendChild(det);
       })(groupItems[ii]);
       }
       p.appendChild(group);
@@ -1642,20 +1662,20 @@
         if(mov.applicato && Array.isArray(mov.righe) && mov.righe.length){
           var detMulti=el("details","dispensa-card"); keepDetailsState(detMulti,"dispensa:mov:"+mov.id,false);
           detMulti.appendChild(el("summary",null,"✓ "+mov.righe.length+" Ingredienti — "+mov.tipo));
-          var bm=el("div","dispensa-card-body"); var elenco=[]; for(var rr=0;rr<mov.righe.length;rr++){var rrIng={nome:mov.righe[rr].nomeIngrediente,esotico:mov.righe[rr].esotico,illegale:mov.righe[rr].illegale,pozionista:mov.righe[rr].pozionista}; elenco.push("<b>"+mov.righe[rr].quantita+"×</b> "+ingredientDisplay(rrIng)+" ("+mov.righe[rr].classificazione+")");}
+          var bm=el("div","dispensa-card-body"); var elenco=[]; for(var rr=0;rr<mov.righe.length;rr++){var rrIng={nome:mov.righe[rr].nomeIngrediente,esotico:mov.righe[rr].esotico,illegale:mov.righe[rr].illegale,pozionista:mov.righe[rr].pozionista};var lotTxt=Array.isArray(mov.righe[rr].lottiUsati)&&mov.righe[rr].lottiUsati.length?" — "+mov.righe[rr].lottiUsati.map(function(l){return l.quantita+"× "+lotSummaryText(l);}).join(", "):""; elenco.push("<b>"+mov.righe[rr].quantita+"×</b> "+ingredientDisplay(rrIng)+" ("+mov.righe[rr].classificazione+")"+lotTxt);}
           bm.appendChild(el("div","guide-text","<b>Movimento multiplo:</b><br>"+elenco.join("<br>")));
           var info=[]; if(mov.data){info.push("Data: "+mov.data);} if(/^Vendita/.test(mov.tipo)){info.push("Commerciante: "+mov.commerciante); info.push("Galeoni totali: "+num(mov.galeoni,0)+" G");} if(info.length){bm.appendChild(el("p","small-note",info.join(" · ")));}
           if(mov.link){var linkLine=el("div","small-note","Link comune: "); var ic=makeLinkIcon(mov.link,"Apri il link"); if(ic){linkLine.appendChild(ic);} bm.appendChild(linkLine);}
-          var undoMulti=el("button","action danger","Annulla movimento multiplo e restituisci tutte le dosi"); undoMulti.addEventListener(EV,function(){ for(var ur=0;ur<mov.righe.length;ur++){var ingR=getIngredienteDispensa(mov.righe[ur].ingredienteId); if(ingR){ingR.quantita=num(ingR.quantita,0)+num(mov.righe[ur].quantita,0);}} DISPENSA.movimenti=DISPENSA.movimenti.filter(function(x){return x.id!==mov.id;}); scheduleSave(0); renderAll(); }); bm.appendChild(undoMulti);
+          var undoMulti=el("button","action danger","Annulla movimento multiplo e restituisci tutte le dosi"); undoMulti.addEventListener(EV,function(){for(var ur=0;ur<mov.righe.length;ur++){var ingR=getIngredienteDispensa(mov.righe[ur].ingredienteId);if(ingR){restoreIngredientLots(ingR,mov.righe[ur].lottiUsati,mov.righe[ur].ingredienteId,mov.righe[ur].quantita);}}DISPENSA.movimenti=DISPENSA.movimenti.filter(function(x){return x.id!==mov.id;});scheduleSave(0);renderAll();}); bm.appendChild(undoMulti);
           detMulti.appendChild(bm); p.appendChild(detMulti); return;
         }
         var det=el("details","dispensa-card"); keepDetailsState(det,"dispensa:mov:"+mov.id,false);
         var nm=mov.nomeIngrediente || ((getIngredienteDispensa(mov.ingredienteId)||{}).nome) || "Movimento da completare"; var nmRec=catalogIngredient(nm);
         det.appendChild(el("summary",null,(mov.applicato?"✓ ":"")+nm+ingredientSymbols(nmRec)+" — "+mov.tipo)); var body=el("div","dispensa-card-body");
         var r=el("div","row");
-        var a=el("div"); a.appendChild(el("label",null,"Ingrediente")); a.appendChild(buildIngredientSelectDispensa(mov.ingredienteId,function(v){mov.ingredienteId=v; var ing=getIngredienteDispensa(v); if(ing){mov.nomeIngrediente=ing.nome;mov.classificazione=ing.classificazione;}},mov.applicato)); r.appendChild(a);
+        var a=el("div"); a.appendChild(el("label",null,"Ingrediente")); a.appendChild(buildIngredientSelectDispensa(mov.ingredienteId,function(v){mov.ingredienteId=v;mov.lottiScelti={};var ing=getIngredienteDispensa(v);if(ing){mov.nomeIngrediente=ing.nome;mov.classificazione=ing.classificazione;}renderAll();},mov.applicato)); r.appendChild(a);
         var b=el("div"); b.appendChild(el("label",null,"Tipo di movimento")); var tsel=buildSelect(TIPI_MOVIMENTO_DISPENSA,mov.tipo,function(v){mov.tipo=v; if(!/^Vendita/.test(v)){mov.galeoni=0;} renderAll();}); tsel.disabled=mov.applicato; b.appendChild(tsel); r.appendChild(b);
-        var c=el("div"); c.appendChild(el("label",null,"Quantità (dosi)")); var qi=el("input"); qi.type="number"; qi.min="1"; qi.step="1"; qi.value=mov.quantita; qi.disabled=mov.applicato; qi.addEventListener("input",function(){mov.quantita=Math.max(1,num(qi.value,1));}); c.appendChild(qi); r.appendChild(c); body.appendChild(r);
+        var c=el("div"); c.appendChild(el("label",null,"Quantità (dosi)")); var qi=el("input"); qi.type="number"; qi.min="1"; qi.step="1"; qi.value=mov.quantita; qi.disabled=mov.applicato; qi.addEventListener("input",function(){mov.quantita=Math.max(1,num(qi.value,1));mov.lottiScelti={};});qi.addEventListener("change",function(){renderAll();}); c.appendChild(qi); r.appendChild(c); body.appendChild(r); var selectedIngForLots=getIngredienteDispensa(mov.ingredienteId); if(!mov.applicato&&selectedIngForLots&&activeIngredientLots(selectedIngForLots).length>1){if(!mov.lottiScelti){mov.lottiScelti={};}appendLotPicker(body,selectedIngForLots,mov.lottiScelti,false);}
         var r2=el("div","row");
         var dt=el("div"); dt.appendChild(el("label",null,"Data")); var di=buildDateInput(mov.data,function(v){mov.data=v;}); di.disabled=mov.applicato; dt.appendChild(di); r2.appendChild(dt);
         if(/^Vendita/.test(mov.tipo)){
@@ -1664,11 +1684,11 @@
         }
         var lk=el("div"); lk.appendChild(el("label",null,"Link utilizzo / vendita / scarto")); var lki=el("input"); lki.type="text"; lki.placeholder="https://..."; lki.value=mov.link; lki.disabled=mov.applicato; lki.addEventListener("input",function(){mov.link=lki.value;}); lk.appendChild(lki); r2.appendChild(lk); body.appendChild(r2);
         if(!mov.applicato){
-          var ok=el("button","action","Conferma movimento e scala dalla Dispensa"); ok.addEventListener(EV,function(){ var ing=getIngredienteDispensa(mov.ingredienteId); var qty=Math.max(1,num(mov.quantita,1)); if(!ing){alert("Scegli prima un Ingrediente.");return;} if(num(ing.quantita,0)<qty){alert("Non hai abbastanza dosi di questo Ingrediente.");return;} ing.quantita=num(ing.quantita,0)-qty; syncIngredienteFromCatalog(ing); mov.quantita=qty; mov.nomeIngrediente=ing.nome; mov.classificazione=ing.classificazione; mov.illegale=!!ing.illegale; mov.esotico=!!ing.esotico; mov.pozionista=!!ing.pozionista; mov.classeBene=ing.classeBene||""; if(mov.tipo==="Vendita legale" && (mov.illegale || /^Non Commerciabile/i.test(mov.classeBene))){ing.quantita=num(ing.quantita,0)+qty;alert("Questo Ingrediente non può essere registrato come vendita legale.");return;} if(mov.tipo==="Vendita illegale" && !mov.illegale){ing.quantita=num(ing.quantita,0)+qty;alert("Questo Ingrediente è legale: usa Vendita legale.");return;} mov.applicato=true; renderAll(); }); body.appendChild(ok);
+          var ok=el("button","action","Conferma movimento e scala dalla Dispensa"); ok.addEventListener(EV,function(){var ing=getIngredienteDispensa(mov.ingredienteId),qty=Math.max(1,num(mov.quantita,1));if(!ing){alert("Scegli prima un Ingrediente.");return;}var resolved=resolveLotSelection(ing,qty,mov.lottiScelti||{});if(!resolved.ok){alert(resolved.error);return;}syncIngredienteFromCatalog(ing);mov.quantita=qty;mov.nomeIngrediente=ing.nome;mov.classificazione=ing.classificazione;mov.illegale=!!ing.illegale;mov.esotico=!!ing.esotico;mov.pozionista=!!ing.pozionista;mov.classeBene=ing.classeBene||"";if(mov.tipo==="Vendita legale"&&(mov.illegale||/^Non Commerciabile/i.test(mov.classeBene))){alert("Questo Ingrediente non può essere registrato come vendita legale.");return;}if(mov.tipo==="Vendita illegale"&&!mov.illegale){alert("Questo Ingrediente è legale: usa Vendita legale.");return;}var cons=consumeIngredientLots(ing,qty,resolved.map);if(!cons.ok){alert(cons.error);return;}mov.lottiUsati=cons.used;mov.applicato=true;scheduleSave(0);renderAll();}); body.appendChild(ok);
           var del=el("button","action danger","Elimina bozza"); del.style.marginLeft="8px"; del.addEventListener(EV,function(){ DISPENSA.movimenti=DISPENSA.movimenti.filter(function(x){return x.id!==mov.id;}); renderAll(); }); body.appendChild(del);
         } else {
-          body.appendChild(el("div","guide-text","Movimento registrato: <b>"+mov.quantita+" dose/i di "+(mov.nomeIngrediente||"Ingrediente")+"</b> sono state scalate dalla Dispensa."));
-          var undo=el("button","action danger","Annulla movimento e restituisci le dosi"); undo.addEventListener(EV,function(){ var ing=getIngredienteDispensa(mov.ingredienteId); if(ing){ing.quantita=num(ing.quantita,0)+num(mov.quantita,0);} DISPENSA.movimenti=DISPENSA.movimenti.filter(function(x){return x.id!==mov.id;}); renderAll(); }); body.appendChild(undo);
+          body.appendChild(el("div","guide-text","Movimento registrato: <b>"+mov.quantita+" dose/i di "+(mov.nomeIngrediente||"Ingrediente")+"</b> sono state scalate dalla Dispensa.")); if(Array.isArray(mov.lottiUsati)&&mov.lottiUsati.length){body.appendChild(el("div","small-note","Provenienza usata: "+mov.lottiUsati.map(function(l){return l.quantita+"× "+lotSummaryText(l);}).join(" · ")));}
+          var undo=el("button","action danger","Annulla movimento e restituisci le dosi"); undo.addEventListener(EV,function(){var ing=getIngredienteDispensa(mov.ingredienteId);if(ing){restoreIngredientLots(ing,mov.lottiUsati,mov.ingredienteId,mov.quantita);}DISPENSA.movimenti=DISPENSA.movimenti.filter(function(x){return x.id!==mov.id;});scheduleSave(0);renderAll();}); body.appendChild(undo);
         }
         det.appendChild(body); p.appendChild(det);
       })(DISPENSA.movimenti[mi]);
