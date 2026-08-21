@@ -479,6 +479,13 @@
   function cleanMonthName(v){
     return String(v || "").trim().replace(/\s+/g, " ");
   }
+  function canonicalMonthName(v){
+    var s=cleanMonthName(v);
+    var m=s.match(/^(gennaio|febbraio|marzo|aprile|maggio|giugno|luglio|agosto|settembre|ottobre|novembre|dicembre)\s+(\d{4})$/i);
+    if(!m){ return ""; }
+    var mese=m[1].toLocaleLowerCase("it-IT");
+    return mese.charAt(0).toLocaleUpperCase("it-IT")+mese.slice(1)+" "+m[2];
+  }
   function monthNameAlreadyUsed(name, currentId){
     var key = normalizeMonthName(name);
     if(!key){ return false; }
@@ -497,6 +504,11 @@
       if(seen[key]){ dup[key]=cleanMonthName(m.nome); } else { seen[key]=true; }
     }
     return Object.keys(dup).map(function(k){ return dup[k]; });
+  }
+  function monthIsAccredited(m){ return !!(m && accreditiCache && accreditiCache[String(m.id)]); }
+  function blockIfMonthReadOnly(m){
+    if(monthIsAccredited(m)){ alert("Questo Mese è già stato accreditato dal Narratore e i dati della Camera Blindata sono congelati. Per correggerli, il Narratore deve prima revocare l'accredito."); renderAll(); return true; }
+    return blockIfArchiveLocked(m);
   }
 
 
@@ -1178,7 +1190,7 @@
          scrittura: il backup resta verificabile e ripristinabile dal Narratore. */
       snapPromise=window.fbLoadState(STUDENTE.nome).then(function(remoteBefore){
         if(!remoteBefore){ return true; }
-        return window.fbCreateSnapshot(STUDENTE.nome,{state:remoteBefore,reason:reason,sessionId:SESSION_ID,sizeBytes:stateSizeBytes(remoteBefore),schemaVersion:22});
+        return window.fbCreateSnapshot(STUDENTE.nome,{state:remoteBefore,reason:reason,sessionId:SESSION_ID,sizeBytes:stateSizeBytes(remoteBefore),schemaVersion:25});
       });
     }
     return Promise.resolve(snapPromise).catch(function(e){console.error(e);return false;}).then(function(snapshotOk){
@@ -1398,8 +1410,9 @@
     var newMonthInput=el("input");newMonthInput.type="text";newMonthInput.placeholder="Es. Settembre 2026";newMonthCell.appendChild(newMonthInput);newMonthRow.appendChild(newMonthCell);p.appendChild(newMonthRow);
     var addMeseBtn = el("button", "action", "+ Nuovo Mese");
     addMeseBtn.addEventListener(EV, function(){
-      var candidate=cleanMonthName(newMonthInput.value);
-      if(!candidate){alert("Scrivi prima il Mese e l'Anno da creare, per esempio «Settembre 2026».");return;}
+      var candidate=canonicalMonthName(newMonthInput.value);
+      if(!candidate){alert("Inserisci un Mese valido nel formato «Settembre 2026» (nome del mese + anno a quattro cifre).");return;}
+      newMonthInput.value=candidate;
       if(monthNameAlreadyUsed(candidate,null)){alert("Esiste già un Mese chiamato «"+candidate+"». Ogni Mese deve avere un nome diverso.");return;}
       requestSocialVerificationForMonth(candidate,function(){MESI.push(newMese(candidate));scheduleSave(0);renderAll();});
     });
@@ -1475,6 +1488,8 @@
 
   function buildMeseCard(mese){
     var locked = !!(mese.chiuso && archiveLocked(mese));
+    var accreditato = monthIsAccredited(mese);
+    var contentLocked = locked || accreditato;
     var card = el("div", "card" + (locked ? " archive-locked" : ""));
     var h = el("h3");
     var titolo = mese.nome !== "" ? mese.nome : "(nuovo Mese senza nome)";
@@ -1491,13 +1506,19 @@
     h.appendChild(btnToggle);
     card.appendChild(h);
     if(locked){ card.appendChild(el("div", "archive-lock-note", archiveLockText(mese))); }
+    if(accreditato){ card.appendChild(el("div", "guide-text", "<b>✅ Mese accreditato:</b> link e contenuti della Camera Blindata sono congelati. Per correggerli, il Narratore deve prima revocare l'accredito.")); }
 
     var dNome = el("div"); dNome.appendChild(el("label", null, "Mese e Anno"));
-    var iNome = el("input"); iNome.type="text"; iNome.value = mese.nome; iNome.placeholder="Es. Agosto 2026"; iNome.disabled = locked;
+    var iNome = el("input"); iNome.type="text"; iNome.value = mese.nome; iNome.placeholder="Es. Agosto 2026"; iNome.disabled = contentLocked;
     iNome.addEventListener("change", function(){
-      if(blockIfArchiveLocked(mese)){ iNome.value=mese.nome; return; }
-      var candidate = cleanMonthName(iNome.value);
-      if(candidate && monthNameAlreadyUsed(candidate, mese.id)){
+      if(blockIfMonthReadOnly(mese)){ iNome.value=mese.nome; return; }
+      var candidate = canonicalMonthName(iNome.value);
+      if(!candidate){
+        alert("Inserisci un Mese valido nel formato «Settembre 2026» (nome del mese + anno a quattro cifre).");
+        iNome.value = mese.nome;
+        return;
+      }
+      if(monthNameAlreadyUsed(candidate, mese.id)){
         alert("Esiste già un Mese chiamato «" + candidate + "». Ogni Mese deve avere un nome diverso per evitare accrediti o riepiloghi ambigui.");
         iNome.value = mese.nome;
         return;
@@ -1515,29 +1536,21 @@
     dNome.appendChild(iNome); card.appendChild(dNome);
 
     var tbl = el("table", "posts");
-    tbl.appendChild(el("tr", null, "<th>N.</th><th>Link al post</th><th>Nota per la CB del mese</th><th>PP da riportare in CB</th><th></th>"));
+    tbl.appendChild(el("tr", null, "<th>N.</th><th>Link al post</th><th></th>"));
     for(var i=0;i<mese.posts.length;i++){
       (function(post, idx){
         var tr = el("tr");
         tr.appendChild(el("td", null, "" + (idx+1)));
         var tdLink = el("td");
-        var iLink = el("input"); iLink.type="text"; iLink.value = post.link; iLink.placeholder="https://..."; iLink.disabled = locked;
-        iLink.addEventListener("input", function(){ if(blockIfArchiveLocked(mese)){return;} post.link = iLink.value; ensurePostGlobalNo(post); });
-        iLink.addEventListener("change", function(){ if(blockIfArchiveLocked(mese)){return;} post.link = iLink.value; ensurePostGlobalNo(post); renderAll(); });
+        var iLink = el("input"); iLink.type="text"; iLink.value = post.link; iLink.placeholder="https://..."; iLink.disabled = contentLocked;
+        iLink.addEventListener("input", function(){ if(blockIfMonthReadOnly(mese)){return;} post.link = iLink.value; ensurePostGlobalNo(post); scheduleSave(450); });
+        iLink.addEventListener("change", function(){ if(blockIfMonthReadOnly(mese)){return;} post.link = iLink.value; ensurePostGlobalNo(post); scheduleSave(0); renderAll(); });
         tdLink.appendChild(iLink); tr.appendChild(tdLink);
-        var tdNota = el("td");
-        var iNota = el("input"); iNota.type="text"; iNota.value = post.nota || ""; iNota.disabled = locked;
-        iNota.addEventListener("input", function(){ if(blockIfArchiveLocked(mese)){return;} post.nota = iNota.value; });
-        tdNota.appendChild(iNota); tr.appendChild(tdNota);
-        var tdPP = el("td");
-        var iPP = el("input"); iPP.type="number"; iPP.min="0"; iPP.step="1"; iPP.value = post.pp != null ? post.pp : ""; iPP.placeholder="0"; iPP.disabled = locked;
-        iPP.addEventListener("input", function(){ if(blockIfArchiveLocked(mese)){return;} post.pp = iPP.value; });
-        tdPP.appendChild(iPP); tr.appendChild(tdPP);
         var tdRm = el("td");
         var rmBtn = el("button", "action danger small", "Rimuovi");
-        rmBtn.disabled = locked;
+        rmBtn.disabled = contentLocked;
         rmBtn.addEventListener(EV, function(){
-          if(blockIfArchiveLocked(mese)){return;}
+          if(blockIfMonthReadOnly(mese)){return;}
           mese.posts = mese.posts.filter(function(x){ return x.id !== post.id; });
           scheduleSave(0); renderAll();
         });
@@ -1548,9 +1561,9 @@
     card.appendChild(tbl);
 
     var addBtn = el("button", "action small", "+ Aggiungi post");
-    addBtn.disabled = locked;
+    addBtn.disabled = contentLocked;
     addBtn.addEventListener(EV, function(){
-      if(blockIfArchiveLocked(mese)){return;}
+      if(blockIfMonthReadOnly(mese)){return;}
       postCounter = postCounter + 1;
       mese.posts.push({ id: postCounter, globalNo:null, link: "", nota: "", pp: "", eventoBonusEscluso:false });
       scheduleSave(0); renderAll();
@@ -1577,8 +1590,8 @@
   function eventBonusTotal(mese,posts,endExclusive){ var bonus=meseBonusPP(mese); if(!bonus){return 0;} return eventBonusEligibleCount(posts,endExclusive)*bonus; }
   function cumulativePP(posts, endExclusive, mese){ return cumulativeBasePP(posts,endExclusive)+eventBonusTotal(mese,posts,endExclusive); }
   function makeEventBonusExclusionCell(post,mese,locked){
-    var td=el("td"),line=el("label","chk-line"),cb=el("input"); cb.type="checkbox"; cb.checked=!!(post&&post.eventoBonusEscluso); cb.disabled=!!locked;
-    cb.addEventListener("change",function(){ if(blockIfArchiveLocked(mese)){cb.checked=!!post.eventoBonusEscluso;return;} post.eventoBonusEscluso=!!cb.checked; scheduleSave(0); renderAll(); });
+    var td=el("td"),line=el("label","chk-line"),cb=el("input"); cb.type="checkbox"; cb.checked=!!(post&&post.eventoBonusEscluso); cb.disabled=!!locked || !post || String(post.link||"").trim()==="";
+    cb.addEventListener("change",function(){ if(blockIfMonthReadOnly(mese)){cb.checked=!!post.eventoBonusEscluso;return;} post.eventoBonusEscluso=!!cb.checked; scheduleSave(0); renderAll(); });
     line.appendChild(cb); line.appendChild(el("span",null,"Escludi bonus")); td.appendChild(line); return td;
   }
   var meseSelezionatoBlindataIdx = -1;
@@ -1586,7 +1599,7 @@
   function renderBlindataStep(container){
     var p = el("div", "panel");
     p.appendChild(el("h2", null, "Camera Blindata (Studente)"));
-    p.appendChild(el("div", "guide-text", "Un blocco per ogni Mese creato allo Step 2: lo storico di tutti i mesi, aperti o archiviati, resta sempre disponibile qui. Scala: 30-20-15-10-8-6-4-3-2-2, poi 1 G ciascuno."));
+    p.appendChild(el("div", "guide-text", "Un blocco per ogni Mese creato allo Step 2. Qui compili direttamente <b>Nota per la CB</b> e <b>PP base</b> di ogni Post; nello Step 2 restano soltanto i link. Lo storico di tutti i mesi resta disponibile. Scala: 30-20-15-10-8-6-4-3-2-2, poi 1 G ciascuno."));
 
     if(MESI.length === 0){
       p.appendChild(el("div", "guide-text", "Non hai ancora creato nessun Mese. Torna allo Step 2.")); container.appendChild(p); return;
@@ -1636,27 +1649,30 @@
     }
     p.appendChild(accBadge);
 
-    var bonusLocked = !!(meseObj.chiuso && archiveLocked(meseObj));
+    var bonusLocked = !!(meseObj.chiuso && archiveLocked(meseObj)) || monthIsAccredited(meseObj);
     var bonusBox = el("div", "card");
     bonusBox.appendChild(el("h4", null, "🎉 Bonus Evento del mese"));
     bonusBox.appendChild(el("p", "small-note", "Impostalo una sola volta per questo Mese. Il Tool propone automaticamente questi PP a <b>ogni post con un link</b>. Se nella descrizione scrivi, per esempio, <b>+3 PP</b>, il valore viene riconosciuto automaticamente; il campo numerico resta disponibile per correggerlo. Nei singoli post inserisci soltanto i PP base. <b>Se un post non rientra nell’Evento (per esempio non è una free role), usa «Escludi bonus» nella tabella sottostante:</b> quel post continuerà a contare normalmente per Galeoni e PP base, ma non riceverà i PP extra dell’Evento."));
     var bonusRow = el("div", "row");
     var bonusDescCell = el("div"); bonusDescCell.appendChild(el("label", null, "Descrizione del bonus Evento"));
     var bonusDesc = el("input"); bonusDesc.type="text"; bonusDesc.placeholder="Es. Evento estivo: +3 PP per ogni post"; bonusDesc.value=meseObj.eventoBonusDescrizione||""; bonusDesc.disabled=bonusLocked;
-    bonusDesc.addEventListener("input",function(){if(blockIfArchiveLocked(meseObj)){return;}meseObj.eventoBonusDescrizione=bonusDesc.value;scheduleSave(450);});
-    bonusDesc.addEventListener("change",function(){if(blockIfArchiveLocked(meseObj)){return;}meseObj.eventoBonusDescrizione=bonusDesc.value;var mt=bonusDesc.value.match(/\+?\s*(\d+)\s*PP\b/i);if(mt){meseObj.eventoBonusPP=Math.max(0,parseInt(mt[1],10)||0);bonusPp.value=meseObj.eventoBonusPP;}scheduleSave(0);renderAll();});
+    bonusDesc.addEventListener("input",function(){if(blockIfMonthReadOnly(meseObj)){return;}meseObj.eventoBonusDescrizione=bonusDesc.value;scheduleSave(450);});
+    bonusDesc.addEventListener("change",function(){if(blockIfMonthReadOnly(meseObj)){return;}meseObj.eventoBonusDescrizione=bonusDesc.value;var mt=bonusDesc.value.match(/\+?\s*(\d+)\s*PP\b/i);if(mt){meseObj.eventoBonusPP=Math.max(0,parseInt(mt[1],10)||0);bonusPp.value=meseObj.eventoBonusPP;}scheduleSave(0);renderAll();});
     bonusDescCell.appendChild(bonusDesc); bonusRow.appendChild(bonusDescCell);
     var bonusPpCell = el("div"); bonusPpCell.appendChild(el("label", null, "PP extra per ogni post"));
     var bonusPp = el("input"); bonusPp.type="number"; bonusPp.min="0"; bonusPp.step="1"; bonusPp.placeholder="0"; bonusPp.value=meseBonusPP(meseObj); bonusPp.disabled=bonusLocked;
-    bonusPp.addEventListener("input",function(){if(blockIfArchiveLocked(meseObj)){return;}meseObj.eventoBonusPP=Math.max(0,parseInt(bonusPp.value,10)||0);scheduleSave(450);});
-    bonusPp.addEventListener("change",function(){if(blockIfArchiveLocked(meseObj)){return;}meseObj.eventoBonusPP=Math.max(0,parseInt(bonusPp.value,10)||0);scheduleSave(0);renderAll();});
+    bonusPp.addEventListener("input",function(){if(blockIfMonthReadOnly(meseObj)){return;}meseObj.eventoBonusPP=Math.max(0,parseInt(bonusPp.value,10)||0);scheduleSave(450);});
+    bonusPp.addEventListener("change",function(){if(blockIfMonthReadOnly(meseObj)){return;}meseObj.eventoBonusPP=Math.max(0,parseInt(bonusPp.value,10)||0);scheduleSave(0);renderAll();});
     bonusPpCell.appendChild(bonusPp); bonusRow.appendChild(bonusPpCell); bonusBox.appendChild(bonusRow);
-    if(bonusLocked){bonusBox.appendChild(el("p","small-note","Il Mese è in un archivio consolidato: il bonus Evento non è più modificabile."));}
+    if(bonusLocked){
+      var bonusLockMsg=monthIsAccredited(meseObj)?"Il Mese è già accreditato: Bonus Evento, Note e PP base sono congelati finché il Narratore non revoca l'accredito.":"Il Mese è in un archivio consolidato: il bonus Evento non è più modificabile.";
+      bonusBox.appendChild(el("p","small-note",bonusLockMsg));
+    }
     p.appendChild(bonusBox);
 
     var postiDelMese = meseObj.posts;
     var totFilled = 0;
-    for(var j=0;j<postiDelMese.length;j++){ if(postiDelMese[j].link !== ""){ totFilled = totFilled + 1; } }
+    for(var j=0;j<postiDelMese.length;j++){ if(String(postiDelMese[j].link || "").trim() !== ""){ totFilled = totFilled + 1; } }
     var totG = totFilled > 0 ? cumulativeG(totFilled) : 0;
     var totPPBase = cumulativeBasePP(postiDelMese, postiDelMese.length);
     var postBonusEvento = eventBonusEligibleCount(postiDelMese, postiDelMese.length);
@@ -1675,15 +1691,22 @@
 
     var bonusAttivo = meseBonusPP(meseObj)>0 || String(meseObj.eventoBonusDescrizione||"").trim()!=="";
     var tblLive = el("table", "posts");
-    tblLive.appendChild(el("tr", null, "<th>N.</th><th>Link</th><th>Nota per la CB del mese</th>"+(bonusAttivo?"<th>Bonus Evento</th>":"")+"<th>Galeoni accumulati</th><th>PP accumulati</th>"));
+    tblLive.appendChild(el("tr", null, "<th>N.</th><th>Link</th><th>Nota per la CB del mese</th><th>PP base</th>"+(bonusAttivo?"<th>Bonus Evento</th>":"")+"<th>Galeoni accumulati</th><th>PP accumulati</th>"));
     var showUpToLive = postiDelMese.length; if(showUpToLive < 1){ showUpToLive = 0; }
     for(var li=0; li<showUpToLive; li++){
-      var lp = postiDelMese[li];
+      let lp = postiDelMese[li];
       var lpos = li + 1;
       var tr = el("tr");
       tr.appendChild(el("td", null, "" + lpos));
       tr.appendChild(makeLinkCell(lp.link, "Apri il post"));
-      tr.appendChild(el("td", null, lp.nota ? lp.nota : "<i>—</i>"));
+      let tdNotaCb=el("td"),notaCb=el("input"); notaCb.type="text"; notaCb.value=lp.nota||""; notaCb.placeholder="Nota per il Narratore"; notaCb.disabled=bonusLocked;
+      notaCb.addEventListener("input",function(){ if(blockIfMonthReadOnly(meseObj)){return;} lp.nota=notaCb.value; scheduleSave(450); });
+      notaCb.addEventListener("change",function(){ if(blockIfMonthReadOnly(meseObj)){return;} lp.nota=notaCb.value; scheduleSave(0); });
+      tdNotaCb.appendChild(notaCb); tr.appendChild(tdNotaCb);
+      let tdPpCb=el("td"),ppCb=el("input"); ppCb.type="number"; ppCb.min="0"; ppCb.step="1"; ppCb.value=lp.pp!=null?lp.pp:""; ppCb.placeholder="0"; ppCb.disabled=bonusLocked;
+      ppCb.addEventListener("input",function(){ if(blockIfMonthReadOnly(meseObj)){return;} lp.pp=ppCb.value; scheduleSave(450); });
+      ppCb.addEventListener("change",function(){ if(blockIfMonthReadOnly(meseObj)){return;} lp.pp=ppCb.value; scheduleSave(0); renderAll(); });
+      tdPpCb.appendChild(ppCb); tr.appendChild(tdPpCb);
       if(bonusAttivo){ tr.appendChild(makeEventBonusExclusionCell(lp,meseObj,bonusLocked)); }
       var linkedUpTo = 0;
       for(var gx=0; gx<=li; gx++){ if(String(postiDelMese[gx].link || "").trim() !== ""){ linkedUpTo++; } }
@@ -2209,7 +2232,7 @@
     var filled = 0;
     for(var s=0; s<postaz.postRichiesti; s++){
       var post = getPostByGlobalNo(postaz.startIndex + s);
-      if(post){ if(post.link !== ""){ filled = filled + 1; } }
+      if(post){ if(String(post.link || "").trim() !== ""){ filled = filled + 1; } }
     }
     wrap.appendChild(progressStatusNode("Pulizia del Calderone", filled, postaz.postRichiesti));
     return wrap;
@@ -2321,7 +2344,7 @@
     var filled = 0;
     for(var i=0;i<sub.postRichiesti;i++){
       var post = getPostByGlobalNo(sub.startIndex + i);
-      if(post){ if(post.link !== ""){ filled = filled + 1; } }
+      if(post){ if(String(post.link || "").trim() !== ""){ filled = filled + 1; } }
     }
     return filled >= sub.postRichiesti;
   }
@@ -2349,7 +2372,7 @@
     var filled = 0;
     for(var i=0;i<sub.postRichiesti;i++){
       var post = getPostByGlobalNo(sub.startIndex + i);
-      if(post){ if(post.link !== ""){ filled = filled + 1; } }
+      if(post){ if(String(post.link || "").trim() !== ""){ filled = filled + 1; } }
     }
     wrap.appendChild(progressStatusNode("", filled, sub.postRichiesti));
     if(ottenutiLabel){
@@ -2859,7 +2882,7 @@
 
     if(!isCubicolo){
       var voceM = "- " + MEDICHERIA.nome + ", " + MEDICHERIA.specie + ", " + MEDICHERIA.classificazione;
-      if(MEDICHERIA.link !== ""){ voceM = voceM + " [URL=" + MEDICHERIA.link + "]link[/URL]"; }
+      if(String(MEDICHERIA.link || "").trim() !== ""){ voceM = voceM + " [URL=" + MEDICHERIA.link + "]link[/URL]"; }
       lines.push("<details><summary><b>Creatura in Medicheria</b></summary>");
       lines.push(voceM);
       lines.push("</details>");
