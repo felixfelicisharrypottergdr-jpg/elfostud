@@ -137,20 +137,21 @@
   .global-month-tone-2{ background:#734251; }
 
 
-  .security-note{background:#fff4d6;border:1px solid #c59845;border-radius:6px;padding:10px 12px;margin:10px 0;font-size:.82rem;}
+  .security-note{background:#dfeaf2;border:1px solid #5c8198;border-radius:7px;padding:10px 12px;margin:10px 0;font-size:.82rem;color:#31566c;font-weight:600;}
   .dispensa-quick{background:rgba(255,255,255,.42);border:1px solid var(--gold);border-radius:7px;padding:12px;margin:12px 0;}
   .ingredient-group{margin:12px 0;border:1px solid rgba(90,65,30,.22);border-radius:7px;padding:8px;}
   .ingredient-group>summary{font-weight:bold;cursor:pointer;}
   .ingredient-meta{font-size:.78rem;opacity:.82;margin:6px 0;}
   .ingredient-symbols{white-space:nowrap;font-weight:bold;}
-  .save-size-warning{color:#8a4d14;font-weight:bold;}
+  .save-size-warning{display:block;background:#f7dddd;border:1px solid #a94a4a;border-radius:7px;padding:9px 11px;color:#7a2929;font-weight:bold;}
 
-  .archive-locked{position:relative;opacity:.88;border-color:#7d4a45!important;background:rgba(83,34,30,.10)!important}
-  .archive-lock-note{margin:8px 0;padding:8px 10px;border:1px solid rgba(176,82,70,.55);border-radius:7px;background:rgba(83,34,30,.18);color:#e3b3aa;font-size:.78rem;font-weight:bold}
-  .progress-status{margin:8px 0;padding:8px 10px;border-radius:7px;font-size:.82rem;font-weight:bold;border:1px solid var(--gold);}
-  .progress-status.complete{background:rgba(55,112,58,.16);border-color:#6f9a69;color:#b8dfb4;}
-  .progress-status.pending{background:rgba(150,112,44,.12);border-color:#9b7a49;color:#e0c58d;}
-  .phase-ready{margin:9px 0;padding:9px 11px;border:1px solid #6f9a69;border-radius:7px;background:rgba(55,112,58,.18);color:#c6e7c2;font-weight:bold;}
+  .archive-locked{position:relative;opacity:1;border-color:#64727a!important;background:rgba(100,114,122,.08)!important}
+  .archive-lock-note{margin:8px 0;padding:9px 11px;border:1px solid #64727a;border-radius:7px;background:#e2e6e8;color:#35444b;font-size:.80rem;font-weight:bold}
+  .warning-alert{margin:8px 0;padding:9px 11px;border:1px solid #a94a4a;border-radius:7px;background:#f7dddd;color:#7a2929;font-size:.80rem;font-weight:bold}
+  .progress-status{margin:8px 0;padding:9px 11px;border-radius:7px;font-size:.84rem;font-weight:700;border:1px solid var(--gold);box-shadow:0 1px 2px rgba(0,0,0,.08);}
+  .progress-status.complete{background:#dcefdc;border-color:#4f8a55;color:#285c2e;}
+  .progress-status.pending{background:#fff1cc;border-color:#c78320;color:#8a570b;}
+  .phase-ready{margin:9px 0;padding:10px 12px;border:1px solid #4f8a55;border-radius:7px;background:#dcefdc;color:#285c2e;font-weight:700;box-shadow:0 1px 2px rgba(0,0,0,.08);}
 
   .audit-footer{margin:18px 0 4px;padding:11px 14px;border-top:1px solid rgba(176,82,70,.42);background:rgba(83,34,30,.12);border-radius:0 0 8px 8px;text-align:center;font-size:.78rem;line-height:1.55;color:#d8c9bd}
   .audit-footer strong{color:#d98778}.audit-footer .audit-narrator{color:#d6b477}.audit-footer .audit-explain{display:block;margin-top:3px;opacity:.72;font-size:.72rem}
@@ -841,7 +842,7 @@
     var st=document.createElement("strong");st.textContent=formatAuditDate(LAST_MODIFIED_AT);line.appendChild(st);line.appendChild(document.createTextNode(" — "+who));
     if(LAST_MODIFIED_BY!=="narratore"&&LAST_SESSION_ID){line.appendChild(document.createTextNode(" · sessione "+sessionShort(LAST_SESSION_ID)));}
     box.appendChild(line);
-    if(LAST_MODIFIED_BY!=="narratore"&&LAST_SESSION_ID&&LAST_SESSION_ID!==SESSION_ID){var warn=document.createElement("div");warn.className="archive-lock-note";warn.textContent="Questa ultima modifica proviene da una sessione/browser diversa da quella attuale ("+sessionShort(LAST_SESSION_ID)+"). Se non la riconosci, avvisa il Narratore.";box.appendChild(warn);}
+    if(LAST_MODIFIED_BY!=="narratore"&&LAST_SESSION_ID&&LAST_SESSION_ID!==SESSION_ID){var warn=document.createElement("div");warn.className="warning-alert";warn.textContent="Questa ultima modifica proviene da una sessione/browser diversa da quella attuale ("+sessionShort(LAST_SESSION_ID)+"). Se non la riconosci, avvisa il Narratore.";box.appendChild(warn);}
     if(LAST_NARRATOR_AT){var nl=document.createElement("div");nl.className="audit-narrator";nl.textContent="Ultimo intervento del Narratore: "+formatAuditDate(LAST_NARRATOR_AT)+(LAST_NARRATOR_ACTION?" — "+LAST_NARRATOR_ACTION:"");box.appendChild(nl);}
     var ex=document.createElement("span");ex.className="audit-explain";ex.textContent="Vengono registrate le modifiche, non la semplice apertura del tracker.";box.appendChild(ex);
     container.appendChild(box);
