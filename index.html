@@ -139,8 +139,19 @@
 
   .security-note{background:#dfeaf2;border:1px solid #5c8198;border-radius:7px;padding:10px 12px;margin:10px 0;font-size:.82rem;color:#31566c;font-weight:600;}
   .dispensa-quick{background:rgba(255,255,255,.42);border:1px solid var(--gold);border-radius:7px;padding:12px;margin:12px 0;}
-  .ingredient-group{margin:12px 0;border:1px solid rgba(90,65,30,.22);border-radius:7px;padding:8px;}
+  .ingredient-group{margin:12px 0;border:1px solid rgba(90,65,30,.22);border-radius:7px;padding:8px;background:rgba(255,253,245,.34);}
   .ingredient-group>summary{font-weight:bold;cursor:pointer;}
+  .ingredient-entry{margin:0; border-top:1px solid rgba(90,65,30,.20); background:transparent;}
+  .ingredient-entry:first-of-type{border-top:0;}
+  .ingredient-entry > summary{cursor:pointer; padding:8px 6px; font-weight:500; font-size:.92rem; background:transparent; list-style-position:inside;}
+  .ingredient-entry-body{padding:4px 6px 12px;}
+  .ingredient-line{display:flex; flex-wrap:wrap; align-items:center; gap:8px;}
+  .ingredient-name{font-weight:500; color:#3f321e;}
+  .ingredient-qty{font-size:.80rem; color:#6b5a3c;}
+  .ingredient-mini-badge{display:inline-flex; align-items:center; gap:4px; padding:2px 8px; border:1px solid rgba(90,65,30,.24); border-radius:999px; background:rgba(255,248,223,.78); color:#5c492d; font-size:.74rem; line-height:1.2;}
+  .ingredient-mini-badge.warn{background:#fbe5e5; border-color:#c78787; color:#7a2929;}
+  .ingredient-mini-badge.exotic{background:#eef4d9; border-color:#aab980; color:#4d6131;}
+  .ingredient-mini-badge.craft{background:#e2ecf2; border-color:#8ea7b6; color:#31566c;}
   .ingredient-meta{font-size:.78rem;opacity:.82;margin:6px 0;}
   .ingredient-symbols{white-space:nowrap;font-weight:bold;}
   .save-size-warning{display:block;background:#f7dddd;border:1px solid #a94a4a;border-radius:7px;padding:9px 11px;color:#7a2929;font-weight:bold;}
@@ -1581,13 +1592,22 @@
       if(!groupItems.length){continue;} var group=el("details","ingredient-group");keepDetailsState(group,"dispensa:class:"+className,true);group.appendChild(el("summary",null,"Ingredienti "+className+" — "+groupItems.length+" voce/i"));
       for(var ii=0;ii<groupItems.length;ii++){
       (function(ing){
-        var det=el("details","dispensa-card"); keepDetailsState(det,"dispensa:ing:"+ing.id,false);
-        syncIngredienteFromCatalog(ing); var title=ingredientDisplay(ing)+" — "+ing.quantita+" dose/i — "+ing.classificazione;
-        det.appendChild(el("summary",null,title)); var body=el("div","dispensa-card-body");
+        var det=el("details","ingredient-entry"); keepDetailsState(det,"dispensa:ing:"+ing.id,false);
+        var recMeta=catalogIngredient(ing.nome) || syncIngredienteFromCatalog(ing) || ing;
+        var summary=document.createElement("summary"); summary.className="ingredient-entry-summary";
+        var line=el("div","ingredient-line");
+        var name=document.createElement("span"); name.className="ingredient-name"; name.textContent=ing.nome || "Ingrediente senza nome"; line.appendChild(name);
+        if((recMeta||{}).esotico){ line.appendChild(el("span","ingredient-mini-badge exotic","🌴 Esotico")); }
+        if((recMeta||{}).illegale){ line.appendChild(el("span","ingredient-mini-badge warn","🚫 Illegale")); }
+        if((recMeta||{}).pozionista){ line.appendChild(el("span","ingredient-mini-badge craft","⚗ ✔ Pozionista")); }
+        line.appendChild(el("span","ingredient-qty",String(ing.quantita)+" dose/i"));
+        summary.appendChild(line);
+        det.appendChild(summary);
+        var body=el("div","ingredient-entry-body");
         var r1=el("div","row");
         var d1=el("div"); d1.appendChild(el("label",null,"Nome Ingrediente")); var n1=el("input"); n1.type="text"; n1.value=ing.nome; n1.setAttribute("list","ingredienti-glossario"); n1.addEventListener("change",function(){ing.nome=n1.value;var rec=syncIngredienteFromCatalog(ing);if(!rec){ing.classificazione=ing.classificazione||"Non classificato";}renderAll();}); d1.appendChild(n1); r1.appendChild(d1);
         var d2=el("div"); d2.appendChild(el("label",null,"Quantità (dosi)")); var q=el("input"); q.type="number"; q.min="0"; q.step="1"; q.value=ing.quantita; q.addEventListener("input",function(){ing.quantita=Math.max(0,num(q.value,0));}); d2.appendChild(q); r1.appendChild(d2);
-        var d3=el("div"); d3.appendChild(el("label",null,"Classificazione (dal Glossario)")); var cl=el("input");cl.type="text";cl.value=ing.classificazione||"Non classificato";cl.readOnly=!!catalogIngredient(ing.nome);cl.addEventListener("change",function(){if(!cl.readOnly){ing.classificazione=cl.value||"Non classificato";renderAll();}});d3.appendChild(cl);r1.appendChild(d3); body.appendChild(r1); var recMeta=catalogIngredient(ing.nome); if(recMeta){body.appendChild(el("div","ingredient-meta","<b>Glossario:</b> "+ingredientDisplay(ing)+" · "+recMeta.classeBene+" · Provenienza: "+recMeta.provenienzaGlossario));}
+        var d3=el("div"); d3.appendChild(el("label",null,"Classificazione (dal Glossario)")); var cl=el("input");cl.type="text";cl.value=ing.classificazione||"Non classificato";cl.readOnly=!!catalogIngredient(ing.nome);cl.addEventListener("change",function(){if(!cl.readOnly){ing.classificazione=cl.value||"Non classificato";renderAll();}});d3.appendChild(cl);r1.appendChild(d3); body.appendChild(r1); if(recMeta && recMeta.classeBene){body.appendChild(el("div","ingredient-meta","<b>Glossario:</b> "+recMeta.classeBene+" · Provenienza: "+recMeta.provenienzaGlossario));}
         var r2=el("div","row");
         var d4=el("div"); d4.appendChild(el("label",null,"Provenienza")); d4.appendChild(buildSelect(PROVENIENZE_DISPENSA,ing.provenienza,function(v){ing.provenienza=v;renderAll();})); r2.appendChild(d4);
         var d5=el("div"); d5.appendChild(el("label",null,"Link ottenimento")); var li=el("input"); li.type="text"; li.placeholder="https://..."; li.value=ing.link; li.addEventListener("input",function(){ing.link=li.value;}); d5.appendChild(li); r2.appendChild(d5); body.appendChild(r2);
