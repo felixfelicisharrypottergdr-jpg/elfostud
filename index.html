@@ -233,13 +233,16 @@
   .audit-footer strong{color:#d98778}.audit-footer .audit-narrator{color:#d6b477}.audit-footer .audit-explain{display:block;margin-top:3px;opacity:.72;font-size:.72rem}
   .audit-mini{margin-top:8px;text-align:left}.audit-mini summary{cursor:pointer;color:#d6b477}.audit-mini ul{margin:8px 0 0 18px;padding:0}.audit-mini li{margin:4px 0}
 
-  /* v62 - sfondi illustrati per sezione */
+  /* v64 - sfondi indipendenti dall'altezza dinamica della pagina
+     L'immagine viene dimensionata sulla larghezza del tool e NON sulla sua altezza:
+     così una tavola lunga continua a crescere normalmente senza ingrandire/allungare lo sfondo. */
   body.screen-home, body.screen-posts, body.screen-cb, body.screen-dispensa,
   body.screen-lab, body.screen-green, body.screen-creatures, body.screen-import {
-    background-repeat:no-repeat !important;
-    background-size:cover !important;
-    background-position:center center !important;
-    background-attachment:fixed !important;
+    background-color:var(--green-dark) !important;
+    background-repeat:no-repeat, no-repeat !important;
+    background-size:100% 100%, 100% auto !important;
+    background-position:center top, center top !important;
+    background-attachment:scroll, scroll !important;
     min-height:100vh;
   }
   body.screen-home{background-image:linear-gradient(rgba(11,18,13,.48),rgba(11,18,13,.68)),url("https://i.postimg.cc/6pKKxhkk/elfo-biblioteca.webp") !important;}
