@@ -204,14 +204,12 @@
   .bonus-use-counter.update{color:#b86b00;}
   .bonus-use-counter.exhausted{color:#9b2f2a;text-decoration:underline;}
 
-  .cb-total-bonus,
-  .cb-total-complete{
+  .cb-total-bonus{
     min-width:120px;
     font-weight:bold;
     line-height:1.35;
+    color:#8c2f2f;
   }
-  .cb-total-bonus{ color:#8c2f2f; }
-  .cb-total-complete{ color:#17392e; }
   .cb-total-line{ display:block; white-space:nowrap; }
   .cb-total-altro{
     display:block;
@@ -425,6 +423,7 @@
   /* v71 - Anno Scolastico: modifica sempre disponibile + promemoria confermabile ogni agosto */
   /* v70 - fix Camera Blindata Studente: rimosso riferimento a funzione solo Adulto */
   /* v69 - Da accreditare: riepilogo ultimo Post + evidenza valori */
+  /* CB: rimosso Totale complessivo ridondante; restano Galeoni accumulati + Totale Bonus */
   /* Riepilogo Bonus: mostra Post del mese e N. globale degli utilizzi */
   /* Totali per singolo post: Totale Bonus + Totale complessivo; contatore usi solo nel riepilogo Bonus */
   /* Bonus variabile: valore solo per singolo post; Azzera elimina tutti i Bonus */
@@ -3179,7 +3178,7 @@
     }
 
     var tblLive = el("table", "posts");
-    tblLive.appendChild(el("tr", null, "<th>N.</th><th>Link</th><th>Galeoni accumulati</th><th>N. globale</th><th>Bonus</th><th>Totale Bonus</th><th>Totale complessivo</th>"));
+    tblLive.appendChild(el("tr", null, "<th>N.</th><th>Link</th><th>Galeoni accumulati</th><th>N. globale</th><th>Bonus</th><th>Totale Bonus</th>"));
 
     var showUpToLive = postiDelMese.length;
     if(showUpToLive < 1){ showUpToLive = 0; }
@@ -3221,17 +3220,6 @@
       var bonusTotalTd=el("td","cb-total-bonus");
       appendMoneyParts(bonusTotalTd,bonusTotals,bonusTotals.altro);
       tr.appendChild(bonusTotalTd);
-
-      /* Totale complessivo del singolo post:
-         Galeoni propri di QUEL post + eventuali Galeoni Bonus;
-         tutti i PP del post derivano dai Bonus. */
-      var completeTd=el("td","cb-total-complete");
-      var baseGThisPost=valoreG(linkedUpTo);
-      var completeG=baseGThisPost+bonusTotals.galeoni;
-      completeTd.appendChild(el("span","cb-total-line",completeG+" G"));
-      if(bonusTotals.pp>0){completeTd.appendChild(el("span","cb-total-line",bonusTotals.pp+" PP"));}
-      if(bonusTotals.altro){completeTd.appendChild(el("span","cb-total-altro","Altro: "+bonusTotals.altro));}
-      tr.appendChild(completeTd);
 
       tblLive.appendChild(tr);
     }
