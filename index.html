@@ -75,6 +75,42 @@
   .totals .box{ background: var(--parch-dark); border:1px solid var(--gold); border-radius:8px; padding:9px 14px; font-size:.87rem; }
   .totals .box b{ display:block; font-size:1.1rem; color: var(--green-dark); }
   .g-value{ font-weight:bold; color: var(--green-dark); }
+
+  /* v69 - evidenza dell'ultimo Post da accreditare in Camera Blindata */
+  .cb-credit-alert{
+    margin:12px 0 14px;
+    padding:10px 13px;
+    border:2px solid #8c2f2f;
+    border-radius:8px;
+    background:#f7e5df;
+    color:#4f1b18;
+    box-shadow:0 1px 0 rgba(140,47,47,.12);
+    font-size:.88rem;
+  }
+  .cb-credit-alert b{ color:#8c2f2f; }
+  .cb-credit-alert .cb-credit-values{
+    display:inline-block;
+    margin-left:5px;
+    font-weight:bold;
+    color:#8c2f2f;
+    font-size:1.04em;
+  }
+  table.posts tr.cb-latest-row td{
+    background:#fff0eb;
+    border-top:2px solid #8c2f2f;
+    border-bottom:2px solid #8c2f2f;
+  }
+  table.posts tr.cb-latest-row td:first-child{ border-left:2px solid #8c2f2f; }
+  table.posts tr.cb-latest-row td:last-child{ border-right:2px solid #8c2f2f; }
+  table.posts tr.cb-latest-row .g-value{ color:#8c2f2f; }
+  .cb-earned-now{
+    display:block;
+    margin-top:2px;
+    color:#8c2f2f;
+    font-size:.72rem;
+    font-weight:bold;
+    white-space:nowrap;
+  }
   .out-tag{ display:inline-block; padding: 2px 8px; border-radius: 12px; font-size:.72rem; font-weight:bold; background:#c7b98a; color:#3a2b1a; }
   details.stage{ border:1px solid var(--gold); border-radius:6px; margin-top:8px; padding:6px 10px; background:#fbf4e2; }
   details.stage summary{ cursor:pointer; font-weight:bold; color: var(--green-dark); }
@@ -260,6 +296,8 @@
   body.screen-import{background-image:linear-gradient(rgba(11,18,13,.48),rgba(11,18,13,.68)),url("https://i.postimg.cc/Z5mmzLGX/elfo-magazzino.webp") !important;}
 
 
+  /* v69 - Da accreditare: riepilogo ultimo Post + evidenza valori */
+  /* v68 - Evento: PP / Galeoni / Altro + fix numero globale */
   /* v67 - palette pulsanti per sezione */
   /* Home / Post / Importa: marrone + dorato */
   body.screen-home .step-btn,
@@ -422,6 +460,10 @@
     var bonus=parseInt(base.eventoBonusPP,10);
     if(isNaN(bonus)||bonus<0){bonus=0;}
     base.eventoBonusPP=bonus;
+    var bonusG=parseInt(base.eventoBonusGaleoni,10);
+    if(isNaN(bonusG)||bonusG<0){bonusG=0;}
+    base.eventoBonusGaleoni=bonusG;
+    base.eventoBonusAltro=(typeof base.eventoBonusAltro==="string")?base.eventoBonusAltro:"";
     return base;
   }
   function txAccreditedMonthEquivalent(remoteMonth,proposedMonth){
@@ -821,7 +863,7 @@
 
   function newMese(nome){
     meseCounter = meseCounter + 1;
-    return { id: meseCounter, nome: cleanMonthName(nome || ""), chiuso: false, posts: [], eventoBonusDescrizione:"", eventoBonusPP:0 };
+    return { id: meseCounter, nome: cleanMonthName(nome || ""), chiuso: false, posts: [], eventoBonusDescrizione:"", eventoBonusPP:0, eventoBonusGaleoni:0, eventoBonusAltro:"" };
   }
 
   function normalizeMonthName(v){
@@ -1598,6 +1640,9 @@
       if(typeof MESI[nmi].eventoBonusDescrizione!=="string"){MESI[nmi].eventoBonusDescrizione="";DATA_DIRTY=true;}
       var _eb=parseInt(MESI[nmi].eventoBonusPP,10); if(isNaN(_eb)||_eb<0){_eb=0;}
       if(MESI[nmi].eventoBonusPP!==_eb){MESI[nmi].eventoBonusPP=_eb;DATA_DIRTY=true;}
+      var _ebg=parseInt(MESI[nmi].eventoBonusGaleoni,10); if(isNaN(_ebg)||_ebg<0){_ebg=0;}
+      if(MESI[nmi].eventoBonusGaleoni!==_ebg){MESI[nmi].eventoBonusGaleoni=_ebg;DATA_DIRTY=true;}
+      if(typeof MESI[nmi].eventoBonusAltro!=="string"){MESI[nmi].eventoBonusAltro="";DATA_DIRTY=true;}
     }
     repairCountersFromData();
     normalizeAllStoredDates();
@@ -1802,7 +1847,7 @@
       p.appendChild(el("div", "guide-text", "Scrivi il nome esatto del tuo Personaggio e scegli l'Anno Scolastico. Premi «Carica i miei dati»: se è la prima volta parti da zero, altrimenti recuperi tutto ciò che avevi già salvato. Dopo la connessione il nome viene bloccato: per entrare con un altro PG devi prima disconnetterti."));
       var row = el("div", "row");
       var d1 = el("div"); d1.appendChild(el("label", null, "Nome del PG"));
-      var i1 = el("input"); i1.type="text"; i1.value = STUDENTE.nome; i1.placeholder="Come posso aiutarla, Padron... Padrona...?";
+      var i1 = el("input"); i1.type="text"; i1.value = STUDENTE.nome; i1.placeholder="Come posso aiutarla, Padron...?";
       i1.addEventListener("input", function(){ STUDENTE.nome = i1.value; });
       d1.appendChild(i1); row.appendChild(d1);
       var d2 = el("div"); d2.appendChild(el("label", null, "Anno Scolastico"));
@@ -2104,7 +2149,7 @@
         tdLink.appendChild(iLink); tr.appendChild(tdLink);
         if(showInlineGlobal){
           var tdGlobal = el("td", "global-number-cell");
-          globalSpan = el("span", "global-post-number", "—");
+          globalSpan = el("span", "global-post-number global-month-tone-" + (Math.max(0,MESI.indexOf(mese)) % 3), "—");
           tdGlobal.appendChild(globalSpan); tr.appendChild(tdGlobal); refreshInlineGlobal();
         }
         var tdRm = el("td");
@@ -2148,6 +2193,8 @@
   function cumulativeG(pos){ var tot=0; for(var i=1;i<=pos;i++){ tot=tot+valoreG(i); } return tot; }
   function valorePP(post){ var v = parseInt(post && post.pp != null ? post.pp : 0, 10); if(isNaN(v) || v < 0){ return 0; } return v; }
   function meseBonusPP(mese){ var v=parseInt(mese && mese.eventoBonusPP != null ? mese.eventoBonusPP : 0,10); if(isNaN(v)||v<0){return 0;} return v; }
+  function meseBonusGaleoni(mese){ var v=parseInt(mese && mese.eventoBonusGaleoni != null ? mese.eventoBonusGaleoni : 0,10); if(isNaN(v)||v<0){return 0;} return v; }
+  function meseBonusAltro(mese){ return String(mese && mese.eventoBonusAltro != null ? mese.eventoBonusAltro : "").trim(); }
   function describedEventBonusPP(mese){
     var s=String(mese&&mese.eventoBonusDescrizione||""); var m=s.match(/\+?\s*(\d+)\s*PP\b/i);
     return m?Math.max(0,parseInt(m[1],10)||0):null;
@@ -2156,7 +2203,36 @@
   function eventBonusEligibleCount(posts,endExclusive){ var count=0; for(var i=0;i<endExclusive;i++){ if(postEligibleForEventBonus(posts[i])){count++;} } return count; }
   function cumulativeBasePP(posts, endExclusive){ var tot=0; for(var i=0;i<endExclusive;i++){ if(posts[i] && isValidPostLink(posts[i].link)){ tot += valorePP(posts[i]); } } return tot; }
   function eventBonusTotal(mese,posts,endExclusive){ var bonus=meseBonusPP(mese); if(!bonus){return 0;} return eventBonusEligibleCount(posts,endExclusive)*bonus; }
+  function eventBonusGaleoniTotal(mese,posts,endExclusive){ var bonus=meseBonusGaleoni(mese); if(!bonus){return 0;} return eventBonusEligibleCount(posts,endExclusive)*bonus; }
   function cumulativePP(posts, endExclusive, mese){ return cumulativeBasePP(posts,endExclusive)+eventBonusTotal(mese,posts,endExclusive); }
+  function cumulativeGWithEvent(posts,endExclusive,mese){
+    var linked=0;
+    for(var i=0;i<endExclusive;i++){ if(posts[i] && isValidPostLink(posts[i].link)){ linked++; } }
+    return cumulativeG(linked)+eventBonusGaleoniTotal(mese,posts,endExclusive);
+  }
+  function latestCreditInfo(mese,posts){
+    posts=Array.isArray(posts)?posts:[];
+    var idx=-1,linkedPos=0;
+    for(var i=0;i<posts.length;i++){
+      if(posts[i] && isValidPostLink(posts[i].link)){ linkedPos++; idx=i; }
+    }
+    if(idx<0){return null;}
+    var post=posts[idx],eligible=postEligibleForEventBonus(post);
+    var gBase=valoreG(linkedPos);
+    var gEvento=eligible?meseBonusGaleoni(mese):0;
+    var ppBase=valorePP(post);
+    var ppEvento=eligible?meseBonusPP(mese):0;
+    return {
+      index:idx,
+      localNo:idx+1,
+      linkedPos:linkedPos,
+      globalNo:parseInt(post.globalNo,10)>0?parseInt(post.globalNo,10):null,
+      galeoni:gBase+gEvento,
+      pp:ppBase+ppEvento,
+      altro:eligible?meseBonusAltro(mese):"",
+      eventEligible:eligible
+    };
+  }
   function makeEventBonusExclusionCell(post,mese,locked){
     var td=el("td"),line=el("label","chk-line"),cb=el("input"); cb.type="checkbox"; cb.checked=!!(post&&post.eventoBonusEscluso); cb.disabled=!!locked || !post || !isValidPostLink(post.link);
     cb.addEventListener("change",function(){ if(blockIfMonthReadOnly(mese)){cb.checked=!!post.eventoBonusEscluso;return;} post.eventoBonusEscluso=!!cb.checked; scheduleSave(0); renderAll(); });
@@ -2214,22 +2290,37 @@
     var bonusLocked = !!(meseObj.chiuso && archiveLocked(meseObj)) || monthIsAccredited(meseObj) || (fbConnected && !accreditiVerified());
     var bonusBox = el("div", "card");
     bonusBox.appendChild(el("h4", null, "🎉 Bonus Evento del mese"));
-    bonusBox.appendChild(el("p", "small-note", "Impostalo una sola volta per questo Mese. Il Tool propone automaticamente questi PP a <b>ogni post con un link</b>. Se nella descrizione scrivi, per esempio, <b>+3 PP</b>, il valore viene riconosciuto automaticamente; il campo numerico resta disponibile per correggerlo. Nei singoli post inserisci soltanto i PP base. <b>Se un post non rientra nell’Evento (per esempio non è una free role), usa «Escludi bonus» nella tabella sottostante:</b> quel post continuerà a contare normalmente per Galeoni e PP base, ma non riceverà i PP extra dell’Evento."));
+    bonusBox.appendChild(el("p", "small-note", "Impostalo una sola volta per questo Mese. Un Evento può assegnare <b>PP extra</b>, <b>Galeoni extra</b>, un premio <b>Altro</b>, oppure una combinazione di questi. PP e Galeoni indicati qui vengono applicati automaticamente a <b>ogni post con un link</b>; «Altro» resta come promemoria del premio. Nei singoli post inserisci soltanto i PP base. <b>Se un post non rientra nell’Evento, usa «Escludi bonus» nella tabella sottostante:</b> quel post continuerà a contare normalmente per Galeoni e PP base, ma non riceverà i premi automatici dell’Evento."));
     var bonusRow = el("div", "row");
-    var bonusDescCell = el("div"); bonusDescCell.appendChild(el("label", null, "Descrizione del bonus Evento"));
-    var bonusDesc = el("input"); bonusDesc.type="text"; bonusDesc.placeholder="Es. Evento estivo: +3 PP per ogni post"; bonusDesc.value=meseObj.eventoBonusDescrizione||""; bonusDesc.disabled=bonusLocked;
+    var bonusDescCell = el("div"); bonusDescCell.appendChild(el("label", null, "Descrizione dell’Evento"));
+    var bonusDesc = el("input"); bonusDesc.type="text"; bonusDesc.placeholder="Es. Evento estivo / Free role"; bonusDesc.value=meseObj.eventoBonusDescrizione||""; bonusDesc.disabled=bonusLocked;
     bonusDesc.addEventListener("input",function(){if(blockIfMonthReadOnly(meseObj)){return;}meseObj.eventoBonusDescrizione=bonusDesc.value;scheduleSave(450);});
     bonusDesc.addEventListener("change",function(){if(blockIfMonthReadOnly(meseObj)){return;}meseObj.eventoBonusDescrizione=bonusDesc.value;var mt=bonusDesc.value.match(/\+?\s*(\d+)\s*PP\b/i);if(mt){meseObj.eventoBonusPP=Math.max(0,parseInt(mt[1],10)||0);bonusPp.value=meseObj.eventoBonusPP;}scheduleSave(0);renderAll();});
     bonusDescCell.appendChild(bonusDesc); bonusRow.appendChild(bonusDescCell);
+
     var bonusPpCell = el("div"); bonusPpCell.appendChild(el("label", null, "PP extra per ogni post"));
     var bonusPp = el("input"); bonusPp.type="number"; bonusPp.min="0"; bonusPp.step="1"; bonusPp.placeholder="0"; bonusPp.value=meseBonusPP(meseObj); bonusPp.disabled=bonusLocked;
     bonusPp.addEventListener("input",function(){if(blockIfMonthReadOnly(meseObj)){return;}meseObj.eventoBonusPP=Math.max(0,parseInt(bonusPp.value,10)||0);scheduleSave(450);});
     bonusPp.addEventListener("change",function(){if(blockIfMonthReadOnly(meseObj)){return;}meseObj.eventoBonusPP=Math.max(0,parseInt(bonusPp.value,10)||0);scheduleSave(0);renderAll();});
-    bonusPpCell.appendChild(bonusPp); bonusRow.appendChild(bonusPpCell); bonusBox.appendChild(bonusRow);
-    var describedBonus=describedEventBonusPP(meseObj),numericBonus=meseBonusPP(meseObj);
+    bonusPpCell.appendChild(bonusPp); bonusRow.appendChild(bonusPpCell);
+
+    var bonusGCell = el("div"); bonusGCell.appendChild(el("label", null, "Galeoni extra per ogni post"));
+    var bonusG = el("input"); bonusG.type="number"; bonusG.min="0"; bonusG.step="1"; bonusG.placeholder="0"; bonusG.value=meseBonusGaleoni(meseObj); bonusG.disabled=bonusLocked;
+    bonusG.addEventListener("input",function(){if(blockIfMonthReadOnly(meseObj)){return;}meseObj.eventoBonusGaleoni=Math.max(0,parseInt(bonusG.value,10)||0);scheduleSave(450);});
+    bonusG.addEventListener("change",function(){if(blockIfMonthReadOnly(meseObj)){return;}meseObj.eventoBonusGaleoni=Math.max(0,parseInt(bonusG.value,10)||0);scheduleSave(0);renderAll();});
+    bonusGCell.appendChild(bonusG); bonusRow.appendChild(bonusGCell);
+
+    var bonusAltroCell = el("div"); bonusAltroCell.appendChild(el("label", null, "Altro"));
+    var bonusAltro = el("input"); bonusAltro.type="text"; bonusAltro.placeholder="Es. oggetto, ingrediente, premio speciale"; bonusAltro.value=meseObj.eventoBonusAltro||""; bonusAltro.disabled=bonusLocked;
+    bonusAltro.addEventListener("input",function(){if(blockIfMonthReadOnly(meseObj)){return;}meseObj.eventoBonusAltro=bonusAltro.value;scheduleSave(450);});
+    bonusAltro.addEventListener("change",function(){if(blockIfMonthReadOnly(meseObj)){return;}meseObj.eventoBonusAltro=bonusAltro.value;scheduleSave(0);renderAll();});
+    bonusAltroCell.appendChild(bonusAltro); bonusRow.appendChild(bonusAltroCell);
+    bonusBox.appendChild(bonusRow);
+
+    var describedBonus=describedEventBonusPP(meseObj),numericBonus=meseBonusPP(meseObj),numericBonusG=meseBonusGaleoni(meseObj),bonusAltroText=meseBonusAltro(meseObj);
     if(describedBonus!==null && describedBonus!==numericBonus){ bonusBox.appendChild(el("div","warning-alert","⚠ La descrizione indica <b>+"+describedBonus+" PP</b>, ma il campo numerico è impostato su <b>+"+numericBonus+" PP</b>. Correggi uno dei due valori prima di continuare.")); }
-    if(!bonusLocked && (String(meseObj.eventoBonusDescrizione||"").trim()!=="" || numericBonus>0)){
-      var clearBonus=el("button","action danger small","Azzera Bonus Evento"); clearBonus.type="button"; clearBonus.addEventListener(EV,function(){if(blockIfMonthReadOnly(meseObj)){return;}if(!confirm("Azzerare descrizione e PP del Bonus Evento per questo Mese?")){return;}meseObj.eventoBonusDescrizione="";meseObj.eventoBonusPP=0;for(var cbi=0;cbi<meseObj.posts.length;cbi++){meseObj.posts[cbi].eventoBonusEscluso=false;}scheduleSave(0);renderAll();}); bonusBox.appendChild(clearBonus);
+    if(!bonusLocked && (String(meseObj.eventoBonusDescrizione||"").trim()!=="" || numericBonus>0 || numericBonusG>0 || bonusAltroText!=="")){
+      var clearBonus=el("button","action danger small","Azzera Bonus Evento"); clearBonus.type="button"; clearBonus.addEventListener(EV,function(){if(blockIfMonthReadOnly(meseObj)){return;}if(!confirm("Azzerare descrizione e tutti i premi del Bonus Evento per questo Mese?")){return;}meseObj.eventoBonusDescrizione="";meseObj.eventoBonusPP=0;meseObj.eventoBonusGaleoni=0;meseObj.eventoBonusAltro="";for(var cbi=0;cbi<meseObj.posts.length;cbi++){meseObj.posts[cbi].eventoBonusEscluso=false;}scheduleSave(0);renderAll();}); bonusBox.appendChild(clearBonus);
     }
     if(bonusLocked){
       var bonusLockMsg=monthIsAccredited(meseObj)?"Il Mese è già accreditato: Bonus Evento, Note e PP base sono congelati finché il Narratore non revoca l'accredito.":"Il Mese è in un archivio consolidato: il bonus Evento non è più modificabile.";
@@ -2240,23 +2331,41 @@
     var postiDelMese = meseObj.posts;
     var totFilled = 0;
     for(var j=0;j<postiDelMese.length;j++){ if(isValidPostLink(postiDelMese[j].link)){ totFilled = totFilled + 1; } }
-    var totG = totFilled > 0 ? cumulativeG(totFilled) : 0;
-    var totPPBase = cumulativeBasePP(postiDelMese, postiDelMese.length);
+    var totGBase = totFilled > 0 ? cumulativeG(totFilled) : 0;
     var postBonusEvento = eventBonusEligibleCount(postiDelMese, postiDelMese.length);
+    var totGEvento = eventBonusGaleoniTotal(meseObj, postiDelMese, postiDelMese.length);
+    var totG = totGBase + totGEvento;
+    var totPPBase = cumulativeBasePP(postiDelMese, postiDelMese.length);
     var totPPEvento = eventBonusTotal(meseObj, postiDelMese, postiDelMese.length);
     var totPP = totPPBase + totPPEvento;
+    var latestCredit = latestCreditInfo(meseObj, postiDelMese);
+
+    if(latestCredit && !isImportedStudentMonth(meseObj) && !monthIsAccredited(meseObj)){
+      var creditParts=["+"+latestCredit.galeoni+" G","+"+latestCredit.pp+" PP"];
+      if(latestCredit.altro){creditParts.push("Altro: "+latestCredit.altro);}
+      var creditLabel="Post "+latestCredit.localNo;
+      if(latestCredit.globalNo){creditLabel+=" · N. globale "+latestCredit.globalNo;}
+      p.appendChild(el("div","cb-credit-alert","<b>DA ACCREDITARE — "+creditLabel+":</b><span class=\"cb-credit-values\">"+creditParts.join(" · ")+"</span>"));
+    }
 
     var totals = el("div", "totals");
     totals.appendChild(el("div", "box", "Totale Post<br><b>" + totFilled + "</b>"));
     totals.appendChild(el("div", "box", "Totale Galeoni<br><b>" + totG + " G</b>"));
     totals.appendChild(el("div", "box", "Totale PP<br><b>" + totPP + " PP</b>"));
     p.appendChild(totals);
-    if(meseBonusPP(meseObj)>0){
-      var bonusDescr=(meseObj.eventoBonusDescrizione||"").trim();
-      p.appendChild(el("div","guide-text","<b>Bonus Evento applicato:</b> "+(bonusDescr?bonusDescr+" — ":"")+"+"+meseBonusPP(meseObj)+" PP per post ammesso. <b>Post con bonus: "+postBonusEvento+" su "+totFilled+" · PP base: "+totPPBase+" · Bonus Evento: +"+totPPEvento+" · Totale: "+totPP+" PP</b>"));
+    var bonusDescr=(meseObj.eventoBonusDescrizione||"").trim();
+    var bonusAttivo = meseBonusPP(meseObj)>0 || meseBonusGaleoni(meseObj)>0 || meseBonusAltro(meseObj)!=="" || bonusDescr!=="";
+    if(bonusAttivo){
+      var premioParts=[];
+      if(meseBonusPP(meseObj)>0){premioParts.push("+"+meseBonusPP(meseObj)+" PP per post");}
+      if(meseBonusGaleoni(meseObj)>0){premioParts.push("+"+meseBonusGaleoni(meseObj)+" G per post");}
+      if(meseBonusAltro(meseObj)!==""){premioParts.push("Altro: "+meseBonusAltro(meseObj));}
+      if(!premioParts.length){premioParts.push("evento registrato senza premio automatico");}
+      var dettagli="<b>Post ammessi: "+postBonusEvento+" su "+totFilled+"</b>";
+      if(meseBonusGaleoni(meseObj)>0){dettagli+=" · Galeoni base: "+totGBase+" G · Bonus Evento: +"+totGEvento+" G · Totale: "+totG+" G";}
+      if(meseBonusPP(meseObj)>0){dettagli+=" · PP base: "+totPPBase+" · Bonus Evento: +"+totPPEvento+" · Totale: "+totPP+" PP";}
+      p.appendChild(el("div","guide-text","<b>Evento:</b> "+(bonusDescr?bonusDescr+" — ":"")+premioParts.join(" · ")+". "+dettagli));
     }
-
-    var bonusAttivo = meseBonusPP(meseObj)>0 || String(meseObj.eventoBonusDescrizione||"").trim()!=="";
     var tblLive = el("table", "posts");
     tblLive.appendChild(el("tr", null, "<th>N.</th><th>Link</th><th>Nota per la CB del mese</th><th>PP base</th>"+(bonusAttivo?"<th>Bonus Evento</th>":"")+"<th>Galeoni accumulati</th><th>PP accumulati</th>"));
     var showUpToLive = postiDelMese.length; if(showUpToLive < 1){ showUpToLive = 0; }
@@ -2264,6 +2373,8 @@
       let lp = postiDelMese[li];
       var lpos = li + 1;
       var tr = el("tr");
+      var isLatestCreditRow = !!(latestCredit && li===latestCredit.index);
+      if(isLatestCreditRow){tr.classList.add("cb-latest-row");}
       tr.appendChild(el("td", null, "" + lpos));
       tr.appendChild(makeLinkCell(lp.link, "Apri il post"));
       let tdNotaCb=el("td"),notaCb=el("input"); notaCb.type="text"; notaCb.value=lp.nota||""; notaCb.placeholder="Nota per il Narratore"; notaCb.disabled=bonusLocked;
@@ -2277,8 +2388,14 @@
       if(bonusAttivo){ tr.appendChild(makeEventBonusExclusionCell(lp,meseObj,bonusLocked)); }
       var linkedUpTo = 0;
       for(var gx=0; gx<=li; gx++){ if(isValidPostLink(postiDelMese[gx].link)){ linkedUpTo++; } }
-      tr.appendChild(el("td", "g-value", cumulativeG(linkedUpTo) + " G"));
-      tr.appendChild(el("td", "g-value", cumulativePP(postiDelMese, li + 1, meseObj) + " PP"));
+      var gCell=el("td","g-value",(cumulativeG(linkedUpTo) + eventBonusGaleoniTotal(meseObj, postiDelMese, li + 1)) + " G");
+      var ppCell=el("td","g-value",cumulativePP(postiDelMese, li + 1, meseObj) + " PP");
+      if(isLatestCreditRow){
+        gCell.appendChild(el("span","cb-earned-now","+"+latestCredit.galeoni+" G questo post"));
+        ppCell.appendChild(el("span","cb-earned-now","+"+latestCredit.pp+" PP questo post"));
+      }
+      tr.appendChild(gCell);
+      tr.appendChild(ppCell);
       tblLive.appendChild(tr);
     }
     if(showUpToLive === 0){
