@@ -137,6 +137,73 @@
     padding-top:4px;
   }
 
+  .bonus-settings-row{
+    margin-top:10px;
+    padding-top:10px;
+    border-top:1px dashed rgba(184,139,61,.55);
+  }
+  .bonus-usage-status{
+    margin-top:9px;
+    padding:7px 9px;
+    border-radius:6px;
+    font-size:.78rem;
+    font-weight:bold;
+  }
+  .bonus-usage-status.neutral{
+    background:#eee8d8;
+    color:#55462f;
+  }
+  .bonus-usage-status.update{
+    background:#fff0cf;
+    border:1px solid #d88b18;
+    color:#9a5400;
+  }
+  .bonus-usage-status.exhausted{
+    background:#f8dfda;
+    border:1px solid #9b2f2a;
+    color:#8f211d;
+    text-decoration:underline;
+  }
+  .bag-update-warning{
+    margin:8px 0;
+    padding:9px 11px;
+    border:2px solid #d88b18;
+    border-radius:7px;
+    background:#fff0cf;
+    color:#8a4c00;
+    font-weight:bold;
+  }
+  .bag-remove-warning{
+    margin:8px 0;
+    padding:9px 11px;
+    border:2px solid #9b2f2a;
+    border-radius:7px;
+    background:#f8dfda;
+    color:#8f211d;
+    font-weight:bold;
+    text-decoration:underline;
+  }
+  .bonus-inline-result{
+    width:74px !important;
+    min-width:60px;
+    padding:4px 6px !important;
+    margin-left:4px;
+  }
+  .bonus-inline-link{
+    width:145px !important;
+    min-width:110px;
+    padding:4px 6px !important;
+    margin-left:4px;
+  }
+  .bonus-use-counter{
+    display:inline-block;
+    margin-left:5px;
+    font-size:.72rem;
+    font-weight:bold;
+  }
+  .bonus-use-counter.update{color:#b86b00;}
+  .bonus-use-counter.exhausted{color:#9b2f2a;text-decoration:underline;}
+
   /* v71 - promemoria annuale Anno Scolastico nel mese di agosto */
   .school-year-reminder{
     margin:0 0 14px;
@@ -341,6 +408,9 @@
   /* v71 - Anno Scolastico: modifica sempre disponibile + promemoria confermabile ogni agosto */
   /* v70 - fix Camera Blindata Studente: rimosso riferimento a funzione solo Adulto */
   /* v69 - Da accreditare: riepilogo ultimo Post + evidenza valori */
+  /* Bonus variabile: valore solo per singolo post; Azzera elimina tutti i Bonus */
+  /* Utilizzi a consumo: stato iniziale obbligatorio prima dei post; rimossi casi non-CB */
+  /* Bonus a utilizzi: fisso/variabile, link tiro, stato Bagaglio */
   /* CB compatta: Link / Galeoni / N. globale / Bonus; valori Bonus dinamici */
   /* Bonus multipli: aggiunta/rimozione indipendente e esclusione per singolo post */
   /* Bonus generalizzato: Eventi / Premi FT / Trame / altri bonus */
@@ -516,6 +586,13 @@
     if(isNaN(bonusG)||bonusG<0){bonusG=0;}
     base.eventoBonusGaleoni=bonusG;
     base.eventoBonusAltro=(typeof base.eventoBonusAltro==="string")?base.eventoBonusAltro:"";
+    base.eventoBonusModalita=["all","posts","manual"].indexOf(base.eventoBonusModalita)>=0?base.eventoBonusModalita:"all";
+    base.eventoBonusValore=["fixed","variable"].indexOf(base.eventoBonusValore)>=0?base.eventoBonusValore:"fixed";
+    base.eventoBonusMaxUtilizzi=Math.max(0,parseInt(base.eventoBonusMaxUtilizzi,10)||0);
+    base.eventoBonusUsatiIniziali=Math.max(0,parseInt(base.eventoBonusUsatiIniziali,10)||0);
+    base.eventoBonusUsatiConfermati=base.eventoBonusUsatiConfermati===true;
+    base.eventoBonusVariabileSu=["pp","galeoni","altro"].indexOf(base.eventoBonusVariabileSu)>=0?base.eventoBonusVariabileSu:"pp";
+    base.eventoBonusUtilizziManuali=Math.max(0,parseInt(base.eventoBonusUtilizziManuali,10)||0);
     var extra=Array.isArray(base.bonusAggiuntivi)?base.bonusAggiuntivi:[];
     base.bonusAggiuntivi=extra.map(function(b){
       b=b||{};
@@ -524,7 +601,14 @@
         descrizione:String(b.descrizione||""),
         pp:Math.max(0,parseInt(b.pp,10)||0),
         galeoni:Math.max(0,parseInt(b.galeoni,10)||0),
-        altro:String(b.altro||"")
+        altro:String(b.altro||""),
+        modalita:["all","posts","manual"].indexOf(b.modalita)>=0?b.modalita:"all",
+        valore:["fixed","variable"].indexOf(b.valore)>=0?b.valore:"fixed",
+        maxUtilizzi:Math.max(0,parseInt(b.maxUtilizzi,10)||0),
+        usatiIniziali:Math.max(0,parseInt(b.usatiIniziali,10)||0),
+        usatiConfermati:b.usatiConfermati===true,
+        variabileSu:["pp","galeoni","altro"].indexOf(b.variabileSu)>=0?b.variabileSu:"pp",
+        utilizziManuali:Math.max(0,parseInt(b.utilizziManuali,10)||0)
       };
     });
     return base;
@@ -926,7 +1010,7 @@
 
   function newMese(nome){
     meseCounter = meseCounter + 1;
-    return { id: meseCounter, nome: cleanMonthName(nome || ""), chiuso: false, posts: [], eventoBonusDescrizione:"", eventoBonusPP:0, eventoBonusGaleoni:0, eventoBonusAltro:"", bonusAggiuntivi:[] };
+    return { id: meseCounter, nome: cleanMonthName(nome || ""), chiuso: false, posts: [], eventoBonusDescrizione:"", eventoBonusPP:0, eventoBonusGaleoni:0, eventoBonusAltro:"", eventoBonusModalita:"all", eventoBonusValore:"fixed", eventoBonusMaxUtilizzi:0, eventoBonusUsatiIniziali:0, eventoBonusUsatiConfermati:false, eventoBonusVariabileSu:"pp", eventoBonusUtilizziManuali:0, bonusAggiuntivi:[] };
   }
 
   function normalizeMonthName(v){
@@ -1710,6 +1794,30 @@
       var _ebg=parseInt(MESI[nmi].eventoBonusGaleoni,10); if(isNaN(_ebg)||_ebg<0){_ebg=0;}
       if(MESI[nmi].eventoBonusGaleoni!==_ebg){MESI[nmi].eventoBonusGaleoni=_ebg;DATA_DIRTY=true;}
       if(typeof MESI[nmi].eventoBonusAltro!=="string"){MESI[nmi].eventoBonusAltro="";DATA_DIRTY=true;}
+      if(["all","posts","manual"].indexOf(MESI[nmi].eventoBonusModalita)<0){MESI[nmi].eventoBonusModalita="all";DATA_DIRTY=true;}
+      if(["fixed","variable"].indexOf(MESI[nmi].eventoBonusValore)<0){MESI[nmi].eventoBonusValore="fixed";DATA_DIRTY=true;}
+      var _ebu=Math.max(0,parseInt(MESI[nmi].eventoBonusMaxUtilizzi,10)||0); if(MESI[nmi].eventoBonusMaxUtilizzi!==_ebu){MESI[nmi].eventoBonusMaxUtilizzi=_ebu;DATA_DIRTY=true;}
+      var _ebi=Math.max(0,parseInt(MESI[nmi].eventoBonusUsatiIniziali,10)||0); if(MESI[nmi].eventoBonusUsatiIniziali!==_ebi){MESI[nmi].eventoBonusUsatiIniziali=_ebi;DATA_DIRTY=true;}
+      if(typeof MESI[nmi].eventoBonusUsatiConfermati!=="boolean"){MESI[nmi].eventoBonusUsatiConfermati=false;DATA_DIRTY=true;}
+      if(["pp","galeoni","altro"].indexOf(MESI[nmi].eventoBonusVariabileSu)<0){MESI[nmi].eventoBonusVariabileSu="pp";DATA_DIRTY=true;}
+      var _ebm=Math.max(0,parseInt(MESI[nmi].eventoBonusUtilizziManuali,10)||0); if(MESI[nmi].eventoBonusUtilizziManuali!==_ebm){MESI[nmi].eventoBonusUtilizziManuali=_ebm;DATA_DIRTY=true;}
+      if(!Array.isArray(MESI[nmi].bonusAggiuntivi)){MESI[nmi].bonusAggiuntivi=[];DATA_DIRTY=true;}
+      for(var _bai=0;_bai<MESI[nmi].bonusAggiuntivi.length;_bai++){
+        var _ba=MESI[nmi].bonusAggiuntivi[_bai]||{};
+        if(["all","posts","manual"].indexOf(_ba.modalita)<0){_ba.modalita="all";DATA_DIRTY=true;}
+        if(["fixed","variable"].indexOf(_ba.valore)<0){_ba.valore="fixed";DATA_DIRTY=true;}
+        _ba.maxUtilizzi=Math.max(0,parseInt(_ba.maxUtilizzi,10)||0);
+        _ba.usatiIniziali=Math.max(0,parseInt(_ba.usatiIniziali,10)||0);
+        if(typeof _ba.usatiConfermati!=="boolean"){_ba.usatiConfermati=false;DATA_DIRTY=true;}
+        if(["pp","galeoni","altro"].indexOf(_ba.variabileSu)<0){_ba.variabileSu="pp";DATA_DIRTY=true;}
+        _ba.utilizziManuali=Math.max(0,parseInt(_ba.utilizziManuali,10)||0);
+        MESI[nmi].bonusAggiuntivi[_bai]=_ba;
+      }
+      for(var _pbi=0;_pbi<MESI[nmi].posts.length;_pbi++){
+        var _pb=MESI[nmi].posts[_pbi];
+        if(!_pb||typeof _pb!=="object"){continue;}
+        if(!_pb.bonusUtilizzi||typeof _pb.bonusUtilizzi!=="object"||Array.isArray(_pb.bonusUtilizzi)){_pb.bonusUtilizzi={};}
+      }
     }
     repairCountersFromData();
     normalizeAllStoredDates();
@@ -2265,7 +2373,7 @@
     addBtn.addEventListener(EV, function(){
       if(blockIfMonthReadOnly(mese)){return;}
       postCounter = postCounter + 1;
-      mese.posts.push({ id: postCounter, globalNo:null, link: "", nota: "", pp: "", eventoBonusEscluso:false });
+      mese.posts.push({ id: postCounter, globalNo:null, link: "", nota: "", pp: "", eventoBonusEscluso:false, bonusUtilizzi:{} });
       scheduleSave(0); renderAll();
     });
     card.appendChild(addBtn);
@@ -2286,11 +2394,12 @@
   function meseBonusPP(mese){ var v=parseInt(mese && mese.eventoBonusPP != null ? mese.eventoBonusPP : 0,10); if(isNaN(v)||v<0){return 0;} return v; }
   function meseBonusGaleoni(mese){ var v=parseInt(mese && mese.eventoBonusGaleoni != null ? mese.eventoBonusGaleoni : 0,10); if(isNaN(v)||v<0){return 0;} return v; }
   function meseBonusAltro(mese){ return String(mese && mese.eventoBonusAltro != null ? mese.eventoBonusAltro : "").trim(); }
-  function describedEventBonusPP(mese){
-    var s=String(mese&&mese.eventoBonusDescrizione||""); var m=s.match(/\+?\s*(\d+)\s*PP\b/i);
-    return m?Math.max(0,parseInt(m[1],10)||0):null;
-  }
   function newBonusId(){ return "b_"+Date.now().toString(36)+"_"+Math.random().toString(36).slice(2,8); }
+
+  function normalizeBonusMode(v){return ["all","posts","manual"].indexOf(v)>=0?v:"all";}
+  function normalizeBonusValueMode(v){return ["fixed","variable"].indexOf(v)>=0?v:"fixed";}
+  function normalizeVariableTarget(v){return ["pp","galeoni","altro"].indexOf(v)>=0?v:"pp";}
+
   function ensureBonusExtras(mese){
     if(!mese){return [];}
     if(!Array.isArray(mese.bonusAggiuntivi)){mese.bonusAggiuntivi=[];}
@@ -2301,136 +2410,269 @@
       b.pp=Math.max(0,parseInt(b.pp,10)||0);
       b.galeoni=Math.max(0,parseInt(b.galeoni,10)||0);
       b.altro=String(b.altro||"");
+      b.modalita=normalizeBonusMode(b.modalita);
+      b.valore=normalizeBonusValueMode(b.valore);
+      b.maxUtilizzi=Math.max(0,parseInt(b.maxUtilizzi,10)||0);
+      b.usatiIniziali=Math.max(0,parseInt(b.usatiIniziali,10)||0);
+      b.usatiConfermati=b.usatiConfermati===true;
+      if(b.maxUtilizzi>0){b.usatiIniziali=Math.min(b.usatiIniziali,b.maxUtilizzi);}
+      b.variabileSu=normalizeVariableTarget(b.variabileSu);
+      b.utilizziManuali=Math.max(0,parseInt(b.utilizziManuali,10)||0);
+      if(b.maxUtilizzi>0){b.utilizziManuali=Math.min(b.utilizziManuali,Math.max(0,b.maxUtilizzi-b.usatiIniziali));}
       mese.bonusAggiuntivi[i]=b;
     }
     return mese.bonusAggiuntivi;
   }
+
   function primaryBonusItem(mese){
     return {
-      id:"__primary__",
-      primary:true,
+      id:"__primary__", primary:true,
       descrizione:String(mese&&mese.eventoBonusDescrizione||""),
       pp:meseBonusPP(mese),
       galeoni:meseBonusGaleoni(mese),
-      altro:meseBonusAltro(mese)
+      altro:meseBonusAltro(mese),
+      modalita:normalizeBonusMode(mese&&mese.eventoBonusModalita),
+      valore:normalizeBonusValueMode(mese&&mese.eventoBonusValore),
+      maxUtilizzi:Math.max(0,parseInt(mese&&mese.eventoBonusMaxUtilizzi,10)||0),
+      usatiIniziali:Math.max(0,parseInt(mese&&mese.eventoBonusUsatiIniziali,10)||0),
+      usatiConfermati:mese&&mese.eventoBonusUsatiConfermati===true,
+      variabileSu:normalizeVariableTarget(mese&&mese.eventoBonusVariabileSu),
+      utilizziManuali:Math.max(0,parseInt(mese&&mese.eventoBonusUtilizziManuali,10)||0)
     };
   }
   function allMonthBonuses(mese){
-    var out=[primaryBonusItem(mese)], extras=ensureBonusExtras(mese);
+    var out=[primaryBonusItem(mese)],extras=ensureBonusExtras(mese);
     for(var i=0;i<extras.length;i++){
+      var b=extras[i];
       out.push({
-        id:String(extras[i].id),
-        primary:false,
-        descrizione:String(extras[i].descrizione||""),
-        pp:Math.max(0,parseInt(extras[i].pp,10)||0),
-        galeoni:Math.max(0,parseInt(extras[i].galeoni,10)||0),
-        altro:String(extras[i].altro||"").trim()
+        id:String(b.id),primary:false,
+        descrizione:String(b.descrizione||""),
+        pp:Math.max(0,parseInt(b.pp,10)||0),
+        galeoni:Math.max(0,parseInt(b.galeoni,10)||0),
+        altro:String(b.altro||"").trim(),
+        modalita:normalizeBonusMode(b.modalita),
+        valore:normalizeBonusValueMode(b.valore),
+        maxUtilizzi:Math.max(0,parseInt(b.maxUtilizzi,10)||0),
+        usatiIniziali:Math.max(0,parseInt(b.usatiIniziali,10)||0),
+        usatiConfermati:b.usatiConfermati===true,
+        variabileSu:normalizeVariableTarget(b.variabileSu),
+        utilizziManuali:Math.max(0,parseInt(b.utilizziManuali,10)||0)
       });
     }
     return out;
   }
   function bonusIsActive(b){
-    return !!(b && (String(b.descrizione||"").trim()!=="" || (parseInt(b.pp,10)||0)>0 || (parseInt(b.galeoni,10)||0)>0 || String(b.altro||"").trim()!==""));
+    return !!(b && (
+      String(b.descrizione||"").trim()!=="" ||
+      b.pp>0 || b.galeoni>0 || String(b.altro||"").trim()!=="" ||
+      b.modalita!=="all" || b.maxUtilizzi>0
+    ));
   }
   function activeMonthBonuses(mese){
     var all=allMonthBonuses(mese),out=[];
-    for(var i=0;i<all.length;i++){if(bonusIsActive(all[i])){out.push(all[i]);}}
+    for(var i=0;i<all.length;i++){if(bonusIsActive(all[i]))out.push(all[i]);}
     return out;
   }
   function bonusDisplayName(b,idx){
     var d=String(b&&b.descrizione||"").trim();
-    return d || ("Bonus "+(idx+1));
+    return d||("Bonus "+(idx+1));
   }
+
+  function primaryBonusFieldName(field){
+    return {
+      descrizione:"eventoBonusDescrizione",pp:"eventoBonusPP",galeoni:"eventoBonusGaleoni",altro:"eventoBonusAltro",
+      modalita:"eventoBonusModalita",valore:"eventoBonusValore",maxUtilizzi:"eventoBonusMaxUtilizzi",
+      usatiIniziali:"eventoBonusUsatiIniziali",usatiConfermati:"eventoBonusUsatiConfermati",variabileSu:"eventoBonusVariabileSu",utilizziManuali:"eventoBonusUtilizziManuali"
+    }[field];
+  }
+  function getEditableBonusField(mese,bonus,isPrimary,field){
+    if(isPrimary){var k=primaryBonusFieldName(field);return mese[k];}
+    return bonus[field];
+  }
+  function setEditableBonusField(mese,bonus,isPrimary,field,value){
+    if(isPrimary){mese[primaryBonusFieldName(field)]=value;}else{bonus[field]=value;}
+  }
+
   function postExcludedFromBonus(post,b){
     if(!post||!b){return false;}
     if(b.primary){return !!post.eventoBonusEscluso;}
-    return !!(post.bonusEsclusi && post.bonusEsclusi[b.id]);
+    return !!(post.bonusEsclusi&&post.bonusEsclusi[b.id]);
   }
   function setPostExcludedFromBonus(post,b,value){
     if(!post||!b){return;}
     if(b.primary){post.eventoBonusEscluso=!!value;return;}
-    if(!post.bonusEsclusi || typeof post.bonusEsclusi!=="object"){post.bonusEsclusi={};}
+    if(!post.bonusEsclusi||typeof post.bonusEsclusi!=="object"){post.bonusEsclusi={};}
     if(value){post.bonusEsclusi[b.id]=true;}else{delete post.bonusEsclusi[b.id];}
   }
+  function getBonusUsageRecord(post,b,create){
+    if(!post||!b){return null;}
+    if(!post.bonusUtilizzi||typeof post.bonusUtilizzi!=="object"||Array.isArray(post.bonusUtilizzi)){
+      if(!create){return null;}
+      post.bonusUtilizzi={};
+    }
+    var id=String(b.id);
+    var r=post.bonusUtilizzi[id];
+    if(!r&&create){r={used:false,pp:0,galeoni:0,altro:"",link:""};post.bonusUtilizzi[id]=r;}
+    if(r){
+      r.used=!!r.used;
+      r.pp=Math.max(0,parseInt(r.pp,10)||0);
+      r.galeoni=Math.max(0,parseInt(r.galeoni,10)||0);
+      r.altro=String(r.altro||"");
+      r.link=String(r.link||"");
+    }
+    return r||null;
+  }
+  function postUsesLimitedBonus(post,b){
+    var r=getBonusUsageRecord(post,b,false);
+    return !!(r&&r.used&&isValidPostLink(post&&post.link));
+  }
+  function bonusPostsUsedThisMonth(b,posts,endExclusive){
+    var c=0,limit=Math.min(posts.length,endExclusive==null?posts.length:endExclusive);
+    if(b.modalita!=="posts"){return 0;}
+    for(var i=0;i<limit;i++){if(postUsesLimitedBonus(posts[i],b))c++;}
+    return c;
+  }
+  function bonusUsedThisMonth(b,posts){
+    if(b.modalita==="posts"){return bonusPostsUsedThisMonth(b,posts,posts.length);}
+    if(b.modalita==="manual"){return Math.max(0,parseInt(b.utilizziManuali,10)||0);}
+    return 0;
+  }
+  function bonusCurrentUses(b,posts){return Math.max(0,parseInt(b.usatiIniziali,10)||0)+bonusUsedThisMonth(b,posts);}
+  function bonusRemainingUses(b,posts){
+    if(!(b.maxUtilizzi>0)){return Infinity;}
+    return Math.max(0,b.maxUtilizzi-bonusCurrentUses(b,posts));
+  }
+  function bonusUsageClass(b,posts){
+    if(!(b.maxUtilizzi>0)){return "neutral";}
+    var current=bonusCurrentUses(b,posts),monthUsed=bonusUsedThisMonth(b,posts);
+    if(current>=b.maxUtilizzi){return "exhausted";}
+    if(monthUsed>0){return "update";}
+    return "neutral";
+  }
+  function bonusUsageStatusText(b,posts){
+    if(!(b.maxUtilizzi>0)){return "";}
+    var start=Math.max(0,parseInt(b.usatiIniziali,10)||0),monthUsed=bonusUsedThisMonth(b,posts),current=start+monthUsed;
+    if(current>=b.maxUtilizzi){return current+"/"+b.maxUtilizzi+" — ESAURITO: rimuovere dal Bagaglio in Scheda PG.";}
+    if(monthUsed>0){return current+"/"+b.maxUtilizzi+" — aggiornare nel Bagaglio in Scheda PG (da "+start+"/"+b.maxUtilizzi+" a "+current+"/"+b.maxUtilizzi+").";}
+    return current+"/"+b.maxUtilizzi+" utilizzi.";
+  }
+  function bonusBagWarnings(mese,posts){
+    var bonuses=activeMonthBonuses(mese),out=[];
+    for(var i=0;i<bonuses.length;i++){
+      var b=bonuses[i];
+      if((b.modalita!=="posts"&&b.modalita!=="manual")||!(b.maxUtilizzi>0)){continue;}
+      var used=bonusUsedThisMonth(b,posts);
+      if(used<=0){continue;}
+      var current=bonusCurrentUses(b,posts);
+      if(current>=b.maxUtilizzi){
+        out.push({kind:"remove",text:bonusDisplayName(b,i)+": "+current+"/"+b.maxUtilizzi+" — RIMUOVERE DAL BAGAGLIO IN SCHEDA PG."});
+      }else{
+        out.push({kind:"update",text:bonusDisplayName(b,i)+": aggiornare gli utilizzi nel Bagaglio da "+b.usatiIniziali+"/"+b.maxUtilizzi+" a "+current+"/"+b.maxUtilizzi+"."});
+      }
+    }
+    return out;
+  }
+
   function postEligibleForBonus(post,b){
-    return !!(post && isValidPostLink(post.link) && !postExcludedFromBonus(post,b));
+    if(!post||!isValidPostLink(post.link)){return false;}
+    if(b.modalita==="all"){return !postExcludedFromBonus(post,b);}
+    if(b.modalita==="posts"){return postUsesLimitedBonus(post,b);}
+    return false;
   }
   function bonusEligibleCount(b,posts,endExclusive){
+    if(b.modalita==="manual"){return Math.max(0,parseInt(b.utilizziManuali,10)||0);}
     var count=0,limit=Math.min(endExclusive,posts.length);
-    for(var i=0;i<limit;i++){if(postEligibleForBonus(posts[i],b)){count++;}}
+    for(var i=0;i<limit;i++){if(postEligibleForBonus(posts[i],b))count++;}
     return count;
   }
-  function eventBonusEligibleCount(posts,endExclusive,mese){
-    var bonuses=activeMonthBonuses(mese);
-    if(!bonuses.length){return 0;}
-    var count=0,limit=Math.min(endExclusive,posts.length);
-    for(var i=0;i<limit;i++){
-      if(!posts[i]||!isValidPostLink(posts[i].link)){continue;}
-      for(var j=0;j<bonuses.length;j++){if(postEligibleForBonus(posts[i],bonuses[j])){count++;break;}}
+  function bonusPPOnPost(b,post){
+    if(!postEligibleForBonus(post,b)){return 0;}
+    if(b.modalita==="posts"&&b.valore==="variable"){
+      var r=getBonusUsageRecord(post,b,false);
+      return b.variabileSu==="pp"&&r?Math.max(0,parseInt(r.pp,10)||0):0;
     }
-    return count;
+    return Math.max(0,parseInt(b.pp,10)||0);
   }
-  function cumulativeBasePP(posts, endExclusive){ var tot=0; for(var i=0;i<endExclusive;i++){ if(posts[i] && isValidPostLink(posts[i].link)){ tot += valorePP(posts[i]); } } return tot; }
+  function bonusGOnPost(b,post){
+    if(!postEligibleForBonus(post,b)){return 0;}
+    if(b.modalita==="posts"&&b.valore==="variable"){
+      var r=getBonusUsageRecord(post,b,false);
+      return b.variabileSu==="galeoni"&&r?Math.max(0,parseInt(r.galeoni,10)||0):0;
+    }
+    return Math.max(0,parseInt(b.galeoni,10)||0);
+  }
+  function bonusAltroOnPost(b,post){
+    if(!postEligibleForBonus(post,b)){return "";}
+    if(b.modalita==="posts"&&b.valore==="variable"){
+      var r=getBonusUsageRecord(post,b,false);
+      return b.variabileSu==="altro"&&r?String(r.altro||"").trim():"";
+    }
+    return String(b.altro||"").trim();
+  }
+  function bonusManualPPTotal(b){return b.modalita==="manual"?Math.max(0,parseInt(b.utilizziManuali,10)||0)*Math.max(0,parseInt(b.pp,10)||0):0;}
+  function bonusManualGTotal(b){return b.modalita==="manual"?Math.max(0,parseInt(b.utilizziManuali,10)||0)*Math.max(0,parseInt(b.galeoni,10)||0):0;}
+
+  function cumulativeBasePP(posts,endExclusive){var tot=0;for(var i=0;i<endExclusive;i++){if(posts[i]&&isValidPostLink(posts[i].link))tot+=valorePP(posts[i]);}return tot;}
   function eventBonusTotal(mese,posts,endExclusive){
-    var bonuses=activeMonthBonuses(mese),tot=0;
-    for(var i=0;i<bonuses.length;i++){
-      var pp=Math.max(0,parseInt(bonuses[i].pp,10)||0);
-      if(pp){tot+=bonusEligibleCount(bonuses[i],posts,endExclusive)*pp;}
+    var bonuses=activeMonthBonuses(mese),tot=0,limit=Math.min(endExclusive,posts.length);
+    for(var b=0;b<bonuses.length;b++){
+      for(var i=0;i<limit;i++)tot+=bonusPPOnPost(bonuses[b],posts[i]);
+      if(endExclusive>=posts.length)tot+=bonusManualPPTotal(bonuses[b]);
     }
     return tot;
   }
   function eventBonusGaleoniTotal(mese,posts,endExclusive){
-    var bonuses=activeMonthBonuses(mese),tot=0;
-    for(var i=0;i<bonuses.length;i++){
-      var g=Math.max(0,parseInt(bonuses[i].galeoni,10)||0);
-      if(g){tot+=bonusEligibleCount(bonuses[i],posts,endExclusive)*g;}
+    var bonuses=activeMonthBonuses(mese),tot=0,limit=Math.min(endExclusive,posts.length);
+    for(var b=0;b<bonuses.length;b++){
+      for(var i=0;i<limit;i++)tot+=bonusGOnPost(bonuses[b],posts[i]);
+      if(endExclusive>=posts.length)tot+=bonusManualGTotal(bonuses[b]);
     }
     return tot;
   }
   function bonusPPForPost(mese,post){
     var bonuses=activeMonthBonuses(mese),tot=0;
-    for(var i=0;i<bonuses.length;i++){if(postEligibleForBonus(post,bonuses[i])){tot+=Math.max(0,parseInt(bonuses[i].pp,10)||0);}}
+    for(var i=0;i<bonuses.length;i++)tot+=bonusPPOnPost(bonuses[i],post);
     return tot;
   }
   function bonusGForPost(mese,post){
     var bonuses=activeMonthBonuses(mese),tot=0;
-    for(var i=0;i<bonuses.length;i++){if(postEligibleForBonus(post,bonuses[i])){tot+=Math.max(0,parseInt(bonuses[i].galeoni,10)||0);}}
+    for(var i=0;i<bonuses.length;i++)tot+=bonusGOnPost(bonuses[i],post);
     return tot;
   }
   function bonusAltroForPost(mese,post){
     var bonuses=activeMonthBonuses(mese),out=[];
-    for(var i=0;i<bonuses.length;i++){
-      if(postEligibleForBonus(post,bonuses[i])){
-        var a=String(bonuses[i].altro||"").trim();
-        if(a){out.push(a);}
-      }
-    }
+    for(var i=0;i<bonuses.length;i++){var a=bonusAltroOnPost(bonuses[i],post);if(a)out.push(a);}
     return out.join(", ");
   }
-  function cumulativePP(posts, endExclusive, mese){ return cumulativeBasePP(posts,endExclusive)+eventBonusTotal(mese,posts,endExclusive); }
+  function cumulativePP(posts,endExclusive,mese){return cumulativeBasePP(posts,endExclusive)+eventBonusTotal(mese,posts,endExclusive);}
   function cumulativeGWithEvent(posts,endExclusive,mese){
-    var linked=0;
-    for(var i=0;i<endExclusive;i++){ if(posts[i] && isValidPostLink(posts[i].link)){ linked++; } }
+    var linked=0;for(var i=0;i<endExclusive;i++){if(posts[i]&&isValidPostLink(posts[i].link))linked++;}
     return cumulativeG(linked)+eventBonusGaleoniTotal(mese,posts,endExclusive);
   }
   function latestCreditInfo(mese,posts){
     posts=Array.isArray(posts)?posts:[];
     var idx=-1,linkedPos=0;
-    for(var i=0;i<posts.length;i++){
-      if(posts[i] && isValidPostLink(posts[i].link)){ linkedPos++; idx=i; }
-    }
+    for(var i=0;i<posts.length;i++){if(posts[i]&&isValidPostLink(posts[i].link)){linkedPos++;idx=i;}}
     if(idx<0){return null;}
     var post=posts[idx];
     return {
-      index:idx,
-      localNo:idx+1,
-      linkedPos:linkedPos,
+      index:idx,localNo:idx+1,linkedPos:linkedPos,
       globalNo:parseInt(post.globalNo,10)>0?parseInt(post.globalNo,10):null,
       galeoni:valoreG(linkedPos)+bonusGForPost(mese,post),
       pp:valorePP(post)+bonusPPForPost(mese,post),
       altro:bonusAltroForPost(mese,post)
     };
   }
+  function manualCreditParts(mese){
+    var bonuses=activeMonthBonuses(mese),pp=0,g=0,altro=[];
+    for(var i=0;i<bonuses.length;i++){
+      var b=bonuses[i];if(b.modalita!=="manual"||!(b.utilizziManuali>0))continue;
+      pp+=bonusManualPPTotal(b);g+=bonusManualGTotal(b);
+      if(b.altro)altro.push(bonusDisplayName(b,i)+": "+b.altro);
+    }
+    return {pp:pp,galeoni:g,altro:altro};
+  }
+
   function monthlySocialDecay(postCount){
     var n=Math.max(0,parseInt(postCount,10)||0);
     return n<=3?-1:(n<=9?-.5:0);
@@ -2441,61 +2683,121 @@
     var defs=socialFieldDefs(),values=normalizeSocialValues(PARAMETRI_SOCIALI);
     for(var i=0;i<defs.length;i++){
       var d=defs[i],before=socialNumber(values[d.key]);
-      if(before===null){continue;}
+      if(before===null)continue;
       var after=before+decay;
-      if(Number.isFinite(d.min)){after=Math.max(d.min,after);}
-      if(Number.isFinite(d.max)){after=Math.min(d.max,after);}
+      if(Number.isFinite(d.min))after=Math.max(d.min,after);
+      if(Number.isFinite(d.max))after=Math.min(d.max,after);
       after=Math.round(after*100)/100;
       var delta=Math.round((after-before)*100)/100;
-      if(delta<0){parts.push("−"+fmtSocialValue(Math.abs(delta))+" "+d.label);}
+      if(delta<0)parts.push("−"+fmtSocialValue(Math.abs(delta))+" "+d.label);
     }
     return parts;
   }
-  function bonusValueText(b){
+
+  function bonusValueText(b,post){
     var parts=[];
-    var pp=Math.max(0,parseInt(b&&b.pp,10)||0);
-    var g=Math.max(0,parseInt(b&&b.galeoni,10)||0);
-    var a=String(b&&b.altro||"").trim();
-    if(pp>0){parts.push("+"+pp+" PP");}
-    if(g>0){parts.push("+"+g+" G");}
-    if(a){parts.push(a);}
+    if(b.modalita==="posts"&&b.valore==="variable"){
+      var r=getBonusUsageRecord(post,b,false);
+      if(!r||!r.used)return "";
+      if(b.variabileSu==="pp"&&r.pp>0)parts.push("+"+r.pp+" PP");
+      if(b.variabileSu==="galeoni"&&r.galeoni>0)parts.push("+"+r.galeoni+" G");
+      if(b.variabileSu==="altro"&&String(r.altro||"").trim())parts.push(String(r.altro).trim());
+      return parts.join(" · ");
+    }
+    if(b.pp>0)parts.push("+"+b.pp+" PP");
+    if(b.galeoni>0)parts.push("+"+b.galeoni+" G");
+    if(String(b.altro||"").trim())parts.push(String(b.altro).trim());
     return parts.join(" · ");
   }
+
   function makeEventBonusExclusionCell(post,mese,locked){
     var td=el("td","cb-bonus-cell"),bonuses=activeMonthBonuses(mese),shown=0;
-
     for(var i=0;i<bonuses.length;i++){
       (function(b,idx){
-        var values=bonusValueText(b);
-        if(!values){return;}
+        if(b.modalita==="manual")return;
         shown++;
+        var line=el("div","cb-bonus-line");
+        var cb=el("input");cb.type="checkbox";
 
-        var line=el("label","cb-bonus-line");
-        var cb=el("input");
-        cb.type="checkbox";
-        cb.checked=!postExcludedFromBonus(post,b);
-        cb.disabled=!!locked || !post || !isValidPostLink(post.link);
-        cb.title="Spuntato = il post riceve questo Bonus";
-        cb.addEventListener("change",function(){
-          if(blockIfMonthReadOnly(mese)){cb.checked=!postExcludedFromBonus(post,b);return;}
-          setPostExcludedFromBonus(post,b,!cb.checked);
-          scheduleSave(0);
-          renderAll();
-        });
+        if(b.modalita==="all"){
+          cb.checked=!postExcludedFromBonus(post,b);
+          cb.disabled=!!locked||!post||!isValidPostLink(post.link);
+          cb.title="Spuntato = il post riceve questo Bonus";
+          cb.addEventListener("change",function(){
+            if(blockIfMonthReadOnly(mese)){cb.checked=!postExcludedFromBonus(post,b);return;}
+            setPostExcludedFromBonus(post,b,!cb.checked);scheduleSave(0);renderAll();
+          });
+        }else{
+          var rec=getBonusUsageRecord(post,b,false);
+          cb.checked=!!(rec&&rec.used);
+          var setupMissing=!b.usatiConfermati||!(b.maxUtilizzi>0);
+          var exhausted=b.maxUtilizzi>0&&bonusCurrentUses(b,mese.posts)>=b.maxUtilizzi&&!cb.checked;
+          cb.disabled=!!locked||!isValidPostLink(post.link)||setupMissing||exhausted;
+          cb.title=setupMissing?"Prima indica Utilizzi attuali in Scheda e Utilizzi totali":(exhausted?"Premio esaurito":"Spuntato = utilizzo del premio su questo post");
+          cb.addEventListener("change",function(){
+            if(blockIfMonthReadOnly(mese)){renderAll();return;}
+            var r=getBonusUsageRecord(post,b,true);
+            if(cb.checked && b.maxUtilizzi>0 && bonusCurrentUses(b,mese.posts)>=b.maxUtilizzi && !r.used){
+              alert("Questo Bonus ha già raggiunto "+b.maxUtilizzi+"/"+b.maxUtilizzi+" utilizzi.");renderAll();return;
+            }
+            r.used=cb.checked;scheduleSave(0);renderAll();
+          });
+        }
         line.appendChild(cb);
 
         var txt=el("span");
-        var name=String(b.descrizione||"").trim();
-        if(bonuses.length>1 && name){
-          txt.appendChild(el("span","cb-bonus-name",name+": "));
+        var name=bonusDisplayName(b,idx);
+        txt.appendChild(el("span","cb-bonus-name",name+(b.modalita==="posts"?": ":"")));
+
+        if(b.modalita==="posts"&&b.valore==="variable"){
+          var r=getBonusUsageRecord(post,b,true);
+          if(r.used){
+            if(b.variabileSu==="pp"||b.variabileSu==="galeoni"){
+              var inp=el("input","bonus-inline-result");inp.type="number";inp.min="0";inp.step="1";inp.placeholder=b.variabileSu==="pp"?"PP":"G";
+              inp.value=b.variabileSu==="pp"?r.pp:r.galeoni;inp.disabled=!!locked;
+              inp.addEventListener("input",function(){
+                if(blockIfMonthReadOnly(mese))return;
+                if(b.variabileSu==="pp")r.pp=Math.max(0,parseInt(inp.value,10)||0);else r.galeoni=Math.max(0,parseInt(inp.value,10)||0);
+                scheduleSave(450);
+              });
+              inp.addEventListener("change",function(){scheduleSave(0);renderAll();});
+              txt.appendChild(inp);
+              txt.appendChild(document.createTextNode(b.variabileSu==="pp"?" PP":" G"));
+            }else{
+              var alt=el("input","bonus-inline-result");alt.type="text";alt.placeholder="Risultato";alt.value=r.altro||"";alt.disabled=!!locked;
+              alt.addEventListener("input",function(){if(blockIfMonthReadOnly(mese))return;r.altro=alt.value;scheduleSave(450);});
+              alt.addEventListener("change",function(){scheduleSave(0);renderAll();});
+              txt.appendChild(alt);
+            }
+
+            var lnk=el("input","bonus-inline-link");lnk.type="url";lnk.placeholder="Link tiro";lnk.value=r.link||"";lnk.disabled=!!locked;
+            lnk.addEventListener("input",function(){if(blockIfMonthReadOnly(mese))return;r.link=lnk.value;scheduleSave(450);});
+            lnk.addEventListener("change",function(){scheduleSave(0);renderAll();});
+            txt.appendChild(lnk);
+            var ico=makeLinkIcon(r.link,"Apri il tiro del Bonus");if(ico)txt.appendChild(ico);
+            var missingResult=(b.variabileSu==="pp"&&!(r.pp>0))||(b.variabileSu==="galeoni"&&!(r.galeoni>0))||(b.variabileSu==="altro"&&!String(r.altro||"").trim());
+            if(missingResult){txt.appendChild(el("span","status-pending"," ⚠ risultato mancante"));}
+            if(!isValidPostLink(r.link)){txt.appendChild(el("span","status-pending"," ⚠ link tiro mancante"));}
+          }else{
+            if(!b.usatiConfermati||!(b.maxUtilizzi>0)){
+              txt.appendChild(el("span","status-pending","prima indica gli utilizzi attuali"));
+            }else{
+              txt.appendChild(el("span","cb-bonus-values","da usare"));
+            }
+          }
+        }else{
+          var values=bonusValueText(b,post);
+          if(values)txt.appendChild(el("span","cb-bonus-values",values));
         }
-        txt.appendChild(el("span","cb-bonus-values",values));
-        line.appendChild(txt);
-        td.appendChild(line);
+
+        if(b.modalita==="posts"&&b.maxUtilizzi>0){
+          var cls=bonusUsageClass(b,mese.posts);
+          txt.appendChild(el("span","bonus-use-counter "+cls,bonusCurrentUses(b,mese.posts)+"/"+b.maxUtilizzi));
+        }
+        line.appendChild(txt);td.appendChild(line);
       })(bonuses[i],i);
     }
 
-    /* Compatibilità con vecchi PP manuali già salvati. */
     var legacyPP=parseInt(post&&post.pp!=null?post.pp:0,10);
     if(!isNaN(legacyPP)&&legacyPP>0){
       shown++;
@@ -2503,55 +2805,154 @@
       legacy.appendChild(el("span","cb-bonus-values","+"+legacyPP+" PP"));
       td.appendChild(legacy);
     }
-
-    if(!shown){td.appendChild(el("span","cb-bonus-none","—"));}
+    if(!shown)td.appendChild(el("span","cb-bonus-none","—"));
     return td;
   }
 
-  function appendExtraBonusEditor(parent,mese,bonus,index,locked){
-    var card=el("div","card");
-    card.style.marginTop="10px";
-    card.appendChild(el("h4",null,"Bonus "+(index+2)));
+  function appendBonusUsageSettings(parent,mese,bonus,index,locked,isPrimary){
+    var mode=normalizeBonusMode(getEditableBonusField(mese,bonus,isPrimary,"modalita"));
+    var row=el("div","row bonus-settings-row");
 
-    var row=el("div","row");
-    var dCell=el("div"); dCell.appendChild(el("label",null,"Descrizione del Bonus"));
-    var d=el("input"); d.type="text"; d.placeholder="Es. Premio FT, ricompensa trama…"; d.value=bonus.descrizione||""; d.disabled=locked;
-    d.addEventListener("input",function(){if(blockIfMonthReadOnly(mese)){return;}bonus.descrizione=d.value;scheduleSave(450);});
-    d.addEventListener("change",function(){if(blockIfMonthReadOnly(mese)){return;}bonus.descrizione=d.value;scheduleSave(0);renderAll();});
-    dCell.appendChild(d); row.appendChild(dCell);
+    var modeCell=el("div");modeCell.appendChild(el("label",null,"Applicazione"));
+    var modeSel=el("select");
+    [["all","Tutti i post"],["posts","A utilizzi sui post"]].forEach(function(o){var op=el("option");op.value=o[0];op.textContent=o[1];modeSel.appendChild(op);});
+    if(mode==="manual"){mode="all";setEditableBonusField(mese,bonus,isPrimary,"modalita","all");}
+    modeSel.value=mode;modeSel.disabled=locked;
+    modeSel.addEventListener("change",function(){
+      if(blockIfMonthReadOnly(mese))return;
+      setEditableBonusField(mese,bonus,isPrimary,"modalita",modeSel.value);
+      if(modeSel.value!=="posts")setEditableBonusField(mese,bonus,isPrimary,"valore","fixed");
+      scheduleSave(0);renderAll();
+    });
+    modeCell.appendChild(modeSel);row.appendChild(modeCell);
 
-    var pCell=el("div"); pCell.appendChild(el("label",null,"PP"));
-    var pp=el("input"); pp.type="number"; pp.min="0"; pp.step="1"; pp.placeholder="0"; pp.value=Math.max(0,parseInt(bonus.pp,10)||0); pp.disabled=locked;
-    pp.addEventListener("input",function(){if(blockIfMonthReadOnly(mese)){return;}bonus.pp=Math.max(0,parseInt(pp.value,10)||0);scheduleSave(450);});
-    pp.addEventListener("change",function(){if(blockIfMonthReadOnly(mese)){return;}bonus.pp=Math.max(0,parseInt(pp.value,10)||0);scheduleSave(0);renderAll();});
-    pCell.appendChild(pp); row.appendChild(pCell);
-
-    var gCell=el("div"); gCell.appendChild(el("label",null,"Galeoni"));
-    var g=el("input"); g.type="number"; g.min="0"; g.step="1"; g.placeholder="0"; g.value=Math.max(0,parseInt(bonus.galeoni,10)||0); g.disabled=locked;
-    g.addEventListener("input",function(){if(blockIfMonthReadOnly(mese)){return;}bonus.galeoni=Math.max(0,parseInt(g.value,10)||0);scheduleSave(450);});
-    g.addEventListener("change",function(){if(blockIfMonthReadOnly(mese)){return;}bonus.galeoni=Math.max(0,parseInt(g.value,10)||0);scheduleSave(0);renderAll();});
-    gCell.appendChild(g); row.appendChild(gCell);
-
-    var aCell=el("div"); aCell.appendChild(el("label",null,"Altro"));
-    var a=el("input"); a.type="text"; a.placeholder="Es. oggetto, ingrediente…"; a.value=bonus.altro||""; a.disabled=locked;
-    a.addEventListener("input",function(){if(blockIfMonthReadOnly(mese)){return;}bonus.altro=a.value;scheduleSave(450);});
-    a.addEventListener("change",function(){if(blockIfMonthReadOnly(mese)){return;}bonus.altro=a.value;scheduleSave(0);renderAll();});
-    aCell.appendChild(a); row.appendChild(aCell);
-
-    card.appendChild(row);
-    if(!locked){
-      var rem=el("button","action danger small","Rimuovi Bonus"); rem.type="button"; rem.style.marginTop="12px";
-      rem.addEventListener(EV,function(){
-        if(blockIfMonthReadOnly(mese)){return;}
-        if(!confirm("Rimuovere questo Bonus?")){return;}
-        var extras=ensureBonusExtras(mese),id=String(bonus.id);
-        for(var i=extras.length-1;i>=0;i--){if(String(extras[i].id)===id){extras.splice(i,1);}}
-        for(var p=0;p<mese.posts.length;p++){if(mese.posts[p]&&mese.posts[p].bonusEsclusi){delete mese.posts[p].bonusEsclusi[id];}}
+    if(mode==="posts"){
+      var valCell=el("div");valCell.appendChild(el("label",null,"Valore"));
+      var valSel=el("select");
+      [["fixed","Fisso"],["variable","Variabile per post"]].forEach(function(o){var op=el("option");op.value=o[0];op.textContent=o[1];valSel.appendChild(op);});
+      valSel.value=normalizeBonusValueMode(getEditableBonusField(mese,bonus,isPrimary,"valore"));valSel.disabled=locked;
+      valSel.addEventListener("change",function(){
+        if(blockIfMonthReadOnly(mese))return;
+        setEditableBonusField(mese,bonus,isPrimary,"valore",valSel.value);
+        if(valSel.value==="variable"){
+          setEditableBonusField(mese,bonus,isPrimary,"pp",0);
+          setEditableBonusField(mese,bonus,isPrimary,"galeoni",0);
+          setEditableBonusField(mese,bonus,isPrimary,"altro","");
+        }
         scheduleSave(0);renderAll();
       });
-      card.appendChild(rem);
+      valCell.appendChild(valSel);row.appendChild(valCell);
     }
-    parent.appendChild(card);
+
+    if(mode==="posts"||mode==="manual"){
+      var initCell=el("div");initCell.appendChild(el("label",null,"Utilizzi attuali in Scheda"));
+      var init=el("input");init.type="number";init.min="0";init.step="1";init.placeholder="Obbligatorio, es. 0";
+      var initConfirmed=getEditableBonusField(mese,bonus,isPrimary,"usatiConfermati")===true;
+      init.value=initConfirmed?Math.max(0,parseInt(getEditableBonusField(mese,bonus,isPrimary,"usatiIniziali"),10)||0):"";
+      init.disabled=locked;
+      init.addEventListener("change",function(){
+        if(blockIfMonthReadOnly(mese))return;
+        if(String(init.value).trim()===""){
+          setEditableBonusField(mese,bonus,isPrimary,"usatiConfermati",false);
+          scheduleSave(0);renderAll();return;
+        }
+        var v=Math.max(0,parseInt(init.value,10)||0),mx=Math.max(0,parseInt(getEditableBonusField(mese,bonus,isPrimary,"maxUtilizzi"),10)||0);
+        if(mx>0)v=Math.min(v,mx);
+        setEditableBonusField(mese,bonus,isPrimary,"usatiIniziali",v);
+        setEditableBonusField(mese,bonus,isPrimary,"usatiConfermati",true);
+        scheduleSave(0);renderAll();
+      });
+      initCell.appendChild(init);row.appendChild(initCell);
+
+      var maxCell=el("div");maxCell.appendChild(el("label",null,"Utilizzi totali"));
+      var max=el("input");max.type="number";max.min="0";max.step="1";max.placeholder="Es. 10";max.value=Math.max(0,parseInt(getEditableBonusField(mese,bonus,isPrimary,"maxUtilizzi"),10)||0);max.disabled=locked;
+      max.addEventListener("change",function(){if(blockIfMonthReadOnly(mese))return;var v=Math.max(0,parseInt(max.value,10)||0);setEditableBonusField(mese,bonus,isPrimary,"maxUtilizzi",v);scheduleSave(0);renderAll();});
+      maxCell.appendChild(max);row.appendChild(maxCell);
+    }
+
+    if(mode==="posts"&&normalizeBonusValueMode(getEditableBonusField(mese,bonus,isPrimary,"valore"))==="variable"){
+      var targetCell=el("div");targetCell.appendChild(el("label",null,"Risultato variabile su"));
+      var target=el("select");
+      [["pp","PP"],["galeoni","Galeoni"],["altro","Altro"]].forEach(function(o){var op=el("option");op.value=o[0];op.textContent=o[1];target.appendChild(op);});
+      target.value=normalizeVariableTarget(getEditableBonusField(mese,bonus,isPrimary,"variabileSu"));target.disabled=locked;
+      target.addEventListener("change",function(){if(blockIfMonthReadOnly(mese))return;setEditableBonusField(mese,bonus,isPrimary,"variabileSu",target.value);scheduleSave(0);renderAll();});
+      targetCell.appendChild(target);row.appendChild(targetCell);
+    }
+
+
+    parent.appendChild(row);
+
+    var current=allMonthBonuses(mese).filter(function(x){return String(x.id)===String(isPrimary?"__primary__":bonus.id);})[0];
+    if(current&&current.modalita==="posts"){
+      if(!current.usatiConfermati){
+        parent.appendChild(el("div","bonus-usage-status update","Prima di segnare i post di utilizzo, indica quanti utilizzi risultano attualmente in Scheda PG. Anche 0 va inserito esplicitamente."));
+      }else if(!(current.maxUtilizzi>0)){
+        parent.appendChild(el("div","bonus-usage-status update","Indica anche il numero totale di utilizzi del premio (es. 10)."));
+      }else{
+        var st=el("div","bonus-usage-status "+bonusUsageClass(current,mese.posts),bonusUsageStatusText(current,mese.posts));
+        parent.appendChild(st);
+      }
+    }
+  }
+
+  function appendBonusEditor(parent,mese,bonus,index,locked,isPrimary){
+    var holder=isPrimary?parent:el("div","card");
+    if(!isPrimary){holder.style.marginTop="10px";holder.appendChild(el("h4",null,"Bonus "+(index+1)));}
+
+    var row=el("div","row");
+    var dCell=el("div");dCell.appendChild(el("label",null,"Descrizione del Bonus"));
+    var d=el("input");d.type="text";d.placeholder="Es. Evento, Premio FT, ricompensa trama…";d.value=String(getEditableBonusField(mese,bonus,isPrimary,"descrizione")||"");d.disabled=locked;
+    d.addEventListener("input",function(){if(blockIfMonthReadOnly(mese))return;setEditableBonusField(mese,bonus,isPrimary,"descrizione",d.value);scheduleSave(450);});
+    d.addEventListener("change",function(){if(blockIfMonthReadOnly(mese))return;setEditableBonusField(mese,bonus,isPrimary,"descrizione",d.value);scheduleSave(0);renderAll();});
+    dCell.appendChild(d);row.appendChild(dCell);
+
+    var currentMode=normalizeBonusMode(getEditableBonusField(mese,bonus,isPrimary,"modalita"));
+    var currentValueMode=normalizeBonusValueMode(getEditableBonusField(mese,bonus,isPrimary,"valore"));
+    var isVariablePerPost=(currentMode==="posts" && currentValueMode==="variable");
+
+    if(!isVariablePerPost){
+      var pCell=el("div");pCell.appendChild(el("label",null,"PP"));
+      var pp=el("input");pp.type="number";pp.min="0";pp.step="1";pp.placeholder="0";pp.value=Math.max(0,parseInt(getEditableBonusField(mese,bonus,isPrimary,"pp"),10)||0);pp.disabled=locked;
+      pp.addEventListener("input",function(){if(blockIfMonthReadOnly(mese))return;setEditableBonusField(mese,bonus,isPrimary,"pp",Math.max(0,parseInt(pp.value,10)||0));scheduleSave(450);});
+      pp.addEventListener("change",function(){scheduleSave(0);renderAll();});
+      pCell.appendChild(pp);row.appendChild(pCell);
+
+      var gCell=el("div");gCell.appendChild(el("label",null,"Galeoni"));
+      var g=el("input");g.type="number";g.min="0";g.step="1";g.placeholder="0";g.value=Math.max(0,parseInt(getEditableBonusField(mese,bonus,isPrimary,"galeoni"),10)||0);g.disabled=locked;
+      g.addEventListener("input",function(){if(blockIfMonthReadOnly(mese))return;setEditableBonusField(mese,bonus,isPrimary,"galeoni",Math.max(0,parseInt(g.value,10)||0));scheduleSave(450);});
+      g.addEventListener("change",function(){scheduleSave(0);renderAll();});
+      gCell.appendChild(g);row.appendChild(gCell);
+
+      var aCell=el("div");aCell.appendChild(el("label",null,"Altro"));
+      var a=el("input");a.type="text";a.placeholder="Es. oggetto, ingrediente…";a.value=String(getEditableBonusField(mese,bonus,isPrimary,"altro")||"");a.disabled=locked;
+      a.addEventListener("input",function(){if(blockIfMonthReadOnly(mese))return;setEditableBonusField(mese,bonus,isPrimary,"altro",a.value);scheduleSave(450);});
+      a.addEventListener("change",function(){scheduleSave(0);renderAll();});
+      aCell.appendChild(a);row.appendChild(aCell);
+    }else{
+      var variableInfo=el("div","small-note","Il valore <b>non si inserisce qui</b>: per ogni post su cui usi il premio, compilerai il risultato e il link del tiro direttamente nella colonna <b>Bonus</b>.");
+      variableInfo.style.alignSelf="end";
+      row.appendChild(variableInfo);
+    }
+
+    holder.appendChild(row);
+    appendBonusUsageSettings(holder,mese,bonus,index,locked,isPrimary);
+
+    if(!isPrimary&&!locked){
+      var rem=el("button","action danger small","Rimuovi Bonus");rem.type="button";rem.style.marginTop="12px";
+      rem.addEventListener(EV,function(){
+        if(blockIfMonthReadOnly(mese))return;
+        if(!confirm("Rimuovere questo Bonus?"))return;
+        var extras=ensureBonusExtras(mese),id=String(bonus.id);
+        for(var i=extras.length-1;i>=0;i--){if(String(extras[i].id)===id)extras.splice(i,1);}
+        for(var p=0;p<mese.posts.length;p++){
+          if(mese.posts[p]&&mese.posts[p].bonusEsclusi)delete mese.posts[p].bonusEsclusi[id];
+          if(mese.posts[p]&&mese.posts[p].bonusUtilizzi)delete mese.posts[p].bonusUtilizzi[id];
+        }
+        scheduleSave(0);renderAll();
+      });
+      holder.appendChild(rem);
+    }
+    if(!isPrimary)parent.appendChild(holder);
   }
   var meseSelezionatoBlindataIdx = -1;
 
@@ -2603,65 +3004,53 @@
     p.appendChild(accBadge);
 
     var bonusLocked = !!(meseObj.chiuso && archiveLocked(meseObj)) || monthIsAccredited(meseObj) || (fbConnected && !accreditiVerified());
-    var bonusBox = el("div", "card");
-    bonusBox.appendChild(el("h4", null, "🎉 Bonus"));
-    bonusBox.appendChild(el("p", "small-note", "Usa questo riquadro per registrare <b>PP, Galeoni o altri premi extra</b> ottenuti tramite <b>Eventi, Premi FT, ricompense di Trama o altri bonus speciali</b>. Accanto alla descrizione inserisci i valori nelle tre caselle <b>PP</b>, <b>Galeoni</b> e <b>Altro</b>. Puoi creare più Bonus nello stesso mese. Ogni Bonus viene applicato automaticamente a ogni post con un link; nella colonna <b>Bonus</b> puoi togliere la spunta se quel singolo post non deve riceverlo."));
-    var bonusRow = el("div", "row");
-    var bonusDescCell = el("div"); bonusDescCell.appendChild(el("label", null, "Descrizione del Bonus"));
-    var bonusDesc = el("input"); bonusDesc.type="text"; bonusDesc.placeholder="Es. Evento, Premio FT, ricompensa trama…"; bonusDesc.value=meseObj.eventoBonusDescrizione||""; bonusDesc.disabled=bonusLocked;
-    bonusDesc.addEventListener("input",function(){if(blockIfMonthReadOnly(meseObj)){return;}meseObj.eventoBonusDescrizione=bonusDesc.value;scheduleSave(450);});
-    bonusDesc.addEventListener("change",function(){if(blockIfMonthReadOnly(meseObj)){return;}meseObj.eventoBonusDescrizione=bonusDesc.value;scheduleSave(0);renderAll();});
-    bonusDescCell.appendChild(bonusDesc); bonusRow.appendChild(bonusDescCell);
+    var bonusBox=el("div","card");
+    bonusBox.appendChild(el("h4",null,"🎉 Bonus"));
+    bonusBox.appendChild(el("p","small-note","Usa questo riquadro per i <b>Bonus che devono comparire in Camera Blindata</b>: Eventi, Premi FT legati ai post e altri bonus analoghi. Per i bonus normali lascia «Tutti i post». Per premi a consumo con valore sempre uguale, come <b>+1 PP per 10 post</b> o <b>+5 G per 10 post</b>, scegli «A utilizzi sui post» e «Fisso». Per <b>+1d3 PP</b> o <b>+1d10 G</b> scegli invece «Variabile per post»: <b>non dovrai creare dieci Bonus diversi</b> e non inserirai alcun valore PP/Galeoni qui sopra; spunterai il Bonus sul singolo post e lì compariranno il campo del risultato e il link del tiro. Prima di poter segnare un utilizzo devi indicare quanti utilizzi risultano già consumati in Scheda PG e il totale previsto dal premio."));
 
-    var bonusPpCell = el("div"); bonusPpCell.appendChild(el("label", null, "PP"));
-    var bonusPp = el("input"); bonusPp.type="number"; bonusPp.min="0"; bonusPp.step="1"; bonusPp.placeholder="0"; bonusPp.value=meseBonusPP(meseObj); bonusPp.disabled=bonusLocked;
-    bonusPp.addEventListener("input",function(){if(blockIfMonthReadOnly(meseObj)){return;}meseObj.eventoBonusPP=Math.max(0,parseInt(bonusPp.value,10)||0);scheduleSave(450);});
-    bonusPp.addEventListener("change",function(){if(blockIfMonthReadOnly(meseObj)){return;}meseObj.eventoBonusPP=Math.max(0,parseInt(bonusPp.value,10)||0);scheduleSave(0);renderAll();});
-    bonusPpCell.appendChild(bonusPp); bonusRow.appendChild(bonusPpCell);
-
-    var bonusGCell = el("div"); bonusGCell.appendChild(el("label", null, "Galeoni"));
-    var bonusG = el("input"); bonusG.type="number"; bonusG.min="0"; bonusG.step="1"; bonusG.placeholder="0"; bonusG.value=meseBonusGaleoni(meseObj); bonusG.disabled=bonusLocked;
-    bonusG.addEventListener("input",function(){if(blockIfMonthReadOnly(meseObj)){return;}meseObj.eventoBonusGaleoni=Math.max(0,parseInt(bonusG.value,10)||0);scheduleSave(450);});
-    bonusG.addEventListener("change",function(){if(blockIfMonthReadOnly(meseObj)){return;}meseObj.eventoBonusGaleoni=Math.max(0,parseInt(bonusG.value,10)||0);scheduleSave(0);renderAll();});
-    bonusGCell.appendChild(bonusG); bonusRow.appendChild(bonusGCell);
-
-    var bonusAltroCell = el("div"); bonusAltroCell.appendChild(el("label", null, "Altro"));
-    var bonusAltro = el("input"); bonusAltro.type="text"; bonusAltro.placeholder="Es. oggetto, ingrediente, premio speciale"; bonusAltro.value=meseObj.eventoBonusAltro||""; bonusAltro.disabled=bonusLocked;
-    bonusAltro.addEventListener("input",function(){if(blockIfMonthReadOnly(meseObj)){return;}meseObj.eventoBonusAltro=bonusAltro.value;scheduleSave(450);});
-    bonusAltro.addEventListener("change",function(){if(blockIfMonthReadOnly(meseObj)){return;}meseObj.eventoBonusAltro=bonusAltro.value;scheduleSave(0);renderAll();});
-    bonusAltroCell.appendChild(bonusAltro); bonusRow.appendChild(bonusAltroCell);
-    bonusBox.appendChild(bonusRow);
-
-    var numericBonus=meseBonusPP(meseObj),numericBonusG=meseBonusGaleoni(meseObj),bonusAltroText=meseBonusAltro(meseObj);
+    appendBonusEditor(bonusBox,meseObj,primaryBonusItem(meseObj),0,bonusLocked,true);
     var extraBonuses=ensureBonusExtras(meseObj);
-    for(var ebi=0;ebi<extraBonuses.length;ebi++){appendExtraBonusEditor(bonusBox,meseObj,extraBonuses[ebi],ebi,bonusLocked);}
+    for(var ebi=0;ebi<extraBonuses.length;ebi++)appendBonusEditor(bonusBox,meseObj,extraBonuses[ebi],ebi+1,bonusLocked,false);
 
     if(!bonusLocked){
       var bonusActions=el("div","bonus-actions");
-
-      var addBonusBtn=el("button","action small","+ Aggiungi Bonus"); addBonusBtn.type="button";
+      var addBonusBtn=el("button","action small","+ Aggiungi Bonus");addBonusBtn.type="button";
       addBonusBtn.addEventListener(EV,function(){
-        if(blockIfMonthReadOnly(meseObj)){return;}
-        ensureBonusExtras(meseObj).push({id:newBonusId(),descrizione:"",pp:0,galeoni:0,altro:""});
+        if(blockIfMonthReadOnly(meseObj))return;
+        ensureBonusExtras(meseObj).push({id:newBonusId(),descrizione:"",pp:0,galeoni:0,altro:"",modalita:"all",valore:"fixed",maxUtilizzi:0,usatiIniziali:0,usatiConfermati:false,variabileSu:"pp",utilizziManuali:0});
         scheduleSave(0);renderAll();
       });
       bonusActions.appendChild(addBonusBtn);
 
-      if(String(meseObj.eventoBonusDescrizione||"").trim()!=="" || numericBonus>0 || numericBonusG>0 || bonusAltroText!==""){
-        var clearBonus=el("button","action danger small","Azzera Bonus"); clearBonus.type="button";
+      var anyBonusActive=activeMonthBonuses(meseObj).length>0 || ensureBonusExtras(meseObj).length>0;
+      if(anyBonusActive){
+        var clearBonus=el("button","action danger small","Azzera Bonus");clearBonus.type="button";
         clearBonus.addEventListener(EV,function(){
-          if(blockIfMonthReadOnly(meseObj)){return;}
-          if(!confirm("Azzerare questo Bonus?")){return;}
+          if(blockIfMonthReadOnly(meseObj))return;
+          if(!confirm("Azzerare tutti i Bonus di questo Mese?"))return;
+
           meseObj.eventoBonusDescrizione="";
           meseObj.eventoBonusPP=0;
           meseObj.eventoBonusGaleoni=0;
           meseObj.eventoBonusAltro="";
-          for(var cbi=0;cbi<meseObj.posts.length;cbi++){meseObj.posts[cbi].eventoBonusEscluso=false;}
+          meseObj.eventoBonusModalita="all";
+          meseObj.eventoBonusValore="fixed";
+          meseObj.eventoBonusMaxUtilizzi=0;
+          meseObj.eventoBonusUsatiIniziali=0;
+          meseObj.eventoBonusUsatiConfermati=false;
+          meseObj.eventoBonusVariabileSu="pp";
+          meseObj.eventoBonusUtilizziManuali=0;
+          meseObj.bonusAggiuntivi=[];
+
+          for(var cbi=0;cbi<meseObj.posts.length;cbi++){
+            meseObj.posts[cbi].eventoBonusEscluso=false;
+            meseObj.posts[cbi].bonusEsclusi={};
+            meseObj.posts[cbi].bonusUtilizzi={};
+          }
           scheduleSave(0);renderAll();
         });
         bonusActions.appendChild(clearBonus);
       }
-
       bonusBox.appendChild(bonusActions);
     }
     if(bonusLocked){
@@ -2681,13 +3070,28 @@
     var totPP = totPPBase + totPPEvento;
     var latestCredit = latestCreditInfo(meseObj, postiDelMese);
 
-    if(latestCredit && !monthIsAccredited(meseObj)){
-      var creditParts=["+"+latestCredit.galeoni+" G","+"+latestCredit.pp+" PP"];
-      if(latestCredit.altro){creditParts.push("Altro: "+latestCredit.altro);}
+    var manualCredit=manualCreditParts(meseObj);
+    if((latestCredit||manualCredit.pp>0||manualCredit.galeoni>0||manualCredit.altro.length) && !monthIsAccredited(meseObj)){
+      var creditParts=[];
+      var creditLabel="";
+      if(latestCredit){
+        creditLabel="Post "+latestCredit.localNo;
+        creditParts.push("+"+latestCredit.galeoni+" G");
+        creditParts.push("+"+latestCredit.pp+" PP");
+        if(latestCredit.altro)creditParts.push("Altro: "+latestCredit.altro);
+      }else{
+        creditLabel="Bonus manuali";
+      }
+      if(manualCredit.galeoni>0)creditParts.push("Bonus manuali: +"+manualCredit.galeoni+" G");
+      if(manualCredit.pp>0)creditParts.push("Bonus manuali: +"+manualCredit.pp+" PP");
+      if(manualCredit.altro.length)creditParts.push("Altro: "+manualCredit.altro.join(", "));
       var socialLosses=currentSocialLossParts(totFilled);
-      if(socialLosses.length){creditParts.push("Parametri Sociali: "+socialLosses.join(", "));}
-      var creditLabel="Post "+latestCredit.localNo;
+      if(socialLosses.length)creditParts.push("Parametri Sociali: "+socialLosses.join(", "));
       p.appendChild(el("div","cb-credit-alert","<b>DA ACCREDITARE — "+creditLabel+":</b><span class=\"cb-credit-values\">"+creditParts.join(" · ")+"</span>"));
+    }
+    var bagWarnings=bonusBagWarnings(meseObj,postiDelMese);
+    for(var bwi=0;bwi<bagWarnings.length;bwi++){
+      p.appendChild(el("div",bagWarnings[bwi].kind==="remove"?"bag-remove-warning":"bag-update-warning",bagWarnings[bwi].text));
     }
 
     var totals = el("div", "totals");
@@ -2696,16 +3100,36 @@
     totals.appendChild(el("div", "box", "Totale PP<br><b>" + totPP + " PP</b>"));
     p.appendChild(totals);
     var bonusItems=activeMonthBonuses(meseObj);
-    var bonusAttivo=bonusItems.length>0;
     for(var bsi=0;bsi<bonusItems.length;bsi++){
-      var bi=bonusItems[bsi],premioParts=[];
-      var eligibleCount=bonusEligibleCount(bi,postiDelMese,postiDelMese.length);
-      if(bi.pp>0){premioParts.push("+"+bi.pp+" PP per post");}
-      if(bi.galeoni>0){premioParts.push("+"+bi.galeoni+" G per post");}
-      if(String(bi.altro||"").trim()!==""){premioParts.push("Altro: "+bi.altro);}
-      if(!premioParts.length){premioParts.push("bonus registrato senza premio automatico");}
-      p.appendChild(el("div","guide-text","<b>"+bonusDisplayName(bi,bsi)+":</b> "+premioParts.join(" · ")+" · <b>Post ammessi: "+eligibleCount+" su "+totFilled+"</b>"));
+      var bi=bonusItems[bsi],parts=[],modeText="";
+      if(bi.modalita==="all"){
+        if(bi.pp>0)parts.push("+"+bi.pp+" PP per post");
+        if(bi.galeoni>0)parts.push("+"+bi.galeoni+" G per post");
+        if(bi.altro)parts.push("Altro: "+bi.altro);
+        modeText="Post ammessi: "+bonusEligibleCount(bi,postiDelMese,postiDelMese.length)+" su "+totFilled;
+      }else if(bi.modalita==="posts"){
+        if(bi.valore==="variable"){
+          parts.push("valore variabile in "+(bi.variabileSu==="pp"?"PP":(bi.variabileSu==="galeoni"?"Galeoni":"Altro"))+" per utilizzo");
+          var vpp=0,vg=0;
+          for(var _vi=0;_vi<postiDelMese.length;_vi++){vpp+=bonusPPOnPost(bi,postiDelMese[_vi]);vg+=bonusGOnPost(bi,postiDelMese[_vi]);}
+          if(vpp>0)parts.push("+"+vpp+" PP nel mese");
+          if(vg>0)parts.push("+"+vg+" G nel mese");
+        }else{
+          if(bi.pp>0)parts.push("+"+bi.pp+" PP per utilizzo");
+          if(bi.galeoni>0)parts.push("+"+bi.galeoni+" G per utilizzo");
+          if(bi.altro)parts.push("Altro: "+bi.altro);
+        }
+        modeText="Utilizzi: "+bonusCurrentUses(bi,postiDelMese)+(bi.maxUtilizzi>0?"/"+bi.maxUtilizzi:"");
+      }else{
+        if(bi.pp>0)parts.push("+"+bi.pp+" PP per utilizzo");
+        if(bi.galeoni>0)parts.push("+"+bi.galeoni+" G per utilizzo");
+        if(bi.altro)parts.push("Altro: "+bi.altro);
+        modeText="Utilizzi manuali: "+bonusCurrentUses(bi,postiDelMese)+(bi.maxUtilizzi>0?"/"+bi.maxUtilizzi:"");
+      }
+      if(!parts.length)parts.push("nessun valore economico");
+      p.appendChild(el("div","guide-text","<b>"+bonusDisplayName(bi,bsi)+":</b> "+parts.join(" · ")+" · <b>"+modeText+"</b>"));
     }
+
     var tblLive = el("table", "posts");
     tblLive.appendChild(el("tr", null, "<th>N.</th><th>Link</th><th>Galeoni</th><th>N. globale</th><th>Bonus</th>"));
 
