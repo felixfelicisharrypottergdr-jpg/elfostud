@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Il Mio Elfo Domestico — Studente</title>
 <link rel="preconnect" href="https://i.postimg.cc">
-<link rel="preload" as="image" href="https://i.postimg.cc/CxWF5fQw/apotecario-gotico-oltre-l-arco.webp" fetchpriority="high">
+<link rel="preload" as="image" href="https://i.postimg.cc/6pKKxhkk/elfo-biblioteca.webp" fetchpriority="high">
 <style>
   @font-face {font-family: 'magic';
  src: url('https://dl.dropboxusercontent.com/scl/fi/nbzmrri4qyvc3tzx96911/HarryBeastDisplay-Regular.woff2?rlkey=he290voe32k33gowug23c1osc&st=nj9fgly1') format('woff2');
@@ -110,6 +110,22 @@
     font-size:.72rem;
     font-weight:bold;
     white-space:nowrap;
+  }
+
+  /* v71 - promemoria annuale Anno Scolastico nel mese di agosto */
+  .school-year-reminder{
+    margin:0 0 14px;
+    padding:12px 14px;
+    border:2px solid #b88b3d;
+    border-radius:9px;
+    background:#fff2cf;
+    color:#3a2416;
+    box-shadow:0 1px 0 rgba(90,58,34,.12);
+  }
+  .school-year-reminder strong{ color:#7a2323; }
+  .school-year-reminder .chk-line{
+    margin-top:9px;
+    font-weight:bold;
   }
   .out-tag{ display:inline-block; padding: 2px 8px; border-radius: 12px; font-size:.72rem; font-weight:bold; background:#c7b98a; color:#3a2b1a; }
   details.stage{ border:1px solid var(--gold); border-radius:6px; margin-top:8px; padding:6px 10px; background:#fbf4e2; }
@@ -296,6 +312,8 @@
   body.screen-import{background-image:linear-gradient(rgba(11,18,13,.48),rgba(11,18,13,.68)),url("https://i.postimg.cc/Z5mmzLGX/elfo-magazzino.webp") !important;}
 
 
+  /* v71 - Anno Scolastico: modifica sempre disponibile + promemoria confermabile ogni agosto */
+  /* v70 - fix Camera Blindata Studente: rimosso riferimento a funzione solo Adulto */
   /* v69 - Da accreditare: riepilogo ultimo Post + evidenza valori */
   /* v68 - Evento: PP / Galeoni / Altro + fix numero globale */
   /* v67 - palette pulsanti per sezione */
@@ -768,7 +786,7 @@
   var SESSION_SNAPSHOT_DONE = false;
   var LAST_SNAPSHOT_MS = 0;
 
-  var STUDENTE = { nome:"", anno:"V" };
+  var STUDENTE = { nome:"", anno:"V", annoPromemoriaAgosto:0 };
   var ANNO_POSTI = { "V":3, "VI":5, "VII":7 };
 
   var POSTS = [];
@@ -1527,7 +1545,7 @@
 
   function resetDataState(){
     POSTS = []; MESI = []; meseCounter = 0; postCounter = 0; globalPostCounter = 0; ARCHIVIO_DB = { periodiche:[], ultima:null };
-    STUDENTE = { nome:"", anno:"V" };
+    STUDENTE = { nome:"", anno:"V", annoPromemoriaAgosto:0 };
     STRUTTURE = { dispensa:false, postazione:false, cubicolo:false, recinto:false };
     POSTAZIONE_FAC = { descrizione:"" }; CALDERONI = []; calderoneCounter = 0; ARCHIVIO_CALDERONI = [];
     CUBICOLO_FAC = { descrizione:"" }; PIANTE = []; piantaCounter = 0; ARCHIVIO_PIANTE = [];
@@ -1576,6 +1594,10 @@
     resetDataState();
     if(!data){ return; }
     if(data.STUDENTE){ STUDENTE = data.STUDENTE; }
+    if(["V","VI","VII"].indexOf(STUDENTE.anno)<0){ STUDENTE.anno="V"; DATA_DIRTY=true; }
+    var _annoProm=parseInt(STUDENTE.annoPromemoriaAgosto,10);
+    if(isNaN(_annoProm)||_annoProm<0){_annoProm=0;}
+    if(STUDENTE.annoPromemoriaAgosto!==_annoProm){STUDENTE.annoPromemoriaAgosto=_annoProm;DATA_DIRTY=true;}
     if(data.MESI){ MESI = data.MESI; }
     if(data.meseCounter){ meseCounter = data.meseCounter; }
     if(data.postCounter){ postCounter = data.postCounter; }
@@ -1796,12 +1818,39 @@
     }
   }
 
+  function currentAugustReminderYear(){
+    var d=new Date();
+    return d.getMonth()===7 ? d.getFullYear() : 0;
+  }
+  function appendAugustSchoolYearReminder(container){
+    if(!fbConnected){return;}
+    var y=currentAugustReminderYear();
+    if(!y || parseInt(STUDENTE.annoPromemoriaAgosto,10)===y){return;}
+
+    var box=el("div","school-year-reminder");
+    box.appendChild(el("div",null,"<strong>Promemoria di agosto:</strong> controlla che l’Anno Scolastico del PG sia corretto. Puoi modificarlo in qualsiasi momento da <b>Dati Personaggio e Strutture</b>."));
+
+    var flagWrap=el("label","chk-line");
+    var flag=el("input"); flag.type="checkbox";
+    flag.addEventListener("change",function(){
+      if(!flag.checked){return;}
+      STUDENTE.annoPromemoriaAgosto=y;
+      scheduleSave(0);
+      renderAll();
+    });
+    flagWrap.appendChild(flag);
+    flagWrap.appendChild(el("span",null," Ho verificato o aggiornato l’Anno Scolastico per agosto "+y+"."));
+    box.appendChild(flagWrap);
+    container.appendChild(box);
+  }
+
   function renderAll(){
     recomputePosts();
     applyTheme();
     renderNav();
     var c = document.getElementById("stepContainer");
     c.innerHTML = "";
+    appendAugustSchoolYearReminder(c);
     if(currentStep === "pg"){ renderPGStep(c); }
     if(currentStep === "posts"){ renderPostsStep(c); }
     if(currentStep === "blindata"){ renderBlindataStep(c); }
@@ -1844,21 +1893,18 @@
     p.appendChild(el("h2", null, "Dati del Personaggio"));
 
     if(!fbConnected){
-      p.appendChild(el("div", "guide-text", "Scrivi il nome esatto del tuo Personaggio e scegli l'Anno Scolastico. Premi «Carica i miei dati»: se è la prima volta parti da zero, altrimenti recuperi tutto ciò che avevi già salvato. Dopo la connessione il nome viene bloccato: per entrare con un altro PG devi prima disconnetterti."));
+      p.appendChild(el("div", "guide-text", "Scrivi il nome esatto del tuo Personaggio e premi «Carica i miei dati»: se è la prima volta parti da zero, altrimenti recuperi tutto ciò che avevi già salvato. Dopo la connessione il nome viene bloccato: per entrare con un altro PG devi prima disconnetterti. L’Anno Scolastico si gestisce dopo l’accesso e può essere modificato in qualsiasi momento."));
       var row = el("div", "row");
       var d1 = el("div"); d1.appendChild(el("label", null, "Nome del PG"));
       var i1 = el("input"); i1.type="text"; i1.value = STUDENTE.nome; i1.placeholder="Come posso aiutarla, Padron...?";
       i1.addEventListener("input", function(){ STUDENTE.nome = i1.value; });
       d1.appendChild(i1); row.appendChild(d1);
-      var d2 = el("div"); d2.appendChild(el("label", null, "Anno Scolastico"));
-      d2.appendChild(buildSelect(["V","VI","VII"], STUDENTE.anno, function(v){ STUDENTE.anno = v; renderAll(); }));
-      row.appendChild(d2); p.appendChild(row);
-      p.appendChild(el("p", null, "<b>Posti disponibili per Postazione/Cubicolo/Recinto: " + ANNO_POSTI[STUDENTE.anno] + "</b>"));
+      p.appendChild(row);
 
       var btn = el("button", "action", "Carica i miei dati");
       btn.addEventListener(EV, function(){
         var nome = normalizePgName(STUDENTE.nome);
-        var annoScelto = STUDENTE.anno; var nameErr=validatePgName(nome);
+        var nameErr=validatePgName(nome);
         if(nameErr){ alert(nameErr); return; }
         STUDENTE.nome=nome;
         if(!window.fbReady){ alert("Il collegamento a Firebase non è ancora pronto: aspetta un secondo e riprova."); return; }
@@ -1880,7 +1926,6 @@
             renderAll(); return;
           }
           STUDENTE.nome = nome;
-          if(!data){ STUDENTE.anno = annoScelto; }
           PG_DOC_EXISTS = !!data;
           fbConnected = true;
           accreditiCache = null;
@@ -1919,6 +1964,7 @@
       dc2.appendChild(buildSelect(["V","VI","VII"], STUDENTE.anno, function(v){ STUDENTE.anno = v; renderAll(); })); rowConnected.appendChild(dc2);
       p.appendChild(rowConnected);
       p.appendChild(el("p", null, "<b>Posti disponibili per Postazione/Cubicolo/Recinto: " + ANNO_POSTI[STUDENTE.anno] + "</b>"));
+      p.appendChild(el("p","small-note","L’Anno Scolastico può essere modificato in qualsiasi momento. Ogni agosto il Tool mostra un promemoria finché non confermi di averlo verificato o aggiornato."));
 
       p.appendChild(el("div", "divider"));
       p.appendChild(el("h4", null, "Strutture possedute"));
@@ -2340,7 +2386,7 @@
     var totPP = totPPBase + totPPEvento;
     var latestCredit = latestCreditInfo(meseObj, postiDelMese);
 
-    if(latestCredit && !isImportedStudentMonth(meseObj) && !monthIsAccredited(meseObj)){
+    if(latestCredit && !monthIsAccredited(meseObj)){
       var creditParts=["+"+latestCredit.galeoni+" G","+"+latestCredit.pp+" PP"];
       if(latestCredit.altro){creditParts.push("Altro: "+latestCredit.altro);}
       var creditLabel="Post "+latestCredit.localNo;
