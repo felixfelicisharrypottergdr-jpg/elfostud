@@ -409,7 +409,7 @@
 <body>
 <div class="wrap">
   <h1 class="main-title">Il Mio Elfo Domestico</h1>
-  <p class="subtitle">Lascia che mi occupi io di tutto, padron Studente</p>
+  <p class="subtitle">Lascia che mi occupi io di tutto, Padron <b>Studente</b></p>
 
   <div class="steps-nav" id="stepsNav"></div>
   <p id="fb-indicator" style="text-align:center; color:#e6d8ac; font-size:.8rem; margin-bottom:4px;">○ Non connesso</p>
@@ -1902,7 +1902,7 @@
       p.appendChild(el("div", "guide-text", "Scrivi il nome esatto del tuo Personaggio e premi «Carica i miei dati»: se è la prima volta parti da zero, altrimenti recuperi tutto ciò che avevi già salvato. Dopo la connessione il nome viene bloccato: per entrare con un altro PG devi prima disconnetterti. L’Anno Scolastico si gestisce dopo l’accesso e può essere modificato in qualsiasi momento."));
       var row = el("div", "row");
       var d1 = el("div"); d1.appendChild(el("label", null, "Nome del PG"));
-      var i1 = el("input"); i1.type="text"; i1.value = STUDENTE.nome; i1.placeholder="Come posso aiutarla, Padroncina... oppure Padroncino?";
+      var i1 = el("input"); i1.type="text"; i1.value = STUDENTE.nome; i1.placeholder="Come posso aiutarla, Padroncina... oppure Padroncino...?";
       i1.addEventListener("input", function(){ STUDENTE.nome = i1.value; });
       d1.appendChild(i1); row.appendChild(d1);
       p.appendChild(row);
