@@ -297,6 +297,44 @@
   .page-nav-btn:disabled{ opacity:.28; cursor:default; }
   .page-nav-btn.next{ margin-left:auto; }
 
+  /* Annulla / Ripristina: cronologia locale della sessione */
+  .undo-redo-toolbar{
+    display:flex;
+    align-items:center;
+    justify-content:flex-end;
+    flex-wrap:wrap;
+    gap:8px;
+    margin:0 0 14px;
+    padding:8px 10px;
+    border:1px solid rgba(178,138,34,.48);
+    border-radius:8px;
+    background:rgba(255,253,245,.72);
+  }
+  .undo-redo-toolbar .history-hint{
+    margin-right:auto;
+    font-size:.73rem;
+    color:#665b43;
+    font-style:italic;
+  }
+  .undo-redo-btn{
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    gap:5px;
+    min-width:108px;
+    padding:7px 10px;
+    border:1px solid var(--gold);
+    border-radius:7px;
+    background:var(--green);
+    color:var(--parch);
+    cursor:pointer;
+    font-family:inherit;
+    font-size:.82rem;
+    font-weight:700;
+  }
+  .undo-redo-btn:hover:not(:disabled){ background:var(--green-dark); }
+  .undo-redo-btn:disabled{ opacity:.34; cursor:default; }
+
   .dispensa-summary{ display:grid; grid-template-columns:repeat(auto-fit,minmax(170px,1fr)); gap:10px; margin:12px 0 16px; }
   .dispensa-stat{ background:#fffdf5; border:1px solid var(--gold); border-radius:7px; padding:10px 12px; }
   .dispensa-stat b{ display:block; font-size:1.05rem; margin-top:3px; }
@@ -575,6 +613,7 @@
   /* v71 - Anno Scolastico: modifica sempre disponibile + promemoria confermabile ogni agosto */
   /* v70 - fix Camera Blindata Studente: rimosso riferimento a funzione solo Adulto */
   /* v69 - Da accreditare: riepilogo ultimo Post + evidenza valori */
+  /* Cronologia sessione: Annulla / Ripristina disponibile in tutte le interfacce del PG */
   /* Dispensa: tre blocchi; Incolla + aggiunta manuale riuniti nel Blocco 1 */
   /* Dispensa: quattro grandi blocchi numerati e visivamente separati */
   /* Dispensa: layout riordinato, sezioni a tendina, colori per Classificazione, titoli in maiuscoletto */
@@ -1753,6 +1792,7 @@
     /* input copre digitazione e, nei browser moderni, anche l'incolla. */
     document.addEventListener("input", function(ev){
       if(!isEditableControl(ev.target)){ return; }
+      setTimeout(function(){captureUndoHistory(false);},0);
       scheduleSave(250, false);
     }, true);
 
@@ -1760,11 +1800,18 @@
        modificati senza dover cambiare schermata. */
     document.addEventListener("change", function(ev){
       if(!isEditableControl(ev.target)){ return; }
+      setTimeout(function(){captureUndoHistory(true);},0);
       scheduleSave(80, false);
     }, true);
     document.addEventListener("focusout", function(ev){
       if(!isEditableControl(ev.target)){ return; }
       scheduleSave(80, false);
+    }, true);
+
+    document.addEventListener("click", function(ev){
+      var b=ev.target&&ev.target.closest?ev.target.closest("button"):null;
+      if(!b){return;}
+      setTimeout(function(){captureUndoHistory(true);},0);
     }, true);
 
     /* Fallback esplicito per l'incolla: il salvataggio parte dopo che il browser ha
@@ -1882,6 +1929,211 @@
     if(LAST_NARRATOR_AT){var nl=document.createElement("div");nl.className="audit-narrator";nl.textContent="Ultimo intervento del Narratore: "+formatAuditDate(LAST_NARRATOR_AT)+(LAST_NARRATOR_ACTION?" — "+LAST_NARRATOR_ACTION:"");box.appendChild(nl);}
     var ex=document.createElement("span");ex.className="audit-explain";ex.textContent="Vengono registrate le modifiche, non la semplice apertura del tracker.";box.appendChild(ex);
     container.appendChild(box);
+  }
+
+
+  /* ==================================================== */
+  /* ANNULLA / RIPRISTINA — cronologia della sessione      */
+  /* ==================================================== */
+  var UNDO_STACK = [];
+  var REDO_STACK = [];
+  var HISTORY_LAST_STATE = null;
+  var HISTORY_COALESCE_ACTIVE = false;
+  var HISTORY_COALESCE_TIMER = null;
+  var HISTORY_RESTORING = false;
+  var HISTORY_MOVE_PENDING = false;
+  var HISTORY_MAX = 30;
+
+  function historyUserSnapshot(){
+    var st=cloneHistoryState(collectState());
+    /* Metadati tecnici Firebase non devono mai tornare indietro. */
+    ["_schemaVersion","_dbRevision","_pgName","_lastModifiedAt","_lastModifiedBy","_lastSessionId","_archiveUnlockUntil","_archiviato"].forEach(function(k){delete st[k];});
+    return st;
+  }
+
+  function updateUndoRedoButtons(){
+    var u=document.getElementById("undo-session-btn");
+    var r=document.getElementById("redo-session-btn");
+    var blocked=HISTORY_MOVE_PENDING||SAVE_CONFLICT_LOCKED||!fbConnected;
+    if(u){u.disabled=blocked||UNDO_STACK.length===0;u.title=UNDO_STACK.length?"Annulla l'ultima modifica ai dati":"Nessuna modifica da annullare";}
+    if(r){r.disabled=blocked||REDO_STACK.length===0;r.title=REDO_STACK.length?"Ripristina l'ultima modifica annullata":"Nessuna modifica da ripristinare";}
+  }
+
+  function clearUndoRedoCoalesce(){
+    if(HISTORY_COALESCE_TIMER){clearTimeout(HISTORY_COALESCE_TIMER);HISTORY_COALESCE_TIMER=null;}
+    HISTORY_COALESCE_ACTIVE=false;
+  }
+
+  function trimHistoryStack(stack){
+    while(stack.length>HISTORY_MAX){stack.shift();}
+  }
+
+  function resetUndoRedoHistory(){
+    clearUndoRedoCoalesce();
+    UNDO_STACK=[];
+    REDO_STACK=[];
+    HISTORY_LAST_STATE=fbConnected?historyUserSnapshot():null;
+    HISTORY_MOVE_PENDING=false;
+    updateUndoRedoButtons();
+  }
+
+  function captureUndoHistory(discrete){
+    if(!fbConnected||HISTORY_RESTORING||HISTORY_MOVE_PENDING||SAVE_CONFLICT_LOCKED){return;}
+    var now=historyUserSnapshot();
+    if(!HISTORY_LAST_STATE){
+      HISTORY_LAST_STATE=cloneHistoryState(now);
+      updateUndoRedoButtons();
+      return;
+    }
+    if(stableComparableJson(now)===stableComparableJson(HISTORY_LAST_STATE)){return;}
+
+    if(discrete){
+      clearUndoRedoCoalesce();
+      UNDO_STACK.push(cloneHistoryState(HISTORY_LAST_STATE));
+      trimHistoryStack(UNDO_STACK);
+    }else{
+      /* Digitazione/incolla: tutto ciò che avviene in rapida successione
+         viene trattato come una sola modifica, non una lettera alla volta. */
+      if(!HISTORY_COALESCE_ACTIVE){
+        UNDO_STACK.push(cloneHistoryState(HISTORY_LAST_STATE));
+        trimHistoryStack(UNDO_STACK);
+        HISTORY_COALESCE_ACTIVE=true;
+      }
+      if(HISTORY_COALESCE_TIMER){clearTimeout(HISTORY_COALESCE_TIMER);}
+      HISTORY_COALESCE_TIMER=setTimeout(function(){
+        HISTORY_COALESCE_TIMER=null;
+        HISTORY_COALESCE_ACTIVE=false;
+      },700);
+    }
+
+    HISTORY_LAST_STATE=cloneHistoryState(now);
+    REDO_STACK=[];
+    updateUndoRedoButtons();
+  }
+
+  function restoreUndoRedoSnapshot(snapshot){
+    if(!snapshot){return false;}
+
+    if(fbSaveTimer){clearTimeout(fbSaveTimer);fbSaveTimer=null;}
+
+    /* applyState() normalizza correttamente tutti i dati del Tool, ma resetta
+       anche variabili tecniche. Le preserviamo perché Undo/Redo non deve
+       alterare revisione Firebase, sessione o baseline di concorrenza. */
+    var keep={
+      pgDocExists:PG_DOC_EXISTS,
+      dbRevision:DB_REVISION,
+      lastPersisted:LAST_PERSISTED_STATE?cloneHistoryState(LAST_PERSISTED_STATE):null,
+      lastAudited:LAST_AUDITED_STATE?cloneHistoryState(LAST_AUDITED_STATE):null,
+      pendingAudit:PENDING_AUDIT_STATE?cloneHistoryState(PENDING_AUDIT_STATE):null,
+      sessionSnapshotDone:SESSION_SNAPSHOT_DONE,
+      lastSnapshotMs:LAST_SNAPSHOT_MS,
+      lastModifiedAt:LAST_MODIFIED_AT,
+      lastModifiedBy:LAST_MODIFIED_BY,
+      lastSessionId:LAST_SESSION_ID,
+      lastNarratorAt:LAST_NARRATOR_AT,
+      lastNarratorAction:LAST_NARRATOR_ACTION,
+      archiveUnlockUntil:ARCHIVE_UNLOCK_UNTIL,
+      pgArchiviato:PG_ARCHIVIATO,
+      forcePersist:FORCE_PERSIST_SAVE,
+      conflictLocked:SAVE_CONFLICT_LOCKED,
+      openDetails:cloneHistoryState(OPEN_DETAILS),
+      accreditiCache:accreditiCache?cloneHistoryState(accreditiCache):accreditiCache,
+      accreditiLoadState:ACCREDITI_LOAD_STATE
+    };
+
+    var merged=cloneHistoryState(snapshot);
+    merged._schemaVersion=25;
+    merged._dbRevision=keep.dbRevision;
+    merged._pgName=String(STUDENTE.nome||"");
+    merged._lastModifiedAt=keep.lastModifiedAt;
+    merged._lastModifiedBy=keep.lastModifiedBy;
+    merged._lastSessionId=keep.lastSessionId;
+    merged._archiveUnlockUntil=keep.archiveUnlockUntil;
+    merged._archiviato=keep.pgArchiviato;
+
+    HISTORY_RESTORING=true;
+    applyState(merged);
+
+    PG_DOC_EXISTS=keep.pgDocExists;
+    DB_REVISION=keep.dbRevision;
+    LAST_PERSISTED_STATE=keep.lastPersisted;
+    LAST_AUDITED_STATE=keep.lastAudited;
+    PENDING_AUDIT_STATE=keep.pendingAudit;
+    SESSION_SNAPSHOT_DONE=keep.sessionSnapshotDone;
+    LAST_SNAPSHOT_MS=keep.lastSnapshotMs;
+    LAST_MODIFIED_AT=keep.lastModifiedAt;
+    LAST_MODIFIED_BY=keep.lastModifiedBy;
+    LAST_SESSION_ID=keep.lastSessionId;
+    LAST_NARRATOR_AT=keep.lastNarratorAt;
+    LAST_NARRATOR_ACTION=keep.lastNarratorAction;
+    ARCHIVE_UNLOCK_UNTIL=keep.archiveUnlockUntil;
+    PG_ARCHIVIATO=keep.pgArchiviato;
+    FORCE_PERSIST_SAVE=keep.forcePersist;
+    SAVE_CONFLICT_LOCKED=keep.conflictLocked;
+    OPEN_DETAILS=keep.openDetails||{};
+    accreditiCache=keep.accreditiCache;
+    ACCREDITI_LOAD_STATE=keep.accreditiLoadState;
+    HISTORY_RESTORING=false;
+
+    /* applyState() interrompe il listener degli accrediti: lo riattiviamo
+       senza buttare la cache già caricata. */
+    if(fbConnected && window.fbReady){
+      startAccreditiWatch(String(STUDENTE.nome||""),true);
+    }
+
+    DATA_DIRTY=true;
+    renderAll();
+    scheduleSave(0,false);
+    return true;
+  }
+
+  function runUndoRedo(direction){
+    if(HISTORY_MOVE_PENDING||SAVE_CONFLICT_LOCKED||!fbConnected){return;}
+    var source=direction==="undo"?UNDO_STACK:REDO_STACK;
+    if(!source.length){return;}
+
+    if(SAVE_IN_FLIGHT_PROMISE){
+      HISTORY_MOVE_PENDING=true;
+      fbStatusText="Attendo il salvataggio prima di "+(direction==="undo"?"annullare…":"ripristinare…");
+      updateFbIndicator();updateUndoRedoButtons();
+      Promise.resolve(SAVE_IN_FLIGHT_PROMISE).catch(function(){return false;}).then(function(){
+        HISTORY_MOVE_PENDING=false;
+        updateUndoRedoButtons();
+        runUndoRedo(direction);
+      });
+      return;
+    }
+
+    clearUndoRedoCoalesce();
+    var current=historyUserSnapshot();
+    var target=source.pop();
+
+    if(direction==="undo"){
+      REDO_STACK.push(cloneHistoryState(current));
+      trimHistoryStack(REDO_STACK);
+    }else{
+      UNDO_STACK.push(cloneHistoryState(current));
+      trimHistoryStack(UNDO_STACK);
+    }
+
+    HISTORY_LAST_STATE=cloneHistoryState(target);
+    restoreUndoRedoSnapshot(target);
+    updateUndoRedoButtons();
+  }
+
+  function appendUndoRedoControls(container){
+    if(!fbConnected){return;}
+    var bar=el("div","undo-redo-toolbar");
+    bar.appendChild(el("span","history-hint","Cronologia delle modifiche della sessione"));
+    var undo=el("button","undo-redo-btn","↶ Annulla");
+    undo.type="button";undo.id="undo-session-btn";
+    undo.addEventListener(EV,function(){runUndoRedo("undo");});
+    var redo=el("button","undo-redo-btn","↷ Ripristina");
+    redo.type="button";redo.id="redo-session-btn";
+    redo.addEventListener(EV,function(){runUndoRedo("redo");});
+    bar.appendChild(undo);bar.appendChild(redo);
+    if(container.firstChild){container.insertBefore(bar,container.firstChild);}else{container.appendChild(bar);}
+    updateUndoRedoButtons();
   }
 
   function resetDataState(){
@@ -2155,7 +2407,10 @@
 
   function scheduleSave(delayMs, registraModifica){
     if(DELETING_PG){ return; }
-    if(registraModifica !== false){ DATA_DIRTY = true; }
+    if(registraModifica !== false){
+      captureUndoHistory(true);
+      DATA_DIRTY = true;
+    }
     if(SAVE_CONFLICT_LOCKED){fbStatusText="Salvataggio bloccato: ricarica il Tool";updateFbIndicator();return;}
     if(!fbConnected || !window.fbReady){ return; }
     if(fbSaveTimer){ clearTimeout(fbSaveTimer); }
@@ -2229,6 +2484,7 @@
     if(currentStep === "recinto"){ renderOccupantFacilityStep(c, "recinto"); }
     if(currentStep === "esporta"){ renderEsportaStep(c); }
     enhanceLinkInputs(c);
+    if(currentStep !== "pg"){ appendUndoRedoControls(c); }
     if(currentStep !== "pg"){ appendManualSave(c); }
     appendPageNavigation(c);
     appendAuditFooter(c);
@@ -2243,7 +2499,7 @@
   function disconnectCurrentPg(){
     var nome=STUDENTE.nome; var state=collectState();
     if(fbSaveTimer){clearTimeout(fbSaveTimer);fbSaveTimer=null;}
-    function finish(){fbConnected=false;resetDataState();STUDENTE.nome="";fbStatusText="";currentStep="pg";renderAll();}
+    function finish(){fbConnected=false;resetDataState();STUDENTE.nome="";fbStatusText="";currentStep="pg";resetUndoRedoHistory();renderAll();}
     if(stateSizeBytes(state)>900000){fbStatusText="Impossibile disconnettersi: il salvataggio è troppo grande. Chiedi prima al Narratore una pulizia dell’archivio.";updateFbIndicator();alert(fbStatusText);return;}
     var cmpDisc=persistenceComparableState(state);
     if(PG_DOC_EXISTS && LAST_PERSISTED_STATE && stableComparableJson(cmpDisc)===stableComparableJson(LAST_PERSISTED_STATE) && !FORCE_PERSIST_SAVE && !SAVE_IN_FLIGHT_PROMISE){DATA_DIRTY=false;flushAuditNow().then(function(){finish();});return;}
@@ -2373,6 +2629,7 @@
             if(stableComparableJson(loadedRemoteProjection)!==stableComparableJson(loadedBaseline)){migrationNeedsSave=true;}
           }
           LAST_PERSISTED_STATE=cloneHistoryState(loadedBaseline); LAST_AUDITED_STATE=cloneHistoryState(loadedAuditBaseline); PENDING_AUDIT_STATE=null; SESSION_SNAPSHOT_DONE=false; LAST_SNAPSHOT_MS=0;
+          resetUndoRedoHistory();
           /* v55: il dirty prodotto dalle normalizzazioni non deve confondersi con una
              modifica utente. Le migrazioni usano un force dedicato; i PG nuovi vengono
              creati perché PG_DOC_EXISTS è false. */
@@ -3967,6 +4224,7 @@
     bulk.style.overflowY="hidden";
     bulk.style.resize="vertical";
     bulk.style.minHeight="90px";
+    bulk.style.marginTop="14px";
     function resizeBulkTextarea(){
       bulk.style.height="auto";
       bulk.style.height=Math.max(90,bulk.scrollHeight+2)+"px";
