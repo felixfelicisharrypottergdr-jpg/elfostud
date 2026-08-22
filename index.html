@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Gestione PG Studente</title>
+<title>Il Mio Elfo Domestico — Studente</title>
 <style>
   @font-face {font-family: 'magic';
  src: url('https://dl.dropboxusercontent.com/scl/fi/nbzmrri4qyvc3tzx96911/HarryBeastDisplay-Regular.woff2?rlkey=he290voe32k33gowug23c1osc&st=nj9fgly1') format('woff2');
@@ -153,6 +153,36 @@
 
   .security-note{background:#dfeaf2;border:1px solid #5c8198;border-radius:7px;padding:10px 12px;margin:10px 0;font-size:.82rem;color:#31566c;font-weight:600;}
   .dispensa-quick{background:rgba(255,255,255,.42);border:1px solid var(--gold);border-radius:7px;padding:12px;margin:12px 0;}
+  .glossary-manual-wrap{position:relative;}
+  .glossary-suggestions{display:none;position:absolute;z-index:25;left:0;right:0;top:100%;margin-top:4px;max-height:260px;overflow:auto;background:#fffdf7;border:1px solid var(--gold);border-radius:7px;box-shadow:0 7px 18px rgba(0,0,0,.18);}
+  .glossary-suggestion{display:block;width:100%;border:0;border-bottom:1px solid rgba(90,65,30,.12);background:transparent;padding:8px 10px;text-align:left;color:#342819;cursor:pointer;font:inherit;}
+  .glossary-suggestion:last-child{border-bottom:0;}
+  .glossary-suggestion:hover,.glossary-suggestion:focus{background:#eef3df;outline:none;}
+  .glossary-suggestion small{display:block;font-size:.74rem;opacity:.72;margin-top:2px;}
+  .glossary-batch{margin-top:14px;padding-top:12px;border-top:1px solid rgba(90,65,30,.22);}
+  .glossary-batch-head{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:7px;}
+  .glossary-batch-title{font-weight:700;color:#3f321e;}
+  .glossary-batch-controls{display:grid;grid-template-columns:minmax(210px,.72fr) minmax(240px,1fr);gap:10px;align-items:end;margin:7px 0 8px;}
+  .glossary-batch-control label{display:block;margin-bottom:4px;}
+  .glossary-batch-filter{margin:0;}
+  @media(max-width:700px){.glossary-batch-controls{grid-template-columns:1fr;}}
+  .glossary-batch-count{font-size:.78rem;color:#6b5a3c;}
+  .glossary-checklist{max-height:430px;overflow:auto;border:1px solid #b9aa7b;border-radius:7px;background:rgba(255,253,247,.62);}
+  .glossary-check-row{display:grid;grid-template-columns:28px minmax(190px,1fr) 92px;gap:8px;align-items:center;padding:7px 9px;border-bottom:1px solid rgba(90,65,30,.12);}
+  .glossary-check-row:last-child{border-bottom:0;}
+  .glossary-check-row.is-selected{background:rgba(226,238,218,.78);}
+  .glossary-check-row.is-hidden{display:none;}
+  .glossary-check-row input[type="checkbox"]{width:18px;height:18px;margin:0;justify-self:center;}
+  .glossary-check-label{min-width:0;cursor:pointer;line-height:1.25;}
+  .glossary-check-label strong{font-weight:600;}
+  .glossary-check-meta{display:block;font-size:.72rem;color:#6b5a3c;margin-top:2px;}
+  .glossary-check-qty{width:100%;min-width:0;text-align:center;}
+  .glossary-check-qty:disabled{opacity:.48;}
+  .glossary-batch-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:9px;}
+  @media (max-width:620px){
+    .glossary-check-row{grid-template-columns:26px minmax(0,1fr) 74px;padding:7px 6px;}
+    .glossary-check-meta{font-size:.68rem;}
+  }
   .ingredient-group{margin:12px 0;border:1px solid #9eb086;border-radius:7px;padding:8px;background:rgba(226,238,218,.72);}
   .ingredient-group>summary{font-weight:bold;cursor:pointer;padding:2px 2px 6px;color:#314526;display:flex;align-items:center;gap:7px;list-style:none;}
   .ingredient-group>summary::-webkit-details-marker,.ingredient-entry>summary::-webkit-details-marker{display:none;}
@@ -200,12 +230,31 @@
   .audit-footer{margin:18px 0 4px;padding:11px 14px;border-top:1px solid rgba(176,82,70,.42);background:rgba(83,34,30,.12);border-radius:0 0 8px 8px;text-align:center;font-size:.78rem;line-height:1.55;color:#d8c9bd}
   .audit-footer strong{color:#d98778}.audit-footer .audit-narrator{color:#d6b477}.audit-footer .audit-explain{display:block;margin-top:3px;opacity:.72;font-size:.72rem}
   .audit-mini{margin-top:8px;text-align:left}.audit-mini summary{cursor:pointer;color:#d6b477}.audit-mini ul{margin:8px 0 0 18px;padding:0}.audit-mini li{margin:4px 0}
+
+  /* v62 - sfondi illustrati per sezione */
+  body.screen-home, body.screen-posts, body.screen-cb, body.screen-dispensa,
+  body.screen-lab, body.screen-green, body.screen-creatures, body.screen-import {
+    background-repeat:no-repeat !important;
+    background-size:cover !important;
+    background-position:center center !important;
+    background-attachment:fixed !important;
+    min-height:100vh;
+  }
+  body.screen-home{background-image:linear-gradient(rgba(11,18,13,.48),rgba(11,18,13,.68)),url("https://i.postimg.cc/59B9kWJc/image.png") !important;}
+  body.screen-posts{background-image:linear-gradient(rgba(11,18,13,.48),rgba(11,18,13,.68)),url("https://i.postimg.cc/3WQvhXRR/image.png") !important;}
+  body.screen-cb{background-image:linear-gradient(rgba(12,12,12,.48),rgba(12,12,12,.70)),url("https://i.postimg.cc/ZnvbnMnZ/image.png") !important;}
+  body.screen-dispensa{background-image:linear-gradient(rgba(11,18,13,.46),rgba(11,18,13,.68)),url("https://i.postimg.cc/7YhcJSK4/image.png") !important;}
+  body.screen-lab{background-image:linear-gradient(rgba(19,15,24,.48),rgba(19,15,24,.70)),url("https://i.postimg.cc/Gt8Fd3xj/image.png") !important;}
+  body.screen-green{background-image:linear-gradient(rgba(12,23,10,.44),rgba(12,23,10,.66)),url("https://i.postimg.cc/DfSyx8gH/image.png") !important;}
+  body.screen-creatures{background-image:linear-gradient(rgba(31,19,10,.44),rgba(31,19,10,.68)),url("https://i.postimg.cc/ZnvbnMnZ/image.png") !important;}
+  body.screen-import{background-image:linear-gradient(rgba(11,18,13,.48),rgba(11,18,13,.68)),url("https://i.postimg.cc/yxZ9Fnxk/image.png") !important;}
+
 </style>
 </head>
 <body>
 <div class="wrap">
-  <h1 class="main-title">🎓 Gestione PG Studente</h1>
-  <p class="subtitle">Camera Blindata, Dispensa, Postazione, Cubicolo e Recinto in un unico posto: aggiungi i post una volta sola.</p>
+  <h1 class="main-title">Il Mio Elfo Domestico</h1>
+  <p class="subtitle">Lascia che mi occupi io di tutto, padron Studente</p>
 
   <div class="steps-nav" id="stepsNav"></div>
   <p id="fb-indicator" style="text-align:center; color:#e6d8ac; font-size:.8rem; margin-bottom:4px;">○ Non connesso</p>
@@ -1264,10 +1313,13 @@
 
   function applyTheme(){
     var themeMap = {
-      blindata: "theme-cb",
-      cubicolo: "theme-serra",
-      postazione: "theme-pozioni",
-      recinto: "theme-creature"
+      pg: "screen-home",
+      posts: "screen-posts",
+      blindata: "theme-cb screen-cb",
+      dispensa: "screen-dispensa",
+      postazione: "theme-pozioni screen-lab",
+      cubicolo: "theme-serra screen-green",
+      recinto: "theme-creature screen-creatures"
     };
     document.body.className = themeMap[currentStep] ? themeMap[currentStep] : "";
   }
@@ -1630,7 +1682,7 @@
       p.appendChild(el("div", "guide-text", "Scrivi il nome esatto del tuo Personaggio e scegli l'Anno Scolastico. Premi «Carica i miei dati»: se è la prima volta parti da zero, altrimenti recuperi tutto ciò che avevi già salvato. Dopo la connessione il nome viene bloccato: per entrare con un altro PG devi prima disconnetterti."));
       var row = el("div", "row");
       var d1 = el("div"); d1.appendChild(el("label", null, "Nome del PG"));
-      var i1 = el("input"); i1.type="text"; i1.value = STUDENTE.nome; i1.placeholder="Es. Harry Potter";
+      var i1 = el("input"); i1.type="text"; i1.value = STUDENTE.nome; i1.placeholder="Come posso aiutarla, Padron...?";
       i1.addEventListener("input", function(){ STUDENTE.nome = i1.value; });
       d1.appendChild(i1); row.appendChild(d1);
       var d2 = el("div"); d2.appendChild(el("label", null, "Anno Scolastico"));
@@ -2332,18 +2384,165 @@
     var zbody=el("div","small-note"); var zths={X:10,XX:7,XXX:5,XXXX:4,XXXXX:3}; var zlines=[]; Object.keys(zths).forEach(function(cl){var fn=function(m,r){return m.tipo==="Vendita legale"&&m.commerciante==="Lo Zoppo"&&r.classificazione===cl;};fn.archiveKey="Lo Zoppo||Vendita legale||"+cl;zlines.push(cl+": "+movementDoseCount(fn)+" / "+zths[cl]);}); var fne=function(m,r){return m.tipo==="Vendita legale"&&m.commerciante==="Lo Zoppo"&&r.classificazione==="Esseri, Non-Esseri e Spiriti";};fne.archiveKey="Lo Zoppo||Vendita legale||Esseri, Non-Esseri e Spiriti";zlines.push("Esseri, Non-Esseri e Spiriti: "+movementDoseCount(fne)); var fni=function(m,r){return m.tipo==="Vendita illegale"&&!!r.illegale;};fni.archiveKey="*||Vendita illegale||ILLEGAL";zlines.push("Illegali venduti: "+movementDoseCount(fni)+" / 10");var fns=function(m,r){return m.tipo==="Scarto"&&!!r.illegale;};fns.archiveKey="*||Scarto||ILLEGAL";zlines.push("Illegali scartati: "+movementDoseCount(fns)+" / 10");zbody.textContent=zlines.join(" · ");zc.appendChild(zbody);zc.appendChild(el("p","small-note","Ricompense di riferimento: X/XX/XXX → +0,5 Bontà o Malvagità; XXXX/XXXXX → +1; Esseri, Non-Esseri e Spiriti → +1 per Ingrediente. Illegali venduti → +1 Malvagità; illegali scartati → +2 Bontà."));p.appendChild(zc);
 
     p.appendChild(el("h4",null,"Ingredienti posseduti"));
-    var quick=el("div","dispensa-quick"); quick.appendChild(el("strong",null,"Aggiunta rapida dal Glossario"));
-    quick.appendChild(el("p","small-note","Scrivi o incolla il nome dell’Ingrediente e scegli una voce del Glossario: classificazione, provenienza regolamentare e simboli vengono compilati automaticamente."));
+    var quick=el("div","dispensa-quick"); quick.appendChild(el("strong",null,"Aggiunta dal Glossario"));
+    quick.appendChild(el("p","small-note","Puoi cercare un Ingrediente scrivendone il nome, oppure selezionarne più di uno dall’elenco completo qui sotto. Provenienza, link e produttore impostati nel modulo vengono applicati a tutti gli Ingredienti aggiunti insieme."));
+    /* Il datalist resta disponibile per modificare i nomi degli Ingredienti già posseduti.
+       Il campo di aggiunta rapida usa invece suggerimenti personalizzati, così il browser
+       non apre più l'intero Glossario in una tendina enorme al semplice focus. */
     var dl=el("datalist"); dl.id="ingredienti-glossario"; for(var dlx=0;dlx<INGREDIENTI_GLOSSARIO.length;dlx++){var op=el("option");op.value=INGREDIENTI_GLOSSARIO[dlx].nome;dl.appendChild(op);} quick.appendChild(dl);
+
     var qr=el("div","row");
-    var qnW=el("div");qnW.appendChild(el("label",null,"Nome Ingrediente"));var qn=el("input");qn.type="text";qn.setAttribute("list","ingredienti-glossario");qn.placeholder="Inizia a scrivere o incolla il nome…";qnW.appendChild(qn);qr.appendChild(qnW);
+    var qnW=el("div","glossary-manual-wrap");qnW.appendChild(el("label",null,"Nome Ingrediente"));
+    var qn=el("input");qn.type="text";qn.autocomplete="off";qn.placeholder="Scrivi almeno 2 lettere per cercare…";qnW.appendChild(qn);
+    var qSuggest=el("div","glossary-suggestions");qnW.appendChild(qSuggest);qr.appendChild(qnW);
     var qqW=el("div");qqW.appendChild(el("label",null,"Quantità"));var qq=el("input");qq.type="number";qq.min="1";qq.step="1";qq.value="1";qqW.appendChild(qq);qr.appendChild(qqW);
     var qpW=el("div");qpW.appendChild(el("label",null,"Come l’hai ottenuto?"));var qp=buildSelect(PROVENIENZE_DISPENSA,"Trovato",function(v){qp.value=v;toggleProducer();},false);qpW.appendChild(qp);qr.appendChild(qpW);quick.appendChild(qr);
-    var qr2=el("div","row");var qlW=el("div");qlW.appendChild(el("label",null,"Link ottenimento"));var ql=el("input");ql.type="text";ql.placeholder="https://...";qlW.appendChild(ql);qr2.appendChild(qlW);var qprodW=el("div");qprodW.appendChild(el("label",null,"PG produttore (solo se autoprodotto)"));var qprod=el("input");qprod.type="text";qprodW.appendChild(qprod);qr2.appendChild(qprodW);quick.appendChild(qr2);
+
+    var qr2=el("div","row");
+    var qlW=el("div");qlW.appendChild(el("label",null,"Link ottenimento"));var ql=el("input");ql.type="text";ql.placeholder="https://...";qlW.appendChild(ql);qr2.appendChild(qlW);
+    var qprodW=el("div");qprodW.appendChild(el("label",null,"PG produttore (solo se autoprodotto)"));var qprod=el("input");qprod.type="text";qprodW.appendChild(qprod);qr2.appendChild(qprodW);quick.appendChild(qr2);
     function toggleProducer(){qprodW.style.display=qp.value==="Autoprodotto"?"block":"none";} toggleProducer();
-    var qpreview=el("p","small-note",""); function previewGloss(){var rec=catalogIngredient(qn.value);qpreview.textContent=rec?(rec.nome+ingredientSymbols(rec)+" — "+rec.classificazione+" — "+rec.classeBene+" — "+rec.provenienzaGlossario): (qn.value.trim()?"Nome non riconosciuto: scegli una voce esatta del Glossario.":"");} qn.addEventListener("input",previewGloss);quick.appendChild(qpreview);
-    var qadd=el("button","action","Aggiungi alla Dispensa");qadd.addEventListener(EV,function(){var res=addIngredienteCatalogo(qn.value,qq.value,qp.value,ql.value,qprod.value);if(!res.ok){alert(res.error);return;}qn.value="";qq.value="1";ql.value="";qprod.value="";qpreview.textContent="";scheduleSave(0);renderAll();});quick.appendChild(qadd);
-    var bulkDet=el("details","stage");bulkDet.appendChild(el("summary",null,"Incolla più Ingredienti insieme"));bulkDet.appendChild(el("p","small-note","Uno per riga. Puoi scrivere «Nome Ingrediente» oppure «3 | Nome Ingrediente». Provenienza e link saranno quelli impostati sopra per tutte le righe."));var bulk=el("textarea");bulk.placeholder="Ala di Doxy\n2 | Radice di Valeriana";bulkDet.appendChild(bulk);var bulkBtn=el("button","action small","Aggiungi elenco");bulkBtn.addEventListener(EV,function(){var lines=bulk.value.split(/\r?\n/).map(function(x){return x.trim();}).filter(Boolean),errs=[],added=0;for(var bi=0;bi<lines.length;bi++){var line=lines[bi],qty=1,name=line,m=line.match(/^(\d+)\s*[|x×-]\s*(.+)$/i);if(m){qty=parseInt(m[1],10)||1;name=m[2].trim();}var rr=addIngredienteCatalogo(name,qty,qp.value,ql.value,qprod.value);if(rr.ok){added++;}else{errs.push(name);}}if(errs.length){alert("Non riconosciuti nel Glossario: "+errs.join(", "));}if(added){bulk.value="";scheduleSave(0);renderAll();}});bulkDet.appendChild(bulkBtn);quick.appendChild(bulkDet);p.appendChild(quick);
+
+    var qpreview=el("p","small-note","");
+    function previewGloss(){
+      var rec=catalogIngredient(qn.value);
+      qpreview.textContent=rec?(rec.nome+ingredientSymbols(rec)+" — "+rec.classificazione+" — "+rec.classeBene+" — "+rec.provenienzaGlossario):(qn.value.trim()?"Ingrediente non ancora riconosciuto: continua a scrivere o scegli un suggerimento.":"");
+    }
+    function renderQuickGlossSuggestions(){
+      var term=String(qn.value||"").trim().toLocaleLowerCase("it");
+      qSuggest.innerHTML="";
+      if(term.length<2){qSuggest.style.display="none";return;}
+      var starts=[],contains=[];
+      for(var gi=0;gi<INGREDIENTI_GLOSSARIO.length;gi++){
+        var gr=INGREDIENTI_GLOSSARIO[gi],gn=String(gr.nome||"").toLocaleLowerCase("it");
+        if(gn.indexOf(term)===0){starts.push(gr);}
+        else if(gn.indexOf(term)>0){contains.push(gr);}
+      }
+      var matches=starts.concat(contains).slice(0,10);
+      if(!matches.length){qSuggest.style.display="none";return;}
+      for(var gm=0;gm<matches.length;gm++){
+        (function(rec){
+          var b=document.createElement("button");b.type="button";b.className="glossary-suggestion";
+          var title=document.createElement("span");title.textContent=rec.nome+ingredientSymbols(rec);b.appendChild(title);
+          var meta=document.createElement("small");meta.textContent=rec.classificazione+" · "+rec.classeBene;b.appendChild(meta);
+          b.addEventListener("mousedown",function(ev){ev.preventDefault();});
+          b.addEventListener("click",function(){qn.value=rec.nome;qSuggest.style.display="none";previewGloss();qn.focus();});
+          qSuggest.appendChild(b);
+        })(matches[gm]);
+      }
+      qSuggest.style.display="block";
+    }
+    qn.addEventListener("input",function(){previewGloss();renderQuickGlossSuggestions();});
+    qn.addEventListener("focus",renderQuickGlossSuggestions);
+    qn.addEventListener("blur",function(){setTimeout(function(){qSuggest.style.display="none";},120);});
+    quick.appendChild(qpreview);
+
+    var qadd=el("button","action","Aggiungi questo Ingrediente");
+    qadd.addEventListener(EV,function(){
+      var res=addIngredienteCatalogo(qn.value,qq.value,qp.value,ql.value,qprod.value);
+      if(!res.ok){alert(res.error);return;}
+      qn.value="";qq.value="1";qpreview.textContent="";qSuggest.style.display="none";
+      scheduleSave(0);renderAll();
+    });
+    quick.appendChild(qadd);
+
+    /* Selezione multipla visibile: checkbox + quantità per ogni voce del Glossario. */
+    var multi=el("div","glossary-batch");
+    var multiHead=el("div","glossary-batch-head");
+    multiHead.appendChild(el("div","glossary-batch-title","Selezione multipla dal Glossario"));
+    var multiCount=el("div","glossary-batch-count","");multiHead.appendChild(multiCount);multi.appendChild(multiHead);
+    multi.appendChild(el("p","small-note","Scegli prima la Classificazione: nell’elenco compariranno solo gli Ingredienti di quella classe. Poi flagga quelli che vuoi aggiungere e indica le dosi a fianco. Puoi cambiare Classificazione o usare il filtro senza perdere le selezioni già fatte."));
+    var multiControls=el("div","glossary-batch-controls");
+    var multiClassWrap=el("div","glossary-batch-control");multiClassWrap.appendChild(el("label",null,"Classificazione"));
+    var multiClass=el("select");
+    var classChoices=["","X","XX","XXX","XXXX","XXXXX","Esseri, Non-Esseri e Spiriti","Non classificato"];
+    var classLabels=["Seleziona la Classificazione…","X","XX","XXX","XXXX","XXXXX","Esseri, Non-Esseri e Spiriti","Non classificato"];
+    for(var mci=0;mci<classChoices.length;mci++){var mco=el("option",null,classLabels[mci]);mco.value=classChoices[mci];multiClass.appendChild(mco);}
+    multiClassWrap.appendChild(multiClass);multiControls.appendChild(multiClassWrap);
+    var multiFilterWrap=el("div","glossary-batch-control");multiFilterWrap.appendChild(el("label",null,"Filtra nella Classificazione"));
+    var multiFilter=el("input","glossary-batch-filter");multiFilter.type="search";multiFilter.autocomplete="off";multiFilter.placeholder="Scrivi parte del nome…";multiFilterWrap.appendChild(multiFilter);multiControls.appendChild(multiFilterWrap);multi.appendChild(multiControls);
+    var checklist=el("div","glossary-checklist");multi.appendChild(checklist);
+    var checklistRows=[];
+
+    for(var cg=0;cg<INGREDIENTI_GLOSSARIO.length;cg++){
+      (function(rec){
+        var row=el("div","glossary-check-row");
+        var cb=el("input");cb.type="checkbox";cb.setAttribute("aria-label","Seleziona "+rec.nome);row.appendChild(cb);
+        var label=el("div","glossary-check-label");
+        var nm=el("strong",null,rec.nome+ingredientSymbols(rec));label.appendChild(nm);
+        label.appendChild(el("span","glossary-check-meta",rec.classificazione+" · "+rec.classeBene));
+        row.appendChild(label);
+        var qty=el("input","glossary-check-qty");qty.type="number";qty.min="1";qty.step="1";qty.value="1";qty.disabled=true;qty.title="Dosi di "+rec.nome;row.appendChild(qty);
+        function syncCheckRow(){
+          qty.disabled=!cb.checked;
+          row.classList.toggle("is-selected",cb.checked);
+          updateMultiCount();
+        }
+        cb.addEventListener("change",function(){syncCheckRow();if(cb.checked){qty.focus();qty.select();}});
+        label.addEventListener("click",function(){cb.checked=!cb.checked;syncCheckRow();if(cb.checked){qty.focus();qty.select();}});
+        checklist.appendChild(row);
+        checklistRows.push({row:row,cb:cb,qty:qty,rec:rec,search:String(rec.nome+" "+rec.classificazione+" "+rec.classeBene+" "+rec.provenienzaGlossario).toLocaleLowerCase("it")});
+      })(INGREDIENTI_GLOSSARIO[cg]);
+    }
+
+    function updateMultiCount(){
+      var selected=0,visible=0;
+      for(var mc=0;mc<checklistRows.length;mc++){
+        if(checklistRows[mc].cb.checked){selected++;}
+        if(!checklistRows[mc].row.classList.contains("is-hidden")){visible++;}
+      }
+      multiCount.textContent=selected+" selezionati · "+visible+" visibili";
+    }
+    function filterChecklist(){
+      var chosenClass=String(multiClass.value||"");
+      var term=String(multiFilter.value||"").trim().toLocaleLowerCase("it");
+      for(var mf=0;mf<checklistRows.length;mf++){
+        var classOk=!!chosenClass&&String(checklistRows[mf].rec.classificazione||"Non classificato")===chosenClass;
+        var termOk=!term||checklistRows[mf].search.indexOf(term)>=0;
+        checklistRows[mf].row.classList.toggle("is-hidden",!(classOk&&termOk));
+      }
+      updateMultiCount();
+    }
+    multiClass.addEventListener("change",filterChecklist);
+    multiFilter.addEventListener("input",filterChecklist);
+    filterChecklist();
+
+    var multiActions=el("div","glossary-batch-actions");
+    var addSelected=el("button","action","Aggiungi selezionati");
+    addSelected.addEventListener(EV,function(){
+      var selectedRows=checklistRows.filter(function(x){return x.cb.checked;});
+      if(!selectedRows.length){alert("Seleziona almeno un Ingrediente dal Glossario.");return;}
+      var errs=[],added=0;
+      for(var sa=0;sa<selectedRows.length;sa++){
+        var sr=selectedRows[sa],qty=Math.max(1,parseInt(sr.qty.value,10)||1);
+        var rr=addIngredienteCatalogo(sr.rec.nome,qty,qp.value,ql.value,qprod.value);
+        if(rr.ok){added++;}else{errs.push(sr.rec.nome);}
+      }
+      if(errs.length){alert("Non è stato possibile aggiungere: "+errs.join(", "));}
+      if(added){scheduleSave(0);renderAll();}
+    });
+    multiActions.appendChild(addSelected);
+    multiActions.appendChild(el("span","small-note","Provenienza e link sono quelli impostati sopra."));
+    multi.appendChild(multiActions);
+    quick.appendChild(multi);
+
+    var bulkDet=el("details","stage");
+    bulkDet.appendChild(el("summary",null,"Incolla più Ingredienti insieme"));
+    bulkDet.appendChild(el("p","small-note","Uno per riga. Puoi scrivere «Nome Ingrediente» oppure «3 | Nome Ingrediente». Provenienza e link saranno quelli impostati sopra per tutte le righe."));
+    var bulk=el("textarea");bulk.placeholder="Ala di Doxy\n2 | Radice di Valeriana";bulkDet.appendChild(bulk);
+    var bulkBtn=el("button","action small","Aggiungi elenco");
+    bulkBtn.addEventListener(EV,function(){
+      var lines=bulk.value.split(/\r?\n/).map(function(x){return x.trim();}).filter(Boolean),errs=[],added=0;
+      for(var bi=0;bi<lines.length;bi++){
+        var line=lines[bi],qty=1,name=line,m=line.match(/^(\d+)\s*[|x×-]\s*(.+)$/i);
+        if(m){qty=parseInt(m[1],10)||1;name=m[2].trim();}
+        var rr=addIngredienteCatalogo(name,qty,qp.value,ql.value,qprod.value);
+        if(rr.ok){added++;}else{errs.push(name);}
+      }
+      if(errs.length){alert("Non riconosciuti nel Glossario: "+errs.join(", "));}
+      if(added){bulk.value="";scheduleSave(0);renderAll();}
+    });
+    bulkDet.appendChild(bulkBtn);quick.appendChild(bulkDet);p.appendChild(quick);
     if(!DISPENSA.ingredienti.length){ p.appendChild(el("p","small-note","Nessun Ingrediente registrato.")); }
     var classOrder=["X","XX","XXX","XXXX","XXXXX","Esseri, Non-Esseri e Spiriti","Non classificato"];
     for(var co=0;co<classOrder.length;co++){
