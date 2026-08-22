@@ -613,6 +613,7 @@
   /* v71 - Anno Scolastico: modifica sempre disponibile + promemoria confermabile ogni agosto */
   /* v70 - fix Camera Blindata Studente: rimosso riferimento a funzione solo Adulto */
   /* v69 - Da accreditare: riepilogo ultimo Post + evidenza valori */
+  /* Camera Blindata: Bonus «Tutti i post» senza checkbox; si applica automaticamente a ogni post valido */
   /* Camera Blindata: post.pp legacy ignorato; PP conteggiati solo dai Bonus correnti */
   /* Cronologia sessione: Annulla / Ripristina disponibile in tutte le interfacce del PG */
   /* Dispensa: tre blocchi; Incolla + aggiunta manuale riuniti nel Blocco 1 */
@@ -3150,7 +3151,7 @@
 
   function postEligibleForBonus(post,b){
     if(!post||!isValidPostLink(post.link)){return false;}
-    if(b.modalita==="all"){return !postExcludedFromBonus(post,b);}
+    if(b.modalita==="all"){return true;}
     if(b.modalita==="posts"){return postUsesLimitedBonus(post,b);}
     return false;
   }
@@ -3310,17 +3311,9 @@
         if(b.modalita==="manual")return;
         shown++;
         var line=el("div","cb-bonus-line");
-        var cb=el("input");cb.type="checkbox";
 
-        if(b.modalita==="all"){
-          cb.checked=!postExcludedFromBonus(post,b);
-          cb.disabled=!!locked||!post||!isValidPostLink(post.link);
-          cb.title="Spuntato = il post riceve questo Bonus";
-          cb.addEventListener("change",function(){
-            if(blockIfMonthReadOnly(mese)){cb.checked=!postExcludedFromBonus(post,b);return;}
-            setPostExcludedFromBonus(post,b,!cb.checked);scheduleSave(0);renderAll();
-          });
-        }else{
+        if(b.modalita==="posts"){
+          var cb=el("input");cb.type="checkbox";
           var rec=getBonusUsageRecord(post,b,false);
           cb.checked=!!(rec&&rec.used);
           var setupMissing=!b.usatiConfermati||!(b.maxUtilizzi>0);
@@ -3335,8 +3328,8 @@
             }
             r.used=cb.checked;scheduleSave(0);renderAll();
           });
+          line.appendChild(cb);
         }
-        line.appendChild(cb);
 
         var txt=el("span");
         var name=bonusDisplayName(b,idx);
