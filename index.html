@@ -1802,7 +1802,7 @@
       p.appendChild(el("div", "guide-text", "Scrivi il nome esatto del tuo Personaggio e scegli l'Anno Scolastico. Premi «Carica i miei dati»: se è la prima volta parti da zero, altrimenti recuperi tutto ciò che avevi già salvato. Dopo la connessione il nome viene bloccato: per entrare con un altro PG devi prima disconnetterti."));
       var row = el("div", "row");
       var d1 = el("div"); d1.appendChild(el("label", null, "Nome del PG"));
-      var i1 = el("input"); i1.type="text"; i1.value = STUDENTE.nome; i1.placeholder="Come posso aiutarla, Padron...?";
+      var i1 = el("input"); i1.type="text"; i1.value = STUDENTE.nome; i1.placeholder="Come posso aiutarla, Padron... Padrona...?";
       i1.addEventListener("input", function(){ STUDENTE.nome = i1.value; });
       d1.appendChild(i1); row.appendChild(d1);
       var d2 = el("div"); d2.appendChild(el("label", null, "Anno Scolastico"));
