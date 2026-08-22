@@ -42,6 +42,20 @@
   .wrap{ max-width: 1080px; margin: 0 auto; padding: 24px 16px 60px; }
   h1.main-title{ font-family: 'magic', Georgia, 'Times New Roman', serif !important; text-align:center; color: var(--parch); letter-spacing: 2px; font-size: 1.85rem; margin-bottom: 4px; text-shadow: 0 2px 6px rgba(0,0,0,.5); }
   p.subtitle{ text-align:center; color: var(--parch-dark); margin-top:0; margin-bottom: 24px; font-style: italic; }
+
+  .subtitle .role-adulto,
+  .subtitle .role-studente{
+    font-weight: 700;
+    letter-spacing: 0.02em;
+  }
+  .subtitle .role-adulto{
+    color:#7fb6ff;
+    text-shadow: 0 0 6px rgba(127,182,255,.45), 0 0 12px rgba(127,182,255,.22);
+  }
+  .subtitle .role-studente{
+    color:#c74b57;
+    text-shadow: 0 0 6px rgba(199,75,87,.45), 0 0 12px rgba(199,75,87,.22);
+  }
   .steps-nav{ display:flex; flex-wrap:wrap; gap:6px; justify-content:center; margin-bottom: 20px; }
   .step-btn{ background: var(--green); color: var(--parch); border: 1px solid var(--gold); border-radius: 6px; padding: 8px 12px; font-size: .78rem; cursor: pointer; font-family: inherit; opacity:.75; }
   .step-btn.active{ background: var(--gold); color: var(--green-dark); opacity:1; font-weight:bold; }
@@ -423,6 +437,7 @@
   /* v71 - Anno Scolastico: modifica sempre disponibile + promemoria confermabile ogni agosto */
   /* v70 - fix Camera Blindata Studente: rimosso riferimento a funzione solo Adulto */
   /* v69 - Da accreditare: riepilogo ultimo Post + evidenza valori */
+  /* Eliminazione PG dal Tool: conferma con nome esatto + tombstone Firebase */
   /* Barra DA ACCREDITARE: usa i totali mensili effettivi e spazio dopo i due punti */
   /* CB: rimosso Totale complessivo ridondante; restano Galeoni accumulati + Totale Bonus */
   /* Riepilogo Bonus: mostra Post del mese e N. globale degli utilizzi */
@@ -526,7 +541,7 @@
 <body>
 <div class="wrap">
   <h1 class="main-title">Il Mio Elfo Domestico</h1>
-  <p class="subtitle">Lascia che mi occupi io di tutto, padron Studente</p>
+  <p class="subtitle">Lascia che mi occupi io di tutto, padron <strong class="role-studente">Studente</strong></p>
 
   <div class="steps-nav" id="stepsNav"></div>
   <p id="fb-indicator" style="text-align:center; color:#e6d8ac; font-size:.8rem; margin-bottom:4px;">○ Non connesso</p>
@@ -700,6 +715,39 @@
 
   window.fbLoadState = function(pgId){
     return getDoc(doc(fbDb, PERSON_COLLECTION, pgId)).then(function(snap){ return snap.exists() ? snap.data() : null; });
+  };
+
+  window.fbDeleteOwnPg = function(pgId, expectedRevision){
+    var ref = doc(fbDb, PERSON_COLLECTION, pgId);
+    var expected = Math.max(0, parseInt(expectedRevision,10) || 0);
+    return runTransaction(fbDb, async function(tx){
+      var snap = await tx.get(ref);
+      if(!snap.exists()){ return {alreadyMissing:true}; }
+      var cur = snap.data() || {};
+      if(cur._deleted){ return {alreadyDeleted:true}; }
+
+      var remoteRevision = Math.max(0, parseInt(cur._dbRevision,10) || 0);
+      if(remoteRevision !== expected){ throw new Error("revision-conflict"); }
+
+      tx.set(ref, {
+        _deleted:true,
+        _archiviato:true,
+        _cleanupPending:true,
+        _pgName:pgId,
+        _schemaVersion:Math.max(25,parseInt(cur._schemaVersion,10)||0),
+        _dbRevision:remoteRevision+1,
+        _deletedAt:serverTimestamp(),
+        _deletedBy:"pg",
+        _lastModifiedAt:serverTimestamp(),
+        _lastModifiedBy:"pg",
+        _lastSessionId:"",
+        _lastAction:"PG eliminato dal proprietario tramite il Tool"
+      });
+      return {deleted:true};
+    }).then(function(){ return {ok:true}; }).catch(function(e){
+      console.error(e);
+      return {ok:false,code:e&&e.message?e.message:(e&&e.code?e.code:"error")};
+    });
   };
 
   window.fbGetAccrediti = function(pgId){
@@ -907,6 +955,7 @@
   var fbSaveTimer = null;
   var SAVE_IN_FLIGHT_PROMISE = null;
   var SAVE_FORCE_AGAIN = false;
+  var DELETING_PG = false;
   var fbStatusText = "";
   var accreditiCache = null;
   var ACCREDITI_LOAD_STATE = "idle";
@@ -1930,6 +1979,7 @@
   }
 
   function serializedSaveLatest(){
+    if(DELETING_PG){ return Promise.resolve(true); }
     if(SAVE_IN_FLIGHT_PROMISE){ SAVE_FORCE_AGAIN=true; return SAVE_IN_FLIGHT_PROMISE; }
     SAVE_FORCE_AGAIN=false;
     function loop(){
@@ -1958,6 +2008,7 @@
   }
 
   function scheduleSave(delayMs, registraModifica){
+    if(DELETING_PG){ return; }
     if(registraModifica !== false){ DATA_DIRTY = true; }
     if(SAVE_CONFLICT_LOCKED){fbStatusText="Salvataggio bloccato: ricarica il Tool";updateFbIndicator();return;}
     if(!fbConnected || !window.fbReady){ return; }
@@ -2060,12 +2111,95 @@
     }else{if(confirm("Firebase non è disponibile. Vuoi disconnetterti comunque? Le ultime modifiche potrebbero non essere salvate.")){finish();}}
   }
 
+  function deleteCurrentPgFromTool(btn){
+    if(DELETING_PG){return;}
+    if(!fbConnected){alert("Devi essere connesso a un PG prima di poterlo eliminare.");return;}
+
+    var nome=String(STUDENTE.nome||"").trim();
+    if(!nome){alert("Nome del PG non disponibile.");return;}
+
+    var typed=prompt(
+      "Stai per eliminare definitivamente «"+nome+"» dal Tool Studenti.\n\n"+
+      "Questa operazione riguarda solo questo Tool e non elimina un eventuale PG con lo stesso nome nell'altro Tool.\n\n"+
+      "Per confermare, riscrivi esattamente il nome del PG:"
+    );
+    if(typed===null){return;}
+    if(String(typed).trim()!==nome){
+      alert("Nome non corrispondente. Eliminazione annullata.");
+      return;
+    }
+
+    if(!confirm("Confermi l'eliminazione di «"+nome+"» dal Tool Studenti? I dati di questo PG non saranno più disponibili nel database attivo.")){
+      return;
+    }
+
+    if(!window.fbReady || !window.fbDeleteOwnPg){
+      alert("Firebase non è ancora disponibile. Riprova tra qualche secondo.");
+      return;
+    }
+
+    DELETING_PG=true;
+    SAVE_FORCE_AGAIN=false;
+    if(fbSaveTimer){clearTimeout(fbSaveTimer);fbSaveTimer=null;}
+    if(btn){btn.disabled=true;btn.textContent="Eliminazione…";}
+    fbStatusText="Eliminazione del PG in corso…";
+    updateFbIndicator();
+
+    function finishDeleted(){
+      fbConnected=false;
+      resetDataState();
+      STUDENTE.nome="";
+      fbStatusText="";
+      currentStep="pg";
+      DELETING_PG=false;
+      alert("«"+nome+"» è stato eliminato dal Tool Studenti.");
+      renderAll();
+    }
+
+    function performDelete(){
+      /* Se il PG non era ancora stato scritto su Firebase, basta chiudere
+         la sessione locale. Se un salvataggio appena terminato lo ha creato,
+         PG_DOC_EXISTS sarà invece true e verrà eliminato normalmente. */
+      if(!PG_DOC_EXISTS){finishDeleted();return Promise.resolve();}
+
+      return window.fbDeleteOwnPg(nome,DB_REVISION).then(function(res){
+        if(res&&res.ok){finishDeleted();return;}
+        DELETING_PG=false;
+        if(btn){btn.disabled=false;btn.textContent="⚠ Elimina questo PG dal Tool";}
+        var code=res&&res.code?res.code:"error";
+        if(code==="revision-conflict"){
+          alert("Il PG è stato modificato nel frattempo in un'altra sessione. Ricarica i dati prima di eliminarlo.");
+        }else if(code==="permission-denied"){
+          alert("Firebase non consente l'eliminazione da questa sessione. Contatta il Narratore per rimuovere il PG.");
+        }else{
+          alert("Non è stato possibile eliminare il PG. Riprova o contatta il Narratore.");
+        }
+        updateFbIndicator();
+      }).catch(function(e){
+        console.error(e);
+        DELETING_PG=false;
+        if(btn){btn.disabled=false;btn.textContent="⚠ Elimina questo PG dal Tool";}
+        alert("Non è stato possibile eliminare il PG. Riprova o contatta il Narratore.");
+        updateFbIndicator();
+      });
+    }
+
+    /* Un eventuale salvataggio già partito viene lasciato terminare prima
+       dell'eliminazione, così non può ricreare il documento subito dopo. */
+    var pending=SAVE_IN_FLIGHT_PROMISE;
+    if(pending){
+      Promise.resolve(pending).catch(function(){return false;}).then(performDelete);
+    }else{
+      performDelete();
+    }
+  }
+
   function renderPGStep(container){
     var p = el("div", "panel");
     p.appendChild(el("h2", null, "Dati del Personaggio"));
 
     if(!fbConnected){
-      p.appendChild(el("div", "guide-text", "Scrivi il nome esatto del tuo Personaggio e premi «Carica i miei dati»: se è la prima volta parti da zero, altrimenti recuperi tutto ciò che avevi già salvato. Dopo la connessione il nome viene bloccato: per entrare con un altro PG devi prima disconnetterti. L’Anno Scolastico si gestisce dopo l’accesso e può essere modificato in qualsiasi momento."));
+      p.appendChild(el("div", "guide-text", "Scrivi il nome esatto del tuo Personaggio e premi <b>Invio</b> oppure «Carica i miei dati»: se è la prima volta parti da zero, altrimenti recuperi tutto ciò che avevi già salvato. Dopo la connessione il nome viene bloccato: per entrare con un altro PG devi prima disconnetterti. L’Anno Scolastico si gestisce dopo l’accesso e può essere modificato in qualsiasi momento."));
       var row = el("div", "row");
       var d1 = el("div"); d1.appendChild(el("label", null, "Nome del PG"));
       var i1 = el("input"); i1.type="text"; i1.value = STUDENTE.nome; i1.placeholder="Come può aiutarti quest'umile elfo, Padroncina... o Padroncino?";
@@ -2122,6 +2256,12 @@
           startAccreditiWatch(nome); renderAll();
         }).catch(function(e){ console.error(e); btn.disabled=false; btn.textContent="Carica i miei dati"; fbConnected=false; fbStatusText=""; alert("Impossibile leggere i dati da Firebase. Non verrà creato né sovrascritto alcun salvataggio. Controlla la connessione o le regole Firebase e riprova."); updateFbIndicator(); });
       });
+      i1.addEventListener("keydown", function(e){
+        if(e.key === "Enter"){
+          e.preventDefault();
+          if(!btn.disabled){ btn.click(); }
+        }
+      });
       p.appendChild(btn);
     } else {
       p.appendChild(el("div", "guide-text", "Sei connesso come <b>" + STUDENTE.nome + "</b>. Per evitare di mescolare i dati di Personaggi diversi, non è possibile cambiare nome durante questa sessione."));
@@ -2165,6 +2305,14 @@
         disconnectCurrentPg();
       });
       p.appendChild(btnDisconnect);
+
+      p.appendChild(el("div","divider"));
+      p.appendChild(el("h4",null,"Eliminazione dal Tool"));
+      p.appendChild(el("p","small-note","Usa questa funzione soltanto se hai creato il PG nel Tool sbagliato o vuoi rimuoverlo definitivamente da questo database. L'eliminazione riguarda solo questo Tool; per sicurezza dovrai riscrivere esattamente il nome del PG."));
+      var btnDeletePg=el("button","action danger","⚠ Elimina questo PG dal Tool");
+      btnDeletePg.type="button";
+      btnDeletePg.addEventListener(EV,function(){deleteCurrentPgFromTool(btnDeletePg);});
+      p.appendChild(btnDeletePg);
     }
 
     container.appendChild(p);
