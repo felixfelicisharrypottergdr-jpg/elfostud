@@ -259,6 +259,89 @@
   body.screen-creatures{background-image:linear-gradient(rgba(31,19,10,.44),rgba(31,19,10,.68)),url("https://i.postimg.cc/t4bbG50g/riserva-creature.webp") !important;}
   body.screen-import{background-image:linear-gradient(rgba(11,18,13,.48),rgba(11,18,13,.68)),url("https://i.postimg.cc/Z5mmzLGX/elfo-magazzino.webp") !important;}
 
+
+  /* v67 - palette pulsanti per sezione */
+  /* Home / Post / Importa: marrone + dorato */
+  body.screen-home .step-btn,
+  body.screen-home button.action:not(.danger),
+  body.screen-home .page-nav-btn,
+  body.screen-home .link-open-icon,
+  body.screen-posts .step-btn,
+  body.screen-posts button.action:not(.danger),
+  body.screen-posts .page-nav-btn,
+  body.screen-posts .link-open-icon,
+  body.screen-import .step-btn,
+  body.screen-import button.action:not(.danger),
+  body.screen-import .page-nav-btn,
+  body.screen-import .link-open-icon{
+    background:#5a3a22;
+    color:#f3ead2;
+    border-color:#b88b3d;
+  }
+
+  body.screen-home .step-btn.active,
+  body.screen-posts .step-btn.active,
+  body.screen-import .step-btn.active,
+  body.screen-home .copy-btn,
+  body.screen-posts .copy-btn,
+  body.screen-import .copy-btn{
+    background:#b88b3d;
+    color:#3a2416;
+    border-color:#8e6527;
+  }
+
+  body.screen-home .step-btn:hover:not(:disabled),
+  body.screen-home button.action:not(.danger):hover,
+  body.screen-home .page-nav-btn:hover:not(:disabled),
+  body.screen-home .link-open-icon:hover,
+  body.screen-posts .step-btn:hover:not(:disabled),
+  body.screen-posts button.action:not(.danger):hover,
+  body.screen-posts .page-nav-btn:hover:not(:disabled),
+  body.screen-posts .link-open-icon:hover,
+  body.screen-import .step-btn:hover:not(:disabled),
+  body.screen-import button.action:not(.danger):hover,
+  body.screen-import .page-nav-btn:hover:not(:disabled),
+  body.screen-import .link-open-icon:hover{
+    background:#3a2416;
+    color:#f3ead2;
+  }
+
+  /* Dispensa: marrone + rosso scuro */
+  body.screen-dispensa .step-btn,
+  body.screen-dispensa button.action:not(.danger),
+  body.screen-dispensa .page-nav-btn,
+  body.screen-dispensa .link-open-icon{
+    background:#5a3827;
+    color:#f7eadb;
+    border-color:#7a2323;
+  }
+
+  body.screen-dispensa .step-btn.active,
+  body.screen-dispensa .copy-btn{
+    background:#7a2323;
+    color:#f7eadb;
+    border-color:#5f1919;
+  }
+
+  body.screen-dispensa .step-btn:hover:not(:disabled),
+  body.screen-dispensa button.action:not(.danger):hover,
+  body.screen-dispensa .page-nav-btn:hover:not(:disabled),
+  body.screen-dispensa .link-open-icon:hover{
+    background:#451f1c;
+    color:#fff4e8;
+    border-color:#7a2323;
+  }
+
+  /* I pulsanti distruttivi restano riconoscibili come tali. */
+  body.screen-home button.action.danger,
+  body.screen-posts button.action.danger,
+  body.screen-import button.action.danger,
+  body.screen-dispensa button.action.danger{
+    background:var(--red);
+    color:var(--parch);
+    border-color:#a95b50;
+  }
+
 </style>
 </head>
 <body>
