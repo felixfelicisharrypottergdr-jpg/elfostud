@@ -243,7 +243,6 @@
     background-size:100% 100%, 100% auto !important;
     background-position:center top, center top !important;
     background-attachment:scroll, scroll !important;
-    min-height:100vh;
   }
   body.screen-home{background-image:linear-gradient(rgba(11,18,13,.48),rgba(11,18,13,.68)),url("https://i.postimg.cc/6pKKxhkk/elfo-biblioteca.webp") !important;}
   body.screen-posts{background-image:linear-gradient(rgba(11,18,13,.48),rgba(11,18,13,.68)),url("https://i.postimg.cc/P5HHn4G5/post.webp") !important;}
@@ -3604,10 +3603,20 @@
 
   function notifyParentHeight(){
     if(window.parent===window){return;}
-    var h=Math.max(document.documentElement.scrollHeight,document.body?document.body.scrollHeight:0);
+    var wrap=document.querySelector(".wrap");
+    var h=0;
+    if(wrap){
+      h=Math.ceil(wrap.getBoundingClientRect().bottom + window.scrollY);
+    }else{
+      h=Math.ceil(document.body ? document.body.offsetHeight : 0);
+    }
+    h=Math.max(1,h);
     try{window.parent.postMessage({tipo:"felix-tool-height",tool:"studente",height:h},"*");}catch(e){}
   }
-  if(typeof ResizeObserver!=="undefined"){new ResizeObserver(function(){notifyParentHeight();}).observe(document.documentElement);}
+  if(typeof ResizeObserver!=="undefined"){
+    var heightTarget=document.querySelector(".wrap")||document.documentElement;
+    new ResizeObserver(function(){notifyParentHeight();}).observe(heightTarget);
+  }
   document.addEventListener("visibilitychange", function(){
     if(document.visibilityState === "hidden" && fbConnected){
       if(DATA_DIRTY){ scheduleSave(0); }
