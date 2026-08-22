@@ -316,6 +316,7 @@
   /* v71 - Anno Scolastico: modifica sempre disponibile + promemoria confermabile ogni agosto */
   /* v70 - fix Camera Blindata Studente: rimosso riferimento a funzione solo Adulto */
   /* v69 - Da accreditare: riepilogo ultimo Post + evidenza valori */
+  /* Bonus generalizzato: Eventi / Premi FT / Trame / altri bonus */
   /* v68 - Evento: PP / Galeoni / Altro + fix numero globale */
   /* v67 - palette pulsanti per sezione */
   /* Home / Post / Importa: marrone + dorato */
@@ -409,7 +410,7 @@
 <body>
 <div class="wrap">
   <h1 class="main-title">Il Mio Elfo Domestico</h1>
-  <p class="subtitle">Lascia che mi occupi io di tutto, Padron <b>Studente</b></p>
+  <p class="subtitle">Lascia che mi occupi io di tutto, padron Studente</p>
 
   <div class="steps-nav" id="stepsNav"></div>
   <p id="fb-indicator" style="text-align:center; color:#e6d8ac; font-size:.8rem; margin-bottom:4px;">○ Non connesso</p>
@@ -1902,7 +1903,7 @@
       p.appendChild(el("div", "guide-text", "Scrivi il nome esatto del tuo Personaggio e premi «Carica i miei dati»: se è la prima volta parti da zero, altrimenti recuperi tutto ciò che avevi già salvato. Dopo la connessione il nome viene bloccato: per entrare con un altro PG devi prima disconnetterti. L’Anno Scolastico si gestisce dopo l’accesso e può essere modificato in qualsiasi momento."));
       var row = el("div", "row");
       var d1 = el("div"); d1.appendChild(el("label", null, "Nome del PG"));
-      var i1 = el("input"); i1.type="text"; i1.value = STUDENTE.nome; i1.placeholder="Come può aiutarla, Padroncina... oppure Padroncino...?";
+      var i1 = el("input"); i1.type="text"; i1.value = STUDENTE.nome; i1.placeholder="Come posso aiutarla, Padron...?";
       i1.addEventListener("input", function(){ STUDENTE.nome = i1.value; });
       d1.appendChild(i1); row.appendChild(d1);
       p.appendChild(row);
@@ -2302,7 +2303,7 @@
       after=Math.round(after*100)/100;
       var delta=Math.round((after-before)*100)/100;
       if(delta<0){
-        parts.push(d.label+" −"+fmtSocialValue(Math.abs(delta)));
+        parts.push("−"+fmtSocialValue(Math.abs(delta))+" "+d.label);
       }
     }
     return parts;
@@ -2317,7 +2318,7 @@
   function renderBlindataStep(container){
     var p = el("div", "panel");
     p.appendChild(el("h2", null, "Camera Blindata (Studente)"));
-    p.appendChild(el("div", "guide-text", "Un blocco per ogni Mese creato allo Step 2. Qui compili direttamente <b>Nota per la CB</b> e <b>PP base</b> di ogni Post; nello Step 2 restano soltanto i link. Lo storico di tutti i mesi resta disponibile. Scala: 30-20-15-10-8-6-4-3-2-2, poi 1 G ciascuno."));
+    p.appendChild(el("div", "guide-text", "Un blocco per ogni Mese creato allo Step 2. Qui compili direttamente <b>Nota</b> e <b>Bonus PP</b> di ogni Post; nello Step 2 restano soltanto i link. Lo storico di tutti i mesi resta disponibile. Scala: 30-20-15-10-8-6-4-3-2-2, poi 1 G ciascuno."));
 
     if(MESI.length === 0){
       p.appendChild(el("div", "guide-text", "Non hai ancora creato nessun Mese. Torna allo Step 2.")); container.appendChild(p); return;
@@ -2363,11 +2364,11 @@
 
     var bonusLocked = !!(meseObj.chiuso && archiveLocked(meseObj)) || monthIsAccredited(meseObj) || (fbConnected && !accreditiVerified());
     var bonusBox = el("div", "card");
-    bonusBox.appendChild(el("h4", null, "🎉 Bonus Evento del mese"));
-    bonusBox.appendChild(el("p", "small-note", "Impostalo una sola volta per questo Mese. Un Evento può assegnare <b>PP extra</b>, <b>Galeoni extra</b>, un premio <b>Altro</b>, oppure una combinazione di questi. PP e Galeoni indicati qui vengono applicati automaticamente a <b>ogni post con un link</b>; «Altro» resta come promemoria del premio. Nei singoli post inserisci soltanto i PP base. <b>Se un post non rientra nell’Evento, usa «Escludi bonus» nella tabella sottostante:</b> quel post continuerà a contare normalmente per Galeoni e PP base, ma non riceverà i premi automatici dell’Evento."));
+    bonusBox.appendChild(el("h4", null, "🎉 Bonus del mese"));
+    bonusBox.appendChild(el("p", "small-note", "Usa questo riquadro per registrare <b>PP o Galeoni extra</b> ottenuti tramite <b>Eventi, Premi FT, ricompense di Trama o altri bonus speciali</b>. Puoi anche indicare un premio in <b>Altro</b>. PP e Galeoni impostati qui vengono applicati automaticamente a <b>ogni post con un link</b>; se il Bonus riguarda soltanto alcuni post, usa <b>«Escludi bonus»</b> sugli altri. Il campo <b>Bonus PP</b> nella tabella dei singoli post resta invece disponibile per eventuali PP extra specifici di quel post."));
     var bonusRow = el("div", "row");
-    var bonusDescCell = el("div"); bonusDescCell.appendChild(el("label", null, "Descrizione dell’Evento"));
-    var bonusDesc = el("input"); bonusDesc.type="text"; bonusDesc.placeholder="Es. Evento estivo / Free role"; bonusDesc.value=meseObj.eventoBonusDescrizione||""; bonusDesc.disabled=bonusLocked;
+    var bonusDescCell = el("div"); bonusDescCell.appendChild(el("label", null, "Descrizione / causale del Bonus"));
+    var bonusDesc = el("input"); bonusDesc.type="text"; bonusDesc.placeholder="Es. Evento, Premio FT, ricompensa trama…"; bonusDesc.value=meseObj.eventoBonusDescrizione||""; bonusDesc.disabled=bonusLocked;
     bonusDesc.addEventListener("input",function(){if(blockIfMonthReadOnly(meseObj)){return;}meseObj.eventoBonusDescrizione=bonusDesc.value;scheduleSave(450);});
     bonusDesc.addEventListener("change",function(){if(blockIfMonthReadOnly(meseObj)){return;}meseObj.eventoBonusDescrizione=bonusDesc.value;var mt=bonusDesc.value.match(/\+?\s*(\d+)\s*PP\b/i);if(mt){meseObj.eventoBonusPP=Math.max(0,parseInt(mt[1],10)||0);bonusPp.value=meseObj.eventoBonusPP;}scheduleSave(0);renderAll();});
     bonusDescCell.appendChild(bonusDesc); bonusRow.appendChild(bonusDescCell);
@@ -2394,10 +2395,10 @@
     var describedBonus=describedEventBonusPP(meseObj),numericBonus=meseBonusPP(meseObj),numericBonusG=meseBonusGaleoni(meseObj),bonusAltroText=meseBonusAltro(meseObj);
     if(describedBonus!==null && describedBonus!==numericBonus){ bonusBox.appendChild(el("div","warning-alert","⚠ La descrizione indica <b>+"+describedBonus+" PP</b>, ma il campo numerico è impostato su <b>+"+numericBonus+" PP</b>. Correggi uno dei due valori prima di continuare.")); }
     if(!bonusLocked && (String(meseObj.eventoBonusDescrizione||"").trim()!=="" || numericBonus>0 || numericBonusG>0 || bonusAltroText!=="")){
-      var clearBonus=el("button","action danger small","Azzera Bonus Evento"); clearBonus.type="button"; clearBonus.addEventListener(EV,function(){if(blockIfMonthReadOnly(meseObj)){return;}if(!confirm("Azzerare descrizione e tutti i premi del Bonus Evento per questo Mese?")){return;}meseObj.eventoBonusDescrizione="";meseObj.eventoBonusPP=0;meseObj.eventoBonusGaleoni=0;meseObj.eventoBonusAltro="";for(var cbi=0;cbi<meseObj.posts.length;cbi++){meseObj.posts[cbi].eventoBonusEscluso=false;}scheduleSave(0);renderAll();}); bonusBox.appendChild(clearBonus);
+      var clearBonus=el("button","action danger small","Azzera Bonus"); clearBonus.type="button"; clearBonus.addEventListener(EV,function(){if(blockIfMonthReadOnly(meseObj)){return;}if(!confirm("Azzerare descrizione e tutti i premi del Bonus per questo Mese?")){return;}meseObj.eventoBonusDescrizione="";meseObj.eventoBonusPP=0;meseObj.eventoBonusGaleoni=0;meseObj.eventoBonusAltro="";for(var cbi=0;cbi<meseObj.posts.length;cbi++){meseObj.posts[cbi].eventoBonusEscluso=false;}scheduleSave(0);renderAll();}); bonusBox.appendChild(clearBonus);
     }
     if(bonusLocked){
-      var bonusLockMsg=monthIsAccredited(meseObj)?"Il Mese è già accreditato: Bonus Evento, Note e PP base sono congelati finché il Narratore non revoca l'accredito.":"Il Mese è in un archivio consolidato: il bonus Evento non è più modificabile.";
+      var bonusLockMsg=monthIsAccredited(meseObj)?"Il Mese è già accreditato: Bonus, Note e Bonus PP sono congelati finché il Narratore non revoca l'accredito.":"Il Mese è in un archivio consolidato: il Bonus non è più modificabile.";
       bonusBox.appendChild(el("p","small-note",bonusLockMsg));
     }
     p.appendChild(bonusBox);
@@ -2437,12 +2438,12 @@
       if(meseBonusAltro(meseObj)!==""){premioParts.push("Altro: "+meseBonusAltro(meseObj));}
       if(!premioParts.length){premioParts.push("evento registrato senza premio automatico");}
       var dettagli="<b>Post ammessi: "+postBonusEvento+" su "+totFilled+"</b>";
-      if(meseBonusGaleoni(meseObj)>0){dettagli+=" · Galeoni base: "+totGBase+" G · Bonus Evento: +"+totGEvento+" G · Totale: "+totG+" G";}
-      if(meseBonusPP(meseObj)>0){dettagli+=" · PP base: "+totPPBase+" · Bonus Evento: +"+totPPEvento+" · Totale: "+totPP+" PP";}
-      p.appendChild(el("div","guide-text","<b>Evento:</b> "+(bonusDescr?bonusDescr+" — ":"")+premioParts.join(" · ")+". "+dettagli));
+      if(meseBonusGaleoni(meseObj)>0){dettagli+=" · Galeoni base: "+totGBase+" G · Bonus: +"+totGEvento+" G · Totale: "+totG+" G";}
+      if(meseBonusPP(meseObj)>0){dettagli+=" · Bonus PP: "+totPPBase+" · Bonus: +"+totPPEvento+" · Totale: "+totPP+" PP";}
+      p.appendChild(el("div","guide-text","<b>Bonus:</b> "+(bonusDescr?bonusDescr+" — ":"")+premioParts.join(" · ")+". "+dettagli));
     }
     var tblLive = el("table", "posts");
-    tblLive.appendChild(el("tr", null, "<th>N.</th><th>Link</th><th>Nota per la CB del mese</th><th>PP base</th>"+(bonusAttivo?"<th>Bonus Evento</th>":"")+"<th>Galeoni accumulati</th><th>PP accumulati</th>"));
+    tblLive.appendChild(el("tr", null, "<th>N.</th><th>Link</th><th>Nota</th><th>Bonus PP</th>"+(bonusAttivo?"<th>Bonus</th>":"")+"<th>Galeoni accumulati</th><th>PP accumulati</th>"));
     var showUpToLive = postiDelMese.length; if(showUpToLive < 1){ showUpToLive = 0; }
     for(var li=0; li<showUpToLive; li++){
       let lp = postiDelMese[li];
