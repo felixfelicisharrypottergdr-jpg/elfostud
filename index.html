@@ -4,6 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Il Mio Elfo Domestico — Studente</title>
+<link rel="preconnect" href="https://i.postimg.cc">
+<link rel="preload" as="image" href="https://i.postimg.cc/6pKKxhkk/elfo-biblioteca.webp" fetchpriority="high">
 <style>
   @font-face {font-family: 'magic';
  src: url('https://dl.dropboxusercontent.com/scl/fi/nbzmrri4qyvc3tzx96911/HarryBeastDisplay-Regular.woff2?rlkey=he290voe32k33gowug23c1osc&st=nj9fgly1') format('woff2');
@@ -240,14 +242,14 @@
     background-attachment:fixed !important;
     min-height:100vh;
   }
-  body.screen-home{background-image:linear-gradient(rgba(11,18,13,.48),rgba(11,18,13,.68)),url("https://i.postimg.cc/59B9kWJc/image.png") !important;}
-  body.screen-posts{background-image:linear-gradient(rgba(11,18,13,.48),rgba(11,18,13,.68)),url("https://i.postimg.cc/3WQvhXRR/image.png") !important;}
-  body.screen-cb{background-image:linear-gradient(rgba(12,12,12,.48),rgba(12,12,12,.70)),url("https://i.postimg.cc/ZnvbnMnZ/image.png") !important;}
-  body.screen-dispensa{background-image:linear-gradient(rgba(11,18,13,.46),rgba(11,18,13,.68)),url("https://i.postimg.cc/7YhcJSK4/image.png") !important;}
-  body.screen-lab{background-image:linear-gradient(rgba(19,15,24,.48),rgba(19,15,24,.70)),url("https://i.postimg.cc/Gt8Fd3xj/image.png") !important;}
-  body.screen-green{background-image:linear-gradient(rgba(12,23,10,.44),rgba(12,23,10,.66)),url("https://i.postimg.cc/DfSyx8gH/image.png") !important;}
-  body.screen-creatures{background-image:linear-gradient(rgba(31,19,10,.44),rgba(31,19,10,.68)),url("https://i.postimg.cc/ZnvbnMnZ/image.png") !important;}
-  body.screen-import{background-image:linear-gradient(rgba(11,18,13,.48),rgba(11,18,13,.68)),url("https://i.postimg.cc/yxZ9Fnxk/image.png") !important;}
+  body.screen-home{background-image:linear-gradient(rgba(11,18,13,.48),rgba(11,18,13,.68)),url("https://i.postimg.cc/6pKKxhkk/elfo-biblioteca.webp") !important;}
+  body.screen-posts{background-image:linear-gradient(rgba(11,18,13,.48),rgba(11,18,13,.68)),url("https://i.postimg.cc/P5HHn4G5/post.webp") !important;}
+  body.screen-cb{background-image:linear-gradient(rgba(12,12,12,.48),rgba(12,12,12,.70)),url("https://i.postimg.cc/rwTT2J66/camera-blindata-gringotts.webp") !important;}
+  body.screen-dispensa{background-image:linear-gradient(rgba(11,18,13,.46),rgba(11,18,13,.68)),url("https://i.postimg.cc/VkwwPFx3/elfo-sfondo-dispensa.webp") !important;}
+  body.screen-lab{background-image:linear-gradient(rgba(19,15,24,.48),rgba(19,15,24,.70)),url("https://i.postimg.cc/13SS1HxZ/laboratorio-elfo-calderone.webp") !important;}
+  body.screen-green{background-image:linear-gradient(rgba(12,23,10,.44),rgba(12,23,10,.66)),url("https://i.postimg.cc/4xGGR5CN/serra-elfo-mandragola.webp") !important;}
+  body.screen-creatures{background-image:linear-gradient(rgba(31,19,10,.44),rgba(31,19,10,.68)),url("https://i.postimg.cc/t4bbG50g/riserva-creature.webp") !important;}
+  body.screen-import{background-image:linear-gradient(rgba(11,18,13,.48),rgba(11,18,13,.68)),url("https://i.postimg.cc/Z5mmzLGX/elfo-magazzino.webp") !important;}
 
 </style>
 </head>
@@ -261,6 +263,33 @@
   <p id="session-warning" style="text-align:center; color:#f2d58a; font-size:.78rem; font-weight:bold; margin:0 0 14px 0;"></p>
   <div id="stepContainer"></div>
 </div>
+
+
+<script>
+(function(){
+  var ffBackgrounds=[
+    "https://i.postimg.cc/P5HHn4G5/post.webp",
+    "https://i.postimg.cc/rwTT2J66/camera-blindata-gringotts.webp",
+    "https://i.postimg.cc/VkwwPFx3/elfo-sfondo-dispensa.webp",
+    "https://i.postimg.cc/13SS1HxZ/laboratorio-elfo-calderone.webp",
+    "https://i.postimg.cc/4xGGR5CN/serra-elfo-mandragola.webp",
+    "https://i.postimg.cc/t4bbG50g/riserva-creature.webp",
+    "https://i.postimg.cc/Z5mmzLGX/elfo-magazzino.webp"
+  ];
+  function ffPreloadBackgrounds(){
+    for(var i=0;i<ffBackgrounds.length;i++){
+      var img=new Image();
+      img.decoding="async";
+      img.src=ffBackgrounds[i];
+    }
+  }
+  if("requestIdleCallback" in window){
+    requestIdleCallback(ffPreloadBackgrounds,{timeout:1600});
+  }else{
+    setTimeout(ffPreloadBackgrounds,650);
+  }
+})();
+</script>
 
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-app.js";
