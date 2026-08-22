@@ -215,7 +215,7 @@
 
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-app.js";
-  import { getFirestore, doc, getDoc, setDoc, updateDoc, serverTimestamp, collection, addDoc } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js";
+  import { getFirestore, doc, getDoc, setDoc, updateDoc, serverTimestamp, collection, addDoc, runTransaction, onSnapshot } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js";
 
   var firebaseConfig = {
     apiKey: "AIzaSyCvd56bSEL02s2OY2PSk7uyFX-CYRB4Vz0",
@@ -231,14 +231,94 @@
   var PERSON_COLLECTION = "personaggi_studenti";
 
   window.fbLastSaveError = null;
-  window.fbSaveState = function(pgId, dataObj, sessionId, mustAlreadyExist){
+  window.fbLastSavedRevision = null;
+  function txStableValue(v){if(Array.isArray(v)){return v.map(txStableValue);}if(v&&typeof v==="object"){var o={};Object.keys(v).sort().forEach(function(k){o[k]=txStableValue(v[k]);});return o;}return v;}
+  function txStableJson(v){return JSON.stringify(txStableValue(v==null?{}:v));}
+  function txNormMonth(v){return String(v||"").trim().replace(/\s+/g," ").toLocaleLowerCase("it-IT");}
+  function txPositiveInt(v){var n=parseInt(v,10);return Number.isFinite(n)&&n>0?n:0;}
+  function txCloneWithout(obj,keys){var out={};obj=obj||{};Object.keys(obj).forEach(function(k){if(keys.indexOf(k)<0){out[k]=obj[k];}});return out;}
+  function txAccreditedPostEquivalent(remotePost,proposedPost){
+    remotePost=remotePost||{};proposedPost=proposedPost||{};
+    if(txStableJson(txCloneWithout(remotePost,["globalNo"]))!==txStableJson(txCloneWithout(proposedPost,["globalNo"]))){return false;}
+    var oldNo=txPositiveInt(remotePost.globalNo),newNo=txPositiveInt(proposedPost.globalNo);
+    if(oldNo>0){return newNo===oldNo;}
+    return newNo===0 || newNo>0;
+  }
+  function txAccreditedMonthBase(month){
+    var base=txCloneWithout(month,["chiuso","_archivedAt","posts"]);
+    /* v56: i campi Evento introdotti dopo le prime CB accreditate sono
+       confrontati secondo i default applicati da applyState(). Questo consente
+       solo la migrazione tecnica assente/null -> default, non modifiche reali. */
+    base.eventoBonusDescrizione=(typeof base.eventoBonusDescrizione==="string")?base.eventoBonusDescrizione:"";
+    var bonus=parseInt(base.eventoBonusPP,10);
+    if(isNaN(bonus)||bonus<0){bonus=0;}
+    base.eventoBonusPP=bonus;
+    return base;
+  }
+  function txAccreditedMonthEquivalent(remoteMonth,proposedMonth){
+    if(!remoteMonth||!proposedMonth){return false;}
+    var remoteBase=txAccreditedMonthBase(remoteMonth),proposedBase=txAccreditedMonthBase(proposedMonth);
+    if(txStableJson(remoteBase)!==txStableJson(proposedBase)){return false;}
+    var oldClosed=!!remoteMonth.chiuso,newClosed=!!proposedMonth.chiuso;
+    if(oldClosed!==newClosed && !(oldClosed===false&&newClosed===true)){return false;}
+    var oldArchived=remoteMonth._archivedAt, newArchived=proposedMonth._archivedAt;
+    if(txStableJson(oldArchived)!==txStableJson(newArchived)){
+      if(oldArchived){return false;}
+      if(!newArchived || isNaN(new Date(newArchived).getTime())){return false;}
+    }
+    var oldPosts=Array.isArray(remoteMonth.posts)?remoteMonth.posts:[],newPosts=Array.isArray(proposedMonth.posts)?proposedMonth.posts:[];
+    if(oldPosts.length!==newPosts.length){return false;}
+    for(var i=0;i<oldPosts.length;i++){if(!txAccreditedPostEquivalent(oldPosts[i],newPosts[i])){return false;}}
+    return true;
+  }
+  function txAssertAccreditedMonthsUnchanged(remoteData,proposedData,accData){
+    remoteData=remoteData||{};proposedData=proposedData||{};accData=accData||{};var activeIds={},activeNames={};
+    Object.keys(accData).forEach(function(k){if(/^\d+$/.test(k)&&accData[k]===true){activeIds[String(k)]=true;}});
+    var sm=accData._staffMonths||{};Object.keys(sm).forEach(function(k){var r=sm[k];if(!r||r.applied===false)return;if(r.meseId!=null&&String(r.meseId)!==""){activeIds[String(r.meseId)]=true;}var n=txNormMonth(r.monthNorm||r.monthName);if(n){activeNames[n]=true;}});
+    var remote=Array.isArray(remoteData.MESI)?remoteData.MESI:[],proposed=Array.isArray(proposedData.MESI)?proposedData.MESI:[],remoteById={};
+    for(var ri=0;ri<remote.length;ri++){if(remote[ri]&&remote[ri].id!=null){remoteById[String(remote[ri].id)]=remote[ri];}}
+    for(var i=0;i<remote.length;i++){var rm=remote[i]||{},rid=String(rm.id==null?"":rm.id),rn=txNormMonth(rm.nome);if(activeIds[rid]||activeNames[rn]){var pm=null;for(var j=0;j<proposed.length;j++){if(String(proposed[j]&&proposed[j].id)===rid){pm=proposed[j];break;}}if(!pm||!txAccreditedMonthEquivalent(rm,pm)){throw new Error("accredited-month-conflict");}}}
+    for(var pi=0;pi<proposed.length;pi++){var p=proposed[pi]||{},pid=String(p.id==null?"":p.id),pn=txNormMonth(p.nome);if(activeIds[pid]||activeNames[pn]){var rr=remoteById[pid];if(!rr||!txAccreditedMonthEquivalent(rr,p)){throw new Error("accredited-month-conflict");}}}
+  }
+  window.fbSaveState = function(pgId, dataObj, sessionId, mustAlreadyExist, auditObj){
     var ref = doc(fbDb, PERSON_COLLECTION, pgId);
-    window.fbLastSaveError = null;
-    dataObj._lastModifiedAt = serverTimestamp();
-    dataObj._lastModifiedBy = "pg";
-    dataObj._lastSessionId = String(sessionId || "");
-    var writePromise = mustAlreadyExist ? updateDoc(ref, dataObj) : setDoc(ref, dataObj, { merge:true });
-    return writePromise.then(function(){ return true; }).catch(function(e){ window.fbLastSaveError=e; console.error(e); return false; });
+    var accCollection = PERSON_COLLECTION === "personaggi_adulti" ? "accrediti_adulti" : "accrediti_studenti";
+    var accRef = doc(fbDb, accCollection, pgId);
+    var auditRef = auditObj ? doc(collection(fbDb, PERSON_COLLECTION, pgId, "audit")) : null;
+    var expectedRevision = Math.max(0, parseInt(dataObj && dataObj._dbRevision,10) || 0);
+    window.fbLastSaveError = null; window.fbLastSavedRevision = null;
+    return runTransaction(fbDb, async function(tx){
+      var snap = await tx.get(ref), accSnap = await tx.get(accRef);
+      if(mustAlreadyExist && !snap.exists()){ throw new Error("not-found"); }
+      if(snap.exists()){
+        var remoteData=snap.data()||{};
+        if(remoteData._deleted){ throw new Error("deleted-pg"); }
+        var remoteRevision = Math.max(0, parseInt(remoteData._dbRevision,10) || 0);
+        if(remoteRevision !== expectedRevision){ throw new Error("revision-conflict"); }
+        txAssertAccreditedMonthsUnchanged(remoteData,dataObj,accSnap.exists()?accSnap.data():{});
+      } else if(expectedRevision !== 0){
+        throw new Error("revision-conflict");
+      }
+      var next = Object.assign({}, dataObj || {});
+      next._dbRevision = expectedRevision + 1;
+      next._lastModifiedAt = serverTimestamp();
+      next._lastModifiedBy = "pg";
+      next._lastSessionId = String(sessionId || "");
+      tx.set(ref, next, {merge:true});
+      if(auditRef && auditObj){
+        var ev = Object.assign({}, auditObj || {});
+        ev.pgId = pgId;
+        ev.actor = "pg";
+        ev.sessionId = String(sessionId || "");
+        ev.dbRevision = next._dbRevision;
+        ev.at = serverTimestamp();
+        tx.set(auditRef, ev);
+      }
+      return next._dbRevision;
+    }).then(function(revision){ window.fbLastSavedRevision=revision; return true; }).catch(function(e){
+      var code=(e&&e.code)?e.code:((e&&e.message)?e.message:"error");
+      window.fbLastSaveError={code:code, raw:e}; console.error(e); return false;
+    });
   };
 
   window.fbLoadState = function(pgId){
@@ -247,19 +327,28 @@
 
   window.fbGetAccrediti = function(pgId){
     var accCollection = PERSON_COLLECTION === "personaggi_adulti" ? "accrediti_adulti" : "accrediti_studenti";
-    return getDoc(doc(fbDb, accCollection, pgId)).then(function(snap){ return snap.exists() ? snap.data() : {}; }).catch(function(e){ console.error(e); return {}; });
+    return getDoc(doc(fbDb, accCollection, pgId)).then(function(snap){ return snap.exists() ? snap.data() : {}; });
+  };
+
+  window.fbWatchAccrediti = function(pgId, onData, onError){
+    var accCollection = PERSON_COLLECTION === "personaggi_adulti" ? "accrediti_adulti" : "accrediti_studenti";
+    return onSnapshot(doc(fbDb, accCollection, pgId), function(snap){
+      if(typeof onData === "function"){ onData(snap.exists() ? snap.data() : {}); }
+    }, function(e){ console.error(e); if(typeof onError === "function"){ onError(e); } });
   };
 
   window.fbWriteAudit = function(pgId, eventObj){
     var ev = Object.assign({}, eventObj || {});
     ev.pgId = pgId; ev.actor = "pg"; ev.at = serverTimestamp();
-    return addDoc(collection(fbDb, PERSON_COLLECTION, pgId, "audit"), ev).then(function(){return true;}).catch(function(e){console.error(e);return false;});
+    var parentRef=doc(fbDb,PERSON_COLLECTION,pgId),auditRef=doc(collection(fbDb,PERSON_COLLECTION,pgId,"audit"));
+    return runTransaction(fbDb,async function(tx){var parent=await tx.get(parentRef);if(!parent.exists()||parent.data()._deleted){throw new Error("deleted-pg");}tx.set(auditRef,ev);}).then(function(){return true;}).catch(function(e){console.error(e);return false;});
   };
 
   window.fbCreateSnapshot = function(pgId, snapshotObj){
     var snap = Object.assign({}, snapshotObj || {});
     snap.pgId = pgId; snap.actor = "pg"; snap.at = serverTimestamp(); snap.protected = false;
-    return addDoc(collection(fbDb, PERSON_COLLECTION, pgId, "snapshots"), snap).then(function(){return true;}).catch(function(e){console.error(e);return false;});
+    var parentRef=doc(fbDb,PERSON_COLLECTION,pgId),snapRef=doc(collection(fbDb,PERSON_COLLECTION,pgId,"snapshots"));
+    return runTransaction(fbDb,async function(tx){var parent=await tx.get(parentRef);if(!parent.exists()){throw new Error("not-found");}if(parent.data()._deleted){throw new Error("deleted-pg");}tx.set(snapRef,snap);}).then(function(){return true;}).catch(function(e){var code=e&&e.message?e.message:"error";if(code==="deleted-pg"||code==="not-found"){window.fbLastSaveError={code:code,raw:e};}console.error(e);return false;});
   };
 
   window.fbReady = true;
@@ -274,20 +363,69 @@
   function getAnonymousSessionId(kind){
     var key="ff_tracker_session_"+String(kind||"pg");
     try{
-      var existing=localStorage.getItem(key);
+      /* sessionStorage distingue le singole schede/browser-session e sopravvive ai reload della stessa tab. */
+      var existing=sessionStorage.getItem(key);
       if(existing){return existing;}
       var id="";
       if(window.crypto && typeof window.crypto.randomUUID==="function"){id=window.crypto.randomUUID();}
       else if(window.crypto && typeof window.crypto.getRandomValues==="function"){
         var a=new Uint32Array(4);window.crypto.getRandomValues(a);id=Array.prototype.map.call(a,function(x){return x.toString(16).padStart(8,"0");}).join("");
       }else{id=Date.now().toString(36)+Math.random().toString(36).slice(2);}
-      localStorage.setItem(key,id);return id;
+      sessionStorage.setItem(key,id);return id;
     }catch(e){return Date.now().toString(36)+Math.random().toString(36).slice(2);}
   }
   function cloneHistoryState(v){try{return JSON.parse(JSON.stringify(v||{}));}catch(e){return {};}}
-  function historyComparableState(v){
+  /* v57: serializzazione canonica per i confronti di stato. Le chiavi delle mappe
+     vengono ordinate ricorsivamente, mentre gli array mantengono il loro ordine
+     perché per liste/post/movimenti la posizione resta semanticamente significativa. */
+  function stableComparableValue(v){
+    if(Array.isArray(v)){return v.map(stableComparableValue);}
+    if(v && typeof v === "object"){
+      if(v instanceof Date){return v.toISOString();}
+      if(typeof v.toJSON === "function"){
+        try{return stableComparableValue(v.toJSON());}catch(e){}
+      }
+      var out={};
+      Object.keys(v).sort().forEach(function(k){out[k]=stableComparableValue(v[k]);});
+      return out;
+    }
+    return v;
+  }
+  function stableComparableJson(v){return JSON.stringify(stableComparableValue(v));}
+  /* v49: snapshot immutabile per una singola transazione di salvataggio.
+     Clona array e oggetti semplici, ma conserva intatti oggetti Firebase/Date
+     (Timestamp ecc.), che sono immutabili e non devono essere convertiti in JSON. */
+  function cloneStateForSave(v){
+    if(Array.isArray(v)){return v.map(cloneStateForSave);}
+    if(v && typeof v === "object"){
+      if(v instanceof Date){return new Date(v.getTime());}
+      var proto=Object.getPrototypeOf(v);
+      if(proto && proto!==Object.prototype){return v;}
+      var out={};Object.keys(v).forEach(function(k){out[k]=cloneStateForSave(v[k]);});return out;
+    }
+    return v;
+  }
+  /* v50: separa ciò che conta per la persistenza da ciò che deve comparire nel Registro.
+     Il draft della Dispensa è un dato persistito e deve quindi partecipare ai confronti
+     di salvataggio/race, ma resta escluso dallo storico perché è solo una bozza UI. */
+  function persistenceComparableState(v){
     var c=cloneHistoryState(v||{});
-    ["_lastModifiedAt","_lastModifiedBy","_lastSessionId","_archiveUnlockUntil","_dispensaBatchDraft"].forEach(function(k){delete c[k];});
+    ["_lastModifiedAt","_lastModifiedBy","_lastSessionId","_archiveUnlockUntil"].forEach(function(k){delete c[k];});
+    return c;
+  }
+  /* v51: proietta il documento Firebase sui soli campi realmente gestiti dal
+     Tracker. Serve a capire se applyState() ha eseguito una migrazione/normalizzazione
+     automatica, ignorando metadati esterni che il Tracker non deve riscrivere. */
+  function loadedPersistenceProjection(raw,currentState){
+    raw=raw||{};currentState=currentState||{};var projected={};
+    Object.keys(currentState).forEach(function(k){
+      if(Object.prototype.hasOwnProperty.call(raw,k)){projected[k]=raw[k];}
+    });
+    return persistenceComparableState(projected);
+  }
+  function historyComparableState(v){
+    var c=persistenceComparableState(v);
+    delete c._dispensaBatchDraft;
     return c;
   }
   function shortHistoryValue(v){
@@ -298,7 +436,7 @@
   }
   function diffHistory(oldVal,newVal,path,out,depth){
     if(out.length>=30){return;} depth=depth||0; path=path||"";
-    if(JSON.stringify(oldVal)===JSON.stringify(newVal)){return;}
+    if(stableComparableJson(oldVal)===stableComparableJson(newVal)){return;}
     if(depth>5){out.push({path:path||"dati",before:shortHistoryValue(oldVal),after:shortHistoryValue(newVal)});return;}
     if(Array.isArray(oldVal)&&Array.isArray(newVal)){
       var oldBy={},newBy={},hasIds=true;
@@ -362,6 +500,7 @@
     if(typeof RISERVE!=="undefined")for(var r=0;r<RISERVE.length;r++)mark(RISERVE[r].ARCHIVIO_CREATURE);
     if(typeof ARCHIVIO_PIANTE!=="undefined")mark(ARCHIVIO_PIANTE);
     if(typeof ARCHIVIO_CREATURE!=="undefined")mark(ARCHIVIO_CREATURE);
+    if(typeof DISPENSA!=="undefined" && DISPENSA && Array.isArray(DISPENSA.movimenti)){for(var mv=0;mv<DISPENSA.movimenti.length;mv++){var mov=DISPENSA.movimenti[mv];if(mov&&mov.applicato&&!mov._appliedAt){mov._appliedAt=now;changed=true;}}}
     if(changed){ DATA_DIRTY=true; }
   }
   function progressStatusNode(label,filled,required){
@@ -393,12 +532,19 @@
   var SAVE_FORCE_AGAIN = false;
   var fbStatusText = "";
   var accreditiCache = null;
+  var ACCREDITI_LOAD_STATE = "idle";
+  var ACCREDITI_UNSUB = null;
+  var ACCREDITI_WATCH_ACTIVE = false;
+  var SAVE_CONFLICT_LOCKED = false;
   var LAST_MODIFIED_AT = null;
   var LAST_MODIFIED_BY = "";
   var LAST_SESSION_ID = "";
   var LAST_NARRATOR_AT = null;
   var LAST_NARRATOR_ACTION = "";
   var DATA_DIRTY = false;
+  /* v55: riservato ai consolidamenti tecnici (migrazioni) che devono essere
+     scritti anche quando la baseline locale è già lo stato normalizzato. */
+  var FORCE_PERSIST_SAVE = false;
   var SESSION_ID = getAnonymousSessionId("studente");
   var ARCHIVE_UNLOCK_UNTIL = null;
   var LAST_PERSISTED_FINGERPRINT = "";
@@ -437,7 +583,7 @@
       var posts = Array.isArray(MESI[mi].posts) ? MESI[mi].posts : [];
       for(var pi=0;pi<posts.length;pi++){
         var post = posts[pi];
-        if(!post || String(post.link || "").trim() === ""){ continue; }
+        if(!post || !isValidPostLink(post.link)){ continue; }
         var n = parseInt(post.globalNo,10);
         if(isNaN(n) || n <= 0){ maxN++; post.globalNo = maxN; DATA_DIRTY=true; }
       }
@@ -445,7 +591,7 @@
     globalPostCounter = maxN;
   }
   function ensurePostGlobalNo(post){
-    if(!post || String(post.link || "").trim() === ""){ return; }
+    if(!post || !isValidPostLink(post.link)){ return; }
     var n = parseInt(post.globalNo,10);
     if(isNaN(n) || n <= 0){ globalPostCounter++; post.globalNo = globalPostCounter; }
     else if(n > globalPostCounter){ globalPostCounter = n; }
@@ -463,11 +609,47 @@
     for(var i=0;i<MESI.length;i++){
       var mp = Array.isArray(MESI[i].posts) ? MESI[i].posts : [];
       for(var j=0;j<mp.length;j++){
-        if(mp[j] && String(mp[j].link || "").trim() !== ""){ ensurePostGlobalNo(mp[j]); POSTS.push(mp[j]); }
+        if(mp[j] && isValidPostLink(mp[j].link)){ ensurePostGlobalNo(mp[j]); POSTS.push(mp[j]); }
       }
     }
     POSTS.sort(function(a,b){ return num(a.globalNo,0) - num(b.globalNo,0); });
   }
+  function collectActiveGlobalPostReferences(){
+    var refs={};
+    function add(n,label){n=parseInt(n,10);if(!(n>0)){return;}if(!refs[n]){refs[n]=[];}if(refs[n].indexOf(label)<0){refs[n].push(label);}}
+    function addRange(start,count,label){start=parseInt(start,10);count=parseInt(count,10);if(!(start>0)||!(count>0)){return;}for(var r=0;r<count;r++){add(start+r,label);}}
+    function scan(obj,label){
+      if(!obj||typeof obj!=="object"){return;}
+      if(Object.prototype.hasOwnProperty.call(obj,"startIndex")&&Object.prototype.hasOwnProperty.call(obj,"postRichiesti")){addRange(obj.startIndex,obj.postRichiesti,label);}
+      if(Array.isArray(obj)){for(var i=0;i<obj.length;i++){scan(obj[i],label);}return;}
+      Object.keys(obj).forEach(function(k){if(k.indexOf("ARCHIVIO_")===0||k==="archivioTotali"||k==="movimenti"||k==="ARCHIVIO_DB"){return;}scan(obj[k],label);});
+    }
+    for(var c=0;c<CALDERONI.length;c++){scan(CALDERONI[c],"Postazione: "+String(CALDERONI[c].nomePozione||("Calderone "+(c+1))));}
+    for(var ca=0;ca<ARCHIVIO_CALDERONI.length;ca++){scan(ARCHIVIO_CALDERONI[ca],"Pozione archiviata ripristinabile: "+String(ARCHIVIO_CALDERONI[ca].nomePozione||("Calderone "+(ca+1))));}
+    for(var p=0;p<PIANTE.length;p++){scan(PIANTE[p],"Cubicolo: "+String(PIANTE[p].nome||("Pianta "+(p+1))));}
+    for(var pa=0;pa<ARCHIVIO_PIANTE.length;pa++){scan(ARCHIVIO_PIANTE[pa],"Pianta archiviata ripristinabile: "+String(ARCHIVIO_PIANTE[pa].nome||("Pianta "+(pa+1))));}
+    for(var r=0;r<CREATURE.length;r++){scan(CREATURE[r],"Recinto: "+String(CREATURE[r].nome||("Creatura "+(r+1))));}
+    for(var ra=0;ra<ARCHIVIO_CREATURE.length;ra++){scan(ARCHIVIO_CREATURE[ra],"Creatura archiviata ripristinabile: "+String(ARCHIVIO_CREATURE[ra].nome||("Creatura "+(ra+1))));}
+    return refs;
+  }
+  function globalPostReferenceLabels(post){var n=parseInt(post&&post.globalNo,10);if(!(n>0)){return [];}var refs=collectActiveGlobalPostReferences();return refs[n]?refs[n].slice():[];}
+  function duplicateGlobalNumbers(){
+    var seen={},dups={};
+    for(var mi=0;mi<MESI.length;mi++){var ps=Array.isArray(MESI[mi]&&MESI[mi].posts)?MESI[mi].posts:[];for(var pi=0;pi<ps.length;pi++){var n=parseInt(ps[pi]&&ps[pi].globalNo,10);if(!(n>0)){continue;}if(seen[n]){dups[n]=true;}else{seen[n]=true;}}}
+    return Object.keys(dups).map(function(x){return parseInt(x,10);}).sort(function(a,b){return a-b;});
+  }
+  function permanentGlobalHoles(start,count){
+    start=Math.max(1,parseInt(start,10)||1);count=Math.max(0,parseInt(count,10)||0);var holes=[];
+    for(var i=0;i<count;i++){var n=start+i;if(n<=globalPostCounter&&!getPostByGlobalNo(n)){holes.push(n);}}
+    return holes;
+  }
+  function validateGlobalIntervalOrAlert(start,count){
+    var holes=permanentGlobalHoles(start,count);if(!holes.length){return true;}
+    var shown=holes.slice(0,12).join(", ")+(holes.length>12?" …":"");
+    alert("Questo intervallo comprende numeri globali già trascorsi ma non più disponibili ("+shown+"). Questi numeri non verranno riutilizzati, quindi la lavorazione non potrebbe mai completarli. Scegli un intervallo senza buchi oppure parti dal prossimo numero globale disponibile.");
+    return false;
+  }
+
   function newMese(nome){
     meseCounter = meseCounter + 1;
     return { id: meseCounter, nome: cleanMonthName(nome || ""), chiuso: false, posts: [], eventoBonusDescrizione:"", eventoBonusPP:0 };
@@ -505,8 +687,14 @@
     }
     return Object.keys(dup).map(function(k){ return dup[k]; });
   }
-  function monthIsAccredited(m){ return !!(m && accreditiCache && accreditiCache[String(m.id)]); }
+  function monthIsAccredited(m){ return !!(m && accreditiCache && (accreditiCache[String(m.id)] || appliedStaffRecordForMonthName(m.nome))); }
+  function appliedStaffRecordForMonthName(name){
+    var months=accreditiCache&&accreditiCache._staffMonths?accreditiCache._staffMonths:{},norm=normalizeMonthName(name),keys=Object.keys(months);
+    for(var i=0;i<keys.length;i++){var r=months[keys[i]];if(r&&r.applied!==false&&normalizeMonthName(r.monthName)===norm){return r;}}
+    return null;
+  }
   function blockIfMonthReadOnly(m){
+    if(fbConnected && !accreditiVerified()){ alert("Non posso verificare lo stato dell'accredito su Firebase: per sicurezza la Camera Blindata resta in sola lettura. Riprova quando la connessione è tornata disponibile."); renderAll(); return true; }
     if(monthIsAccredited(m)){ alert("Questo Mese è già stato accreditato dal Narratore e i dati della Camera Blindata sono congelati. Per correggerli, il Narratore deve prima revocare l'accredito."); renderAll(); return true; }
     return blockIfArchiveLocked(m);
   }
@@ -523,11 +711,37 @@
   function socialValuesComplete(values){ var defs=socialFieldDefs(),missing=[]; for(var i=0;i<defs.length;i++){if(defs[i].required&&socialNumber(values&&values[defs[i].key])===null){missing.push(defs[i].label);}} return {ok:missing.length===0,missing:missing}; }
   function fmtSocialValue(v){ var n=socialNumber(v); if(n===null){return "—";} return n.toLocaleString("it-IT",{maximumFractionDigits:2,minimumFractionDigits:(Math.abs(n%1)>.0001?1:0)}); }
   function socialMonthKey(name){ return normalizeMonthName(name); }
+  function stopAccreditiWatch(){
+    if(typeof ACCREDITI_UNSUB === "function"){ try{ACCREDITI_UNSUB();}catch(e){} }
+    ACCREDITI_UNSUB=null; ACCREDITI_WATCH_ACTIVE=false;
+  }
+  function acceptAccreditiRemote(acc){
+    accreditiCache=acc||{}; ACCREDITI_LOAD_STATE="ok";
+    syncAccreditiAudit(accreditiCache);
+    var changed=syncSocialFromNarratorIfNew(); if(changed){scheduleSave(0,false);}
+  }
+  function startAccreditiWatch(pg,preserveCache){
+    stopAccreditiWatch();
+    if(!preserveCache){accreditiCache=null;}
+    ACCREDITI_LOAD_STATE=(preserveCache&&accreditiCache!==null)?"ok":"loading";
+    if(!pg || !window.fbReady || !window.fbWatchAccrediti){ACCREDITI_LOAD_STATE="error";return false;}
+    try{
+      ACCREDITI_UNSUB=window.fbWatchAccrediti(pg,function(acc){ACCREDITI_WATCH_ACTIVE=true;acceptAccreditiRemote(acc);renderAll();},function(){ACCREDITI_WATCH_ACTIVE=false;accreditiCache=null;ACCREDITI_LOAD_STATE="error";renderAll();});
+      ACCREDITI_WATCH_ACTIVE=typeof ACCREDITI_UNSUB==="function";
+      if(!ACCREDITI_WATCH_ACTIVE){ACCREDITI_LOAD_STATE="error";return false;}
+      return true;
+    }catch(e){console.error(e);ACCREDITI_WATCH_ACTIVE=false;ACCREDITI_LOAD_STATE="error";return false;}
+  }
+  function accreditiVerified(){return !fbConnected || (ACCREDITI_LOAD_STATE==="ok" && ACCREDITI_WATCH_ACTIVE);}
   function currentSocialPgId(){ return normalizePgName(STUDENTE.nome); }
   function refreshNarratorSocial(callback){
     var pg=currentSocialPgId();
     if(!pg||!window.fbReady||!window.fbGetAccrediti){ if(callback){callback(false);} return; }
-    window.fbGetAccrediti(pg).then(function(acc){accreditiCache=acc||{};syncAccreditiAudit(accreditiCache);var changed=syncSocialFromNarratorIfNew();if(changed){scheduleSave(0,false);}if(callback){callback(true);}}).catch(function(e){console.error(e);if(callback){callback(false);}});
+    window.fbGetAccrediti(pg).then(function(acc){
+      acceptAccreditiRemote(acc);
+      var watchOk=ACCREDITI_WATCH_ACTIVE || startAccreditiWatch(pg,true);
+      if(callback){callback(!!watchOk && accreditiVerified());}
+    }).catch(function(e){console.error(e);ACCREDITI_LOAD_STATE="error";if(callback){callback(false);}});
   }
   function latestNarratorSocial(){
     var state=accreditiCache&&accreditiCache._staffState?accreditiCache._staffState:null;
@@ -536,14 +750,27 @@
     for(var i=0;i<defs.length;i++){if(values[defs[i].key]!==null){has=true;break;}}
     if(!has){return null;}
     var stable={}; for(var j=0;j<defs.length;j++){stable[defs[j].key]=values[defs[j].key];}
-    var fingerprint=JSON.stringify(stable)+"|"+String(state.lastMonthKey||"")+"|"+String(state.lastMonthName||"");
-    return {values:values,fingerprint:fingerprint,lastMonthName:String(state.lastMonthName||""),updatedAt:state.updatedAt||null};
+    var fingerprint=stableComparableJson(stable)+"|"+String(state.lastMonthKey||"")+"|"+String(state.lastMonthName||"");
+    return {values:values,fingerprint:fingerprint,lastMonthKey:String(state.lastMonthKey||""),lastMonthName:String(state.lastMonthName||""),updatedAt:state.updatedAt||null};
   }
   function syncSocialFromNarratorIfNew(){
     var latest=latestNarratorSocial(); if(!latest){return false;}
     if(String(SOCIAL_SYNC_META.lastStaffFingerprint||"")===latest.fingerprint){return false;}
     var defs=socialFieldDefs(),hasLocal=false; for(var i=0;i<defs.length;i++){if(socialNumber(PARAMETRI_SOCIALI&&PARAMETRI_SOCIALI[defs[i].key])!==null){hasLocal=true;break;}}
-    if(!SOCIAL_SYNC_META.lastStaffFingerprint && hasLocal){return false;}
+    if(!SOCIAL_SYNC_META.lastStaffFingerprint && hasLocal){
+      /* Migrazione sicura: se il player aveva già valori locali prima del fingerprint Staff,
+         sincronizziamo automaticamente soltanto quando coincidono con il valore BEFORE
+         dell'ultimo vero accredito. Se invece risultano già aggiornati o modificati esternamente,
+         preserviamo la Scheda locale e registriamo soltanto il fingerprint corrente. */
+      var canAutoSync=false,localNorm=normalizeSocialValues(PARAMETRI_SOCIALI),lastRec=latest.lastMonthKey&&accreditiCache&&accreditiCache._staffMonths?accreditiCache._staffMonths[latest.lastMonthKey]:null;
+      if(lastRec&&lastRec.applied!==false&&lastRec.before){
+        var beforeNorm=normalizeSocialValues(lastRec.before),sameBefore=true,sameAfter=true;
+        for(var si=0;si<defs.length;si++){var sk=defs[si].key;if(socialNumber(localNorm[sk])!==socialNumber(beforeNorm[sk])){sameBefore=false;}if(socialNumber(localNorm[sk])!==socialNumber(latest.values[sk])){sameAfter=false;}}
+        if(sameBefore){canAutoSync=true;}
+        else if(sameAfter){SOCIAL_SYNC_META.lastStaffFingerprint=latest.fingerprint;DATA_DIRTY=true;return true;}
+      }
+      if(!canAutoSync){SOCIAL_SYNC_META.lastStaffFingerprint=latest.fingerprint;DATA_DIRTY=true;return true;}
+    }
     PARAMETRI_SOCIALI=normalizeSocialValues(latest.values);
     SOCIAL_SYNC_META.lastStaffFingerprint=latest.fingerprint;
     DATA_DIRTY=true;
@@ -566,7 +793,7 @@
     })(defs[i]);
     wrap.appendChild(grid);
     var actions=el("div","social-sync-actions"),latest=latestNarratorSocial();
-    var sync=el("button","action small","↻ Aggiorna dai valori dell'ultimo accredito"); sync.type="button"; sync.disabled=false; sync.addEventListener(EV,function(){sync.disabled=true;sync.textContent="Aggiornamento…";refreshNarratorSocial(function(){if(!applyLatestNarratorSocial()){sync.disabled=false;sync.textContent="↻ Aggiorna dai valori dell'ultimo accredito";alert("Non risultano ancora valori calcolati dal Narratore.");return;}renderAll();});}); actions.appendChild(sync);
+    var sync=el("button","action small","↻ Aggiorna dai valori dell'ultimo accredito"); sync.type="button"; sync.disabled=false; sync.addEventListener(EV,function(){sync.disabled=true;sync.textContent="Aggiornamento…";refreshNarratorSocial(function(ok){if(!ok){sync.disabled=false;sync.textContent="↻ Aggiorna dai valori dell'ultimo accredito";alert("Impossibile leggere gli ultimi accrediti da Firebase. I valori locali non sono stati modificati.");return;}if(!applyLatestNarratorSocial()){sync.disabled=false;sync.textContent="↻ Aggiorna dai valori dell'ultimo accredito";alert("Non risultano ancora valori calcolati dal Narratore.");return;}renderAll();});}); actions.appendChild(sync);
     var status=el("span","social-sync-status",latest?("Ultimo accredito disponibile"+(latest.lastMonthName?": <b>"+latest.lastMonthName+"</b>":"")):"Nessun valore del Narratore ancora disponibile."); actions.appendChild(status); wrap.appendChild(actions);
     return wrap;
   }
@@ -579,18 +806,33 @@
     var draft=normalizeSocialValues(PARAMETRI_SOCIALI),grid=el("div","social-current-grid"),inputs={},defs=socialFieldDefs();
     for(var i=0;i<defs.length;i++)(function(def){var cell=el("div"),lab=el("label",null,def.label+(def.required?"":" (se previsto)")),inp=el("input");inp.type="number";inp.step=String(def.step||.5);if(Number.isFinite(def.min)){inp.min=String(def.min);}if(Number.isFinite(def.max)){inp.max=String(def.max);}var cur=socialNumber(draft[def.key]);inp.value=cur===null?"":String(cur);inputs[def.key]=inp;cell.appendChild(lab);cell.appendChild(inp);grid.appendChild(cell);})(defs[i]);
     modal.appendChild(grid);
-    var latest=latestNarratorSocial(),usedLatest=false;
+    var latest=latestNarratorSocial(),usedLatest=false,openedStaffFingerprint=latest?latest.fingerprint:"";
     var sync=el("button","action small","↻ Aggiorna dai valori dell'ultimo accredito");sync.type="button";sync.disabled=!latest;sync.addEventListener(EV,function(){if(!latest)return;usedLatest=true;for(var i=0;i<defs.length;i++){var v=latest.values[defs[i].key];inputs[defs[i].key].value=v===null?"":String(v);}});modal.appendChild(sync);
     if(latest&&latest.lastMonthName){modal.appendChild(el("p","small-note","Valori più recenti calcolati dal Narratore: accredito di <b>"+latest.lastMonthName+"</b>."));}
     var confirmLine=el("label","chk-line"),cb=el("input");cb.type="checkbox";confirmLine.appendChild(cb);confirmLine.appendChild(el("span",null,"Confermo di aver verificato che questi Parametri Sociali corrispondono alla mia Scheda PG"));modal.appendChild(confirmLine);
     var actions=el("div","social-modal-actions"),cancel=el("button","action danger","Annulla"),ok=el("button","action","✓ Conferma e apri "+monthName);cancel.type=ok.type="button";ok.disabled=true;cb.addEventListener("change",function(){ok.disabled=!cb.checked;});cancel.addEventListener(EV,function(){overlay.remove();});ok.addEventListener(EV,function(){
+      if(fbConnected && !accreditiVerified()){alert("Non posso verificare gli ultimi accrediti su Firebase: per sicurezza il nuovo Mese non viene aperto. Riprova quando la connessione è tornata disponibile.");return;}
+      var appliedNow=appliedStaffRecordForMonthName(monthName);if(appliedNow){alert("«"+monthName+"» è stato accreditato dal Narratore mentre la verifica era aperta. La CB non verrà creata: revoca prima quell'accredito.");overlay.remove();return;}
+      var currentLatest=latestNarratorSocial(),currentFingerprint=currentLatest?currentLatest.fingerprint:"";
+      if(currentFingerprint!==openedStaffFingerprint){
+        latest=currentLatest; openedStaffFingerprint=currentFingerprint; usedLatest=!!currentLatest;
+        if(currentLatest){for(var ri=0;ri<defs.length;ri++){var rv=currentLatest.values[defs[ri].key];inputs[defs[ri].key].value=rv===null?"":String(rv);}}
+        cb.checked=false;ok.disabled=true;
+        alert("Nel frattempo è cambiato l'ultimo accredito del Narratore. I valori della finestra sono stati aggiornati: ricontrollali e conferma nuovamente.");
+        return;
+      }
       var next={};for(var i=0;i<defs.length;i++){next[defs[i].key]=clampSocialValue(defs[i],inputs[defs[i].key].value);}var ready=socialValuesComplete(next);if(!ready.ok){alert("Prima di continuare compila: "+ready.missing.join(", ")+".");return;}
       PARAMETRI_SOCIALI=normalizeSocialValues(next); if(usedLatest&&latest){SOCIAL_SYNC_META.lastStaffFingerprint=latest.fingerprint;}
       VERIFICHE_PARAMETRI_SOCIALI[key]={monthName:monthName,verifiedAt:new Date().toISOString(),values:normalizeSocialValues(next),staffFingerprint:latest?latest.fingerprint:""}; DATA_DIRTY=true; overlay.remove(); onConfirmed();
     });actions.appendChild(cancel);actions.appendChild(ok);modal.appendChild(actions);document.body.appendChild(overlay);
   }
   function requestSocialVerificationForMonth(monthName,onConfirmed){
-    refreshNarratorSocial(function(){openSocialVerificationForMonth(monthName,onConfirmed);});
+    refreshNarratorSocial(function(ok){
+      if(!ok || (fbConnected && !accreditiVerified())){alert("Impossibile verificare gli ultimi accrediti del Narratore su Firebase. Per sicurezza il nuovo Mese non viene aperto: riprova quando la connessione è disponibile.");return;}
+      var already=appliedStaffRecordForMonthName(monthName);
+      if(already){alert("«"+monthName+"» risulta già accreditato dal Narratore"+(Number(already.postCount)===0?" a 0 Post":"")+". Prima di creare o rinominare una CB con questo Mese, il Narratore deve revocare quell'accredito.");return;}
+      openSocialVerificationForMonth(monthName,onConfirmed);
+    });
   }
 
 
@@ -672,6 +914,16 @@
       return u.href;
     } catch(e){ return ""; }
   }
+  function isValidPostLink(value){ return safeHttpUrl(value) !== ""; }
+  function forumBbUrl(url,label){
+    var normalized=safeHttpUrl(url);
+    var text=String(label==null?"":label);
+    return normalized ? "[URL="+normalized+"]"+text+"[/URL]" : text;
+  }
+  function forumBbUrlOptional(url,label){
+    var normalized=safeHttpUrl(url);
+    return normalized ? "[URL="+normalized+"]"+String(label==null?"":label)+"[/URL]" : "";
+  }
   function makeLinkIcon(url, title){
     var normalized = safeHttpUrl(url);
     if(!normalized){ return null; }
@@ -721,11 +973,28 @@
       })(inputs[i]);
     }
   }
+  function lockAfterRevisionConflict(code){
+    if(SAVE_CONFLICT_LOCKED){return;}
+    SAVE_CONFLICT_LOCKED=true;
+    if(fbSaveTimer){clearTimeout(fbSaveTimer);fbSaveTimer=null;}
+    var deleted=(code==="deleted-pg"||code==="not-found");
+    fbStatusText=deleted?"Salvataggio bloccato: questo PG è stato eliminato dal Narratore":"Salvataggio bloccato: i dati remoti sono cambiati. Ricarica il Tool prima di continuare"; updateFbIndicator();
+    var old=document.getElementById("revision-conflict-overlay");if(old){return;}
+    var overlay=document.createElement("div");overlay.id="revision-conflict-overlay";overlay.style.cssText="position:fixed;inset:0;z-index:999999;background:rgba(0,0,0,.72);display:flex;align-items:center;justify-content:center;padding:20px;";
+    var box=document.createElement("div");box.style.cssText="max-width:620px;width:100%;background:#fff;color:#222;border-radius:12px;padding:22px;box-shadow:0 20px 60px rgba(0,0,0,.35);font-family:inherit;";
+    var h=document.createElement("h2");h.textContent=deleted?"⚠ Personaggio eliminato":"⚠ Dati aggiornati in un'altra sessione";box.appendChild(h);
+    var p=document.createElement("p");p.textContent=deleted?"Questo Personaggio è stato eliminato definitivamente dal Narratore mentre il Tracker era aperto. Le modifiche locali successive non sono state salvate e il documento non verrà ricreato. Ricarica il Tool per chiudere questa sessione.":"Il salvataggio locale è stato fermato perché Firebase contiene una versione più recente di questo PG. Nessun dato remoto è stato sovrascritto. Per evitare conflitti, il Tool resta bloccato finché non ricarichi la pagina e riapri il Personaggio.";box.appendChild(p);
+    var b=document.createElement("button");b.className="action";b.textContent=deleted?"Ricarica / Disconnettiti":"Ricarica il Tool";b.addEventListener("click",function(){window.location.reload();});box.appendChild(b);overlay.appendChild(box);document.body.appendChild(overlay);
+  }
+
   function saveErrorStatus(){
     var code=window.fbLastSaveError&&window.fbLastSaveError.code;
-    if(code==="not-found"){return "Salvataggio bloccato: questo PG non esiste più su Firebase. Potrebbe essere stato eliminato dal Narratore; disconnettiti senza salvare e verifica con lo Staff.";}
+    if(code==="deleted-pg"){return "Salvataggio bloccato: questo PG è stato eliminato definitivamente dal Narratore. Le modifiche locali non sono state salvate.";}
+    if(code==="not-found"){return "Salvataggio bloccato: questo PG non esiste più su Firebase. Potrebbe essere stato eliminato dal Narratore; le modifiche locali non sono state salvate.";}
     if(code==="permission-denied"){return "Salvataggio bloccato: il database è cambiato, disconnettiti e ricarica il PG";}
     if(code==="snapshot-failed"){return "Salvataggio bloccato: non è stato possibile creare il backup di sicurezza prima della rimozione. Riprova senza chiudere la pagina";}
+    if(code==="revision-conflict"){return "Salvataggio bloccato: questo PG è stato modificato in un’altra scheda o dispositivo. Le modifiche locali non sono state sovrascritte: ricarica i dati prima di continuare";}
+    if(code==="accredited-month-conflict"){return "Salvataggio bloccato: il Narratore ha accreditato una Camera Blindata mentre erano presenti modifiche locali non ancora consolidate. La CB accreditata non è stata alterata: ricarica il Tool prima di continuare";}
     return "Errore nel salvataggio, riprova";
   }
   function manualSaveNow(btn){
@@ -738,9 +1007,8 @@
     var old=btn?btn.textContent:"Salva"; if(btn){btn.disabled=true;btn.textContent="Salvataggio…";}
     var stateNow=collectState(), bytesNow=stateSizeBytes(stateNow);
     if(bytesNow>900000){fbStatusText="Salvataggio troppo grande ("+sizeLabel(bytesNow)+"): archivia i dati vecchi con il Narratore";updateFbIndicator();if(btn){btn.disabled=false;btn.textContent="Troppi dati";}return;}
-    var cmpNow=historyComparableState(stateNow);
-    if(LAST_PERSISTED_STATE && JSON.stringify(cmpNow)===JSON.stringify(LAST_PERSISTED_STATE) && !DATA_DIRTY){fbStatusText="Salvato su Firebase";updateFbIndicator();if(btn){btn.disabled=false;btn.textContent="Già salvato";setTimeout(function(){btn.textContent=old;},1200);}return;}
-    DATA_DIRTY=true;
+    var cmpNow=persistenceComparableState(stateNow);
+    if(PG_DOC_EXISTS && LAST_PERSISTED_STATE && stableComparableJson(cmpNow)===stableComparableJson(LAST_PERSISTED_STATE) && !FORCE_PERSIST_SAVE){DATA_DIRTY=false;fbStatusText="Salvato su Firebase";updateFbIndicator();if(btn){btn.disabled=false;btn.textContent="Già salvato";setTimeout(function(){btn.textContent=old;},1200);}return;}
     serializedSaveLatest().then(function(ok){
       fbStatusText=ok?"Salvato su Firebase":saveErrorStatus();
       updateFbIndicator();
@@ -879,14 +1147,19 @@
       if(!handledAsync){ var ok2 = fallbackCopyText(txt); flashCopied(btn, ok2); }
     });
   }
-  function buildSelect(options, current, onChange){
+  function buildSelect(options, current, onChange, persistChange){
     var sel = el("select");
     for(var i=0;i<options.length;i++){
       var o = el("option", null, options[i]); o.value = options[i];
       if(options[i] === current){ o.selected = true; }
       sel.appendChild(o);
     }
-    sel.addEventListener("change", function(){ onChange(sel.value); scheduleSave(80); });
+    /* v53: per default i select rappresentano stato persistito. I pochi select
+       puramente temporanei possono passare false senza avanzare _dbRevision. */
+    sel.addEventListener("change", function(){
+      onChange(sel.value);
+      if(persistChange !== false){ scheduleSave(80); }
+    });
     return sel;
   }
 
@@ -904,28 +1177,31 @@
       return true;
     }
 
+    /* v52: il listener globale NON marca DATA_DIRTY a priori. Alcuni input/textarea
+       sono temporanei e non fanno parte di collectState(); scheduleSave(..., false)
+       lascia al confronto di persistenza il compito di decidere se esiste una modifica reale. */
     /* input copre digitazione e, nei browser moderni, anche l'incolla. */
     document.addEventListener("input", function(ev){
       if(!isEditableControl(ev.target)){ return; }
-      scheduleSave(250);
+      scheduleSave(250, false);
     }, true);
 
     /* change e focusout rendono persistenti rapidamente anche checkbox, select e campi
        modificati senza dover cambiare schermata. */
     document.addEventListener("change", function(ev){
       if(!isEditableControl(ev.target)){ return; }
-      scheduleSave(80);
+      scheduleSave(80, false);
     }, true);
     document.addEventListener("focusout", function(ev){
       if(!isEditableControl(ev.target)){ return; }
-      scheduleSave(80);
+      scheduleSave(80, false);
     }, true);
 
     /* Fallback esplicito per l'incolla: il salvataggio parte dopo che il browser ha
        effettivamente inserito il testo e l'handler del campo ha aggiornato lo stato. */
     document.addEventListener("paste", function(ev){
       if(!isEditableControl(ev.target)){ return; }
-      setTimeout(function(){ scheduleSave(80); }, 0);
+      setTimeout(function(){ scheduleSave(80, false); }, 0);
     }, true);
   }
 
@@ -1045,7 +1321,7 @@
     MEDICHERIA = { nome:"", specie:"", classificazione:"X", link:"" };
     DISPENSA = { ingredienti:[], movimenti:[], archivioTotali:{ galeoniVendite:0, perCommercianteTipo:{}, conteggiMovimenti:{} } }; ingredienteCounter = 0; movimentoCounter = 0; resetDispensaBatch(); PG_ARCHIVIATO = false; PG_DOC_EXISTS = false; DB_REVISION = 0;
     PARAMETRI_SOCIALI = {popolarita:null,stima:null,bonta:null,malvagita:null}; VERIFICHE_PARAMETRI_SOCIALI = {}; SOCIAL_SYNC_META = { lastStaffFingerprint:"" };
-    OPEN_DETAILS = {}; accreditiCache = null; LAST_MODIFIED_AT=null; LAST_MODIFIED_BY=""; LAST_SESSION_ID=""; LAST_NARRATOR_AT=null; LAST_NARRATOR_ACTION=""; DATA_DIRTY=false; ARCHIVE_UNLOCK_UNTIL=null; LAST_PERSISTED_STATE=null; LAST_AUDITED_STATE=null; PENDING_AUDIT_STATE=null; SESSION_SNAPSHOT_DONE=false; LAST_SNAPSHOT_MS=0; SAVE_IN_FLIGHT_PROMISE=null; SAVE_FORCE_AGAIN=false;
+    OPEN_DETAILS = {}; stopAccreditiWatch(); accreditiCache = null; ACCREDITI_LOAD_STATE="idle"; ACCREDITI_WATCH_ACTIVE=false; SAVE_CONFLICT_LOCKED=false; var conflictOverlay=document.getElementById("revision-conflict-overlay");if(conflictOverlay){conflictOverlay.remove();} LAST_MODIFIED_AT=null; LAST_MODIFIED_BY=""; LAST_SESSION_ID=""; LAST_NARRATOR_AT=null; LAST_NARRATOR_ACTION=""; DATA_DIRTY=false; FORCE_PERSIST_SAVE=false; ARCHIVE_UNLOCK_UNTIL=null; LAST_PERSISTED_STATE=null; LAST_AUDITED_STATE=null; PENDING_AUDIT_STATE=null; SESSION_SNAPSHOT_DONE=false; LAST_SNAPSHOT_MS=0; SAVE_IN_FLIGHT_PROMISE=null; SAVE_FORCE_AGAIN=false;
   }
 
   function collectState(){
@@ -1157,31 +1433,36 @@
     migrateArchiveDates();
   }
 
+  /* v49: il Registro del PG resta scritto atomicamente insieme al salvataggio.
+     Queste variabili/funzioni restano solo per compatibilità con il flusso di uscita. */
   function scheduleAuditForState(savedState){
-    PENDING_AUDIT_STATE = historyComparableState(savedState);
-    if(!LAST_AUDITED_STATE){ LAST_AUDITED_STATE = cloneHistoryState(PENDING_AUDIT_STATE); return; }
-    if(auditFlushTimer){ clearTimeout(auditFlushTimer); }
-    auditFlushTimer = setTimeout(function(){ flushAuditNow(); }, 1200);
+    PENDING_AUDIT_STATE = null;
+    if(savedState){ LAST_AUDITED_STATE = cloneHistoryState(historyComparableState(savedState)); }
+    if(auditFlushTimer){ clearTimeout(auditFlushTimer); auditFlushTimer=null; }
   }
   function flushAuditNow(){
     if(auditFlushTimer){ clearTimeout(auditFlushTimer); auditFlushTimer=null; }
-    if(!PENDING_AUDIT_STATE || !LAST_AUDITED_STATE || !window.fbWriteAudit || !fbConnected){ return Promise.resolve(true); }
-    var target=cloneHistoryState(PENDING_AUDIT_STATE), changes=[];
-    diffHistory(LAST_AUDITED_STATE,target,"",changes,0);
-    if(!changes.length){ LAST_AUDITED_STATE=target; return Promise.resolve(true); }
-    var ev={ sessionId:SESSION_ID, dbRevision:DB_REVISION, section:historySection(changes), summary:"Modifiche in "+historySection(changes)+" ("+changes.length+(changes.length>=30?"+":"")+" variazioni)", changes:changes.slice(0,30) };
-    return window.fbWriteAudit(STUDENTE.nome,ev).then(function(ok){ if(ok){ LAST_AUDITED_STATE=target; } return ok; }).catch(function(){return false;});
+    PENDING_AUDIT_STATE = null;
+    return Promise.resolve(true);
   }
   function stateHasUsefulContent(st){
     if(!st)return false;
     try{return JSON.stringify(st).length>450;}catch(e){return true;}
   }
   function saveStateWithHistory(state){
-    var comparable=historyComparableState(state);
+    /* Congela lo stato di QUESTA operazione: le modifiche UI successive non possono
+       mutare per riferimento l'oggetto che verrà scritto dalla transazione. */
+    state=cloneStateForSave(state);
+    var comparable=persistenceComparableState(state);
+    var auditComparable=historyComparableState(state);
     var prev=LAST_PERSISTED_STATE?cloneHistoryState(LAST_PERSISTED_STATE):null;
-    var destructive=!!(prev&&anyArrayShrank(prev,comparable,0));
+    var prevAudit=LAST_AUDITED_STATE?cloneHistoryState(LAST_AUDITED_STATE):null;
+    var substantiveChange=!!(prevAudit&&stableComparableJson(auditComparable)!==stableComparableJson(prevAudit));
+    var destructive=!!(prevAudit&&anyArrayShrank(prevAudit,auditComparable,0));
     var periodic=(Date.now()-LAST_SNAPSHOT_MS)>=SNAPSHOT_INTERVAL_MS;
-    var needSnapshot=!!(prev&&stateHasUsefulContent(prev)&&(!SESSION_SNAPSHOT_DONE||destructive||periodic));
+    /* Le modifiche alla sola bozza multipla non richiedono snapshot: vengono persistite,
+       ma non sono modifiche sostanziali allo stato di gioco. */
+    var needSnapshot=!!(prev&&stateHasUsefulContent(prev)&&substantiveChange&&(!SESSION_SNAPSHOT_DONE||destructive||periodic));
     var reason=!SESSION_SNAPSHOT_DONE?"Checkpoint prima delle modifiche della sessione":(destructive?"Backup automatico prima di una rimozione":"Checkpoint periodico");
     var snapPromise=Promise.resolve(true), snapshotAttempted=false;
     if(needSnapshot && window.fbCreateSnapshot && window.fbLoadState){
@@ -1193,12 +1474,46 @@
         return window.fbCreateSnapshot(STUDENTE.nome,{state:remoteBefore,reason:reason,sessionId:SESSION_ID,sizeBytes:stateSizeBytes(remoteBefore),schemaVersion:25});
       });
     }
+    var auditEvent=null, auditTarget=cloneHistoryState(auditComparable);
+    if(LAST_AUDITED_STATE){
+      var auditChanges=[];
+      diffHistory(LAST_AUDITED_STATE,auditTarget,"",auditChanges,0);
+      if(auditChanges.length){
+        var auditSection=historySection(auditChanges);
+        auditEvent={
+          section:auditSection,
+          summary:"Modifiche in "+auditSection+" ("+auditChanges.length+(auditChanges.length>=30?"+":"")+" variazioni)",
+          changes:auditChanges.slice(0,30)
+        };
+      }
+    }
     return Promise.resolve(snapPromise).catch(function(e){console.error(e);return false;}).then(function(snapshotOk){
       if(snapshotAttempted && snapshotOk){ SESSION_SNAPSHOT_DONE=true; LAST_SNAPSHOT_MS=Date.now(); }
+      if(snapshotAttempted && !snapshotOk && window.fbLastSaveError && (window.fbLastSaveError.code==="deleted-pg"||window.fbLastSaveError.code==="not-found")){return false;}
       if(destructive && snapshotAttempted && !snapshotOk){ window.fbLastSaveError={code:"snapshot-failed"}; return false; }
-      return window.fbSaveState(STUDENTE.nome,state,SESSION_ID,PG_DOC_EXISTS);
+      return window.fbSaveState(STUDENTE.nome,state,SESSION_ID,PG_DOC_EXISTS,auditEvent);
     }).then(function(ok){
-      if(ok){ PG_DOC_EXISTS=true; LAST_MODIFIED_AT=new Date(); LAST_MODIFIED_BY="pg"; LAST_SESSION_ID=SESSION_ID; DATA_DIRTY=false; LAST_PERSISTED_STATE=cloneHistoryState(comparable); scheduleAuditForState(comparable); }
+      if(ok){
+        PG_DOC_EXISTS=true;
+        var savedRevision=Math.max(DB_REVISION,parseInt(window.fbLastSavedRevision,10)||0);
+        DB_REVISION=savedRevision;
+        LAST_MODIFIED_AT=new Date(); LAST_MODIFIED_BY="pg"; LAST_SESSION_ID=SESSION_ID;
+        /* v50: la baseline deve descrivere ESATTAMENTE ciò che questa transazione
+           ha salvato, non lo stato locale eventualmente modificato mentre Firebase
+           era ancora in corso. Aggiorniamo soltanto la revisione realmente ottenuta. */
+        var savedComparable=cloneHistoryState(comparable);
+        savedComparable._dbRevision=savedRevision;
+        LAST_PERSISTED_STATE=cloneHistoryState(savedComparable);
+        var savedAuditComparable=cloneHistoryState(auditComparable);
+        savedAuditComparable._dbRevision=savedRevision;
+        LAST_AUDITED_STATE=cloneHistoryState(savedAuditComparable);
+        PENDING_AUDIT_STATE=null;
+        if(auditFlushTimer){clearTimeout(auditFlushTimer);auditFlushTimer=null;}
+        var currentComparable=persistenceComparableState(collectState());
+        DATA_DIRTY=stableComparableJson(currentComparable)!==stableComparableJson(LAST_PERSISTED_STATE);
+        FORCE_PERSIST_SAVE=false;
+      }
+      else if(window.fbLastSaveError&&(window.fbLastSaveError.code==="revision-conflict"||window.fbLastSaveError.code==="accredited-month-conflict"||window.fbLastSaveError.code==="deleted-pg"||window.fbLastSaveError.code==="not-found")){lockAfterRevisionConflict(window.fbLastSaveError.code);}
       return ok;
     });
   }
@@ -1207,16 +1522,21 @@
     if(SAVE_IN_FLIGHT_PROMISE){ SAVE_FORCE_AGAIN=true; return SAVE_IN_FLIGHT_PROMISE; }
     SAVE_FORCE_AGAIN=false;
     function loop(){
-      var state=collectState(), bytes=stateSizeBytes(state), comparable=historyComparableState(state);
+      var state=collectState(), bytes=stateSizeBytes(state), comparable=persistenceComparableState(state);
       if(bytes>900000){ fbStatusText="Salvataggio troppo grande ("+sizeLabel(bytes)+"): archivia i dati vecchi con il Narratore"; updateFbIndicator(); return Promise.resolve(false); }
-      var changed=!LAST_PERSISTED_STATE || JSON.stringify(comparable)!==JSON.stringify(LAST_PERSISTED_STATE);
-      if(!changed && !DATA_DIRTY && !SAVE_FORCE_AGAIN){ return Promise.resolve(true); }
+      var changed=!LAST_PERSISTED_STATE || stableComparableJson(comparable)!==stableComparableJson(LAST_PERSISTED_STATE);
+      /* v55: DATA_DIRTY è solo un indizio UI. La scrittura è necessaria soltanto
+         se lo stato netto è diverso, il documento non esiste ancora o una migrazione
+         tecnica ha richiesto esplicitamente il consolidamento. */
+      if(PG_DOC_EXISTS && !changed && !FORCE_PERSIST_SAVE){
+        DATA_DIRTY=false; SAVE_FORCE_AGAIN=false; return Promise.resolve(true);
+      }
       if(changed){ DATA_DIRTY=true; }
       SAVE_FORCE_AGAIN=false;
       return saveStateWithHistory(state).then(function(ok){
         if(!ok){ return false; }
-        var fresh=historyComparableState(collectState());
-        var again=SAVE_FORCE_AGAIN || !LAST_PERSISTED_STATE || JSON.stringify(fresh)!==JSON.stringify(LAST_PERSISTED_STATE) || DATA_DIRTY;
+        var fresh=persistenceComparableState(collectState());
+        var again=SAVE_FORCE_AGAIN || FORCE_PERSIST_SAVE || !LAST_PERSISTED_STATE || stableComparableJson(fresh)!==stableComparableJson(LAST_PERSISTED_STATE);
         SAVE_FORCE_AGAIN=false;
         return again ? loop() : true;
       });
@@ -1228,14 +1548,15 @@
 
   function scheduleSave(delayMs, registraModifica){
     if(registraModifica !== false){ DATA_DIRTY = true; }
+    if(SAVE_CONFLICT_LOCKED){fbStatusText="Salvataggio bloccato: ricarica il Tool";updateFbIndicator();return;}
     if(!fbConnected || !window.fbReady){ return; }
     if(fbSaveTimer){ clearTimeout(fbSaveTimer); }
     fbStatusText = "Salvataggio in corso…";
     fbSaveTimer = setTimeout(function(){
-      var state = collectState(); var bytes=stateSizeBytes(state); var comparable=historyComparableState(state);
+      var state = collectState(); var bytes=stateSizeBytes(state); var comparable=persistenceComparableState(state);
       if(bytes>900000){ fbStatusText="Salvataggio troppo grande ("+sizeLabel(bytes)+"): archivia i dati vecchi con il Narratore"; updateFbIndicator(); return; }
-      var changed=!LAST_PERSISTED_STATE || JSON.stringify(comparable)!==JSON.stringify(LAST_PERSISTED_STATE);
-      if(!changed && !DATA_DIRTY){ fbStatusText="Salvato su Firebase"; updateFbIndicator(); return; }
+      var changed=!LAST_PERSISTED_STATE || stableComparableJson(comparable)!==stableComparableJson(LAST_PERSISTED_STATE);
+      if(PG_DOC_EXISTS && !changed && !FORCE_PERSIST_SAVE){ DATA_DIRTY=false; fbStatusText="Salvato su Firebase"; updateFbIndicator(); return; }
       if(changed){ DATA_DIRTY=true; }
       serializedSaveLatest().then(function(ok){
         fbStatusText = ok ? "Salvato su Firebase" : saveErrorStatus();
@@ -1289,10 +1610,10 @@
     if(fbSaveTimer){clearTimeout(fbSaveTimer);fbSaveTimer=null;}
     function finish(){fbConnected=false;resetDataState();STUDENTE.nome="";fbStatusText="";currentStep="pg";renderAll();}
     if(stateSizeBytes(state)>900000){fbStatusText="Impossibile disconnettersi: il salvataggio è troppo grande. Chiedi prima al Narratore una pulizia dell’archivio.";updateFbIndicator();alert(fbStatusText);return;}
-    var cmpDisc=historyComparableState(state);
-    if(LAST_PERSISTED_STATE && JSON.stringify(cmpDisc)===JSON.stringify(LAST_PERSISTED_STATE) && !DATA_DIRTY){flushAuditNow().then(function(){finish();});return;}
+    var cmpDisc=persistenceComparableState(state);
+    if(PG_DOC_EXISTS && LAST_PERSISTED_STATE && stableComparableJson(cmpDisc)===stableComparableJson(LAST_PERSISTED_STATE) && !FORCE_PERSIST_SAVE && !SAVE_IN_FLIGHT_PROMISE){DATA_DIRTY=false;flushAuditNow().then(function(){finish();});return;}
     if(window.fbReady&&nome&&window.fbSaveState){
-      fbStatusText="Salvataggio finale in corso…";updateFbIndicator();DATA_DIRTY=true;
+      fbStatusText="Salvataggio finale in corso…";updateFbIndicator();
       serializedSaveLatest().then(function(ok){
         if(ok){return flushAuditNow().then(function(){finish();});}
         fbStatusText=saveErrorStatus();updateFbIndicator();
@@ -1326,6 +1647,15 @@
         if(!window.fbReady){ alert("Il collegamento a Firebase non è ancora pronto: aspetta un secondo e riprova."); return; }
         btn.disabled=true; btn.textContent = "Caricamento…";
         window.fbLoadState(nome).then(function(data){
+          if(data && data._deleted){
+            resetDataState(); STUDENTE.nome = "";
+            btn.disabled=false; btn.textContent="Carica i miei dati";
+            alert("Questo Personaggio è stato eliminato definitivamente dal Narratore e non può essere ricreato con lo stesso nome. Se ritieni che sia un errore, contatta lo Staff.");
+            renderAll(); return;
+          }
+          /* v54: conserva una copia indipendente del documento Firebase PRIMA
+             che applyState() esegua normalizzazioni/migrazioni in-place. */
+          var rawLoadedState = data ? cloneStateForSave(data) : null;
           applyState(data);
           if(data && data._archiviato){
             resetDataState(); STUDENTE.nome = "";
@@ -1338,11 +1668,24 @@
           fbConnected = true;
           accreditiCache = null;
           fbStatusText = data ? "Dati caricati" : "Nuovo Personaggio, nessun dato precedente trovato";
-          var loadedBaseline=historyComparableState(collectState());
-          LAST_PERSISTED_STATE=cloneHistoryState(loadedBaseline); LAST_AUDITED_STATE=cloneHistoryState(loadedBaseline); PENDING_AUDIT_STATE=null; SESSION_SNAPSHOT_DONE=false; LAST_SNAPSHOT_MS=0;
-          if(DATA_DIRTY){ scheduleSave(0,false); }
+          var loadedState=collectState();
+          var loadedBaseline=persistenceComparableState(loadedState), loadedAuditBaseline=historyComparableState(loadedState);
+          /* v51: se applyState() ha normalizzato/migrato un vecchio documento, la
+             versione in memoria differisce realmente da quella letta da Firebase.
+             La migrazione va quindi consolidata con un salvataggio automatico. */
+          var migrationNeedsSave=!!DATA_DIRTY;
+          if(data){
+            var loadedRemoteProjection=loadedPersistenceProjection(rawLoadedState,loadedState);
+            if(stableComparableJson(loadedRemoteProjection)!==stableComparableJson(loadedBaseline)){migrationNeedsSave=true;}
+          }
+          LAST_PERSISTED_STATE=cloneHistoryState(loadedBaseline); LAST_AUDITED_STATE=cloneHistoryState(loadedAuditBaseline); PENDING_AUDIT_STATE=null; SESSION_SNAPSHOT_DONE=false; LAST_SNAPSHOT_MS=0;
+          /* v55: il dirty prodotto dalle normalizzazioni non deve confondersi con una
+             modifica utente. Le migrazioni usano un force dedicato; i PG nuovi vengono
+             creati perché PG_DOC_EXISTS è false. */
+          DATA_DIRTY=false; FORCE_PERSIST_SAVE=!!(data&&migrationNeedsSave);
+          if(!data || FORCE_PERSIST_SAVE){ scheduleSave(0,false); }
           btn.disabled=false;
-          window.fbGetAccrediti(nome).then(function(acc){accreditiCache=acc||{};syncAccreditiAudit(accreditiCache);var socialChanged=syncSocialFromNarratorIfNew();if(socialChanged){scheduleSave(0,false);}renderAll();}).catch(function(){accreditiCache={};syncAccreditiAudit({});renderAll();});
+          startAccreditiWatch(nome); renderAll();
         }).catch(function(e){ console.error(e); btn.disabled=false; btn.textContent="Carica i miei dati"; fbConnected=false; fbStatusText=""; alert("Impossibile leggere i dati da Firebase. Non verrà creato né sovrascritto alcun salvataggio. Controlla la connessione o le regole Firebase e riprova."); updateFbIndicator(); });
       });
       p.appendChild(btn);
@@ -1406,6 +1749,11 @@
       p.appendChild(el("div", "warning-alert", "⚠ Sono presenti Mesi con lo stesso nome già salvati in precedenza: <b>" + legacyDupMonths.join(", ") + "</b>. Rinomina una delle voci per evitare ambiguità nel Riepilogo mensile del Narratore."));
     }
 
+    var duplicateGlobals=duplicateGlobalNumbers();
+    if(duplicateGlobals.length){
+      p.appendChild(el("div","warning-alert","⚠ Sono stati rilevati numeri globali duplicati in dati precedenti: <b>"+duplicateGlobals.join(", ")+"</b>. Il Tool non li rinumera automaticamente perché potrebbero essere già usati da lavorazioni. Non eliminare i Post coinvolti e chiedi al Narratore di verificarli prima di una pulizia del database."));
+    }
+
     var newMonthRow=el("div","row"),newMonthCell=el("div");newMonthCell.appendChild(el("label",null,"Mese e Anno da creare"));
     var newMonthInput=el("input");newMonthInput.type="text";newMonthInput.placeholder="Es. Settembre 2026";newMonthCell.appendChild(newMonthInput);newMonthRow.appendChild(newMonthCell);p.appendChild(newMonthRow);
     var addMeseBtn = el("button", "action", "+ Nuovo Mese");
@@ -1456,7 +1804,7 @@
       if(!archivedMese || !archivedMese.chiuso){ continue; }
       var archivedPosts = Array.isArray(archivedMese.posts) ? archivedMese.posts : [];
       for(var agp=0;agp<archivedPosts.length;agp++){
-        if(String((archivedPosts[agp]&&archivedPosts[agp].link)||"").trim() !== ""){ archivedGlobalCount++; }
+        if(archivedPosts[agp] && isValidPostLink(archivedPosts[agp].link)){ archivedGlobalCount++; }
       }
     }
     globalDet.appendChild(el("summary", null, "Storico numerazione globale — Mesi archiviati (" + archivedGlobalCount + ")"));
@@ -1472,7 +1820,7 @@
         if(!gmese || !gmese.chiuso){ continue; }
         for(var gp=0;gp<gmese.posts.length;gp++){
           var gpost = gmese.posts[gp];
-          if(String(gpost.link || "").trim() === ""){ continue; }
+          if(!isValidPostLink(gpost.link)){ continue; }
           ensurePostGlobalNo(gpost);
           globalRows.push({ n:num(gpost.globalNo,0), mese:gmese, meseIndex:gm, post:gpost, postIndex:gp });
         }
@@ -1499,15 +1847,19 @@
   function buildMeseCard(mese){
     var locked = !!(mese.chiuso && archiveLocked(mese));
     var accreditato = monthIsAccredited(mese);
-    var contentLocked = locked || accreditato;
+    var contentLocked = locked || accreditato || (fbConnected && !accreditiVerified());
     var card = el("div", "card" + (locked ? " archive-locked" : ""));
     var h = el("h3");
     var titolo = mese.nome !== "" ? mese.nome : "(nuovo Mese senza nome)";
     if(mese.chiuso){ titolo = titolo + " \u2014 archiviato"; }
     h.appendChild(el("span", null, titolo));
+    var toggleBlocked=locked||(mese.chiuso&&accreditato)||(fbConnected&&!accreditiVerified());
     var btnToggle = el("button", "action small", locked ? "🔒 Archivio consolidato" : (mese.chiuso ? "Riapri" : "Archivia questo Mese"));
-    btnToggle.disabled = locked;
+    btnToggle.disabled = toggleBlocked;
+    if(mese.chiuso&&accreditato){btnToggle.title="Revoca prima l'accredito del Narratore per riaprire questo Mese.";}
     btnToggle.addEventListener(EV, function(){
+      if(fbConnected&&!accreditiVerified()){alert("Non posso verificare lo stato dell'accredito: per sicurezza l'archivio non viene modificato.");return;}
+      if(mese.chiuso&&monthIsAccredited(mese)){alert("Questo Mese è accreditato: può restare archiviato, ma per riaprirlo il Narratore deve prima revocare l'accredito.");return;}
       if(blockIfArchiveLocked(mese)){ return; }
       if(!mese.chiuso){ mese.chiuso = true; archiveStamp(mese); }
       else { mese.chiuso = false; mese._archivedAt = ""; }
@@ -1554,15 +1906,29 @@
         tr.appendChild(el("td", null, "" + (idx+1)));
         var tdLink = el("td");
         var globalSpan = null;
+        var refLabels=globalPostReferenceLabels(post);
         var iLink = el("input"); iLink.type="text"; iLink.value = post.link; iLink.placeholder="https://..."; iLink.disabled = contentLocked;
+        if(refLabels.length){iLink.title="Il Post globale n° "+post.globalNo+" è usato da: "+refLabels.join("; ")+". Puoi sostituire il link con un altro URL valido, ma non lasciarlo vuoto o non valido.";}
         function refreshInlineGlobal(){
           if(!globalSpan){ return; }
-          var valid = String(post.link || "").trim() !== "";
+          var valid = isValidPostLink(post.link);
           var gn = parseInt(post.globalNo,10);
           globalSpan.textContent = valid && !isNaN(gn) && gn>0 ? String(gn) : "—";
         }
-        iLink.addEventListener("input", function(){ if(blockIfMonthReadOnly(mese)){return;} post.link = iLink.value; ensurePostGlobalNo(post); refreshInlineGlobal(); scheduleSave(450); });
-        iLink.addEventListener("change", function(){ if(blockIfMonthReadOnly(mese)){return;} post.link = iLink.value; ensurePostGlobalNo(post); scheduleSave(0); renderAll(); });
+        iLink.addEventListener("input", function(){
+          if(blockIfMonthReadOnly(mese)){return;}
+          var candidate=iLink.value;
+          if(refLabels.length && isValidPostLink(post.link) && !isValidPostLink(candidate)){refreshInlineGlobal();return;}
+          post.link=candidate; ensurePostGlobalNo(post); refreshInlineGlobal(); scheduleSave(450);
+        });
+        iLink.addEventListener("change", function(){
+          if(blockIfMonthReadOnly(mese)){return;}
+          var candidate=iLink.value;
+          if(refLabels.length && isValidPostLink(post.link) && !isValidPostLink(candidate)){
+            iLink.value=post.link; alert("Il Post globale n° "+post.globalNo+" è ancora usato da una lavorazione attiva ("+refLabels.join("; ")+"). Il link non può essere cancellato o reso non valido finché quel riferimento è in uso."); return;
+          }
+          post.link=candidate; ensurePostGlobalNo(post); scheduleSave(0); renderAll();
+        });
         tdLink.appendChild(iLink); tr.appendChild(tdLink);
         if(showInlineGlobal){
           var tdGlobal = el("td", "global-number-cell");
@@ -1571,9 +1937,12 @@
         }
         var tdRm = el("td");
         var rmBtn = el("button", "action danger small", "Rimuovi");
-        rmBtn.disabled = contentLocked;
+        rmBtn.disabled = contentLocked || refLabels.length>0;
+        if(refLabels.length){rmBtn.title="Non removibile: il Post globale n° "+post.globalNo+" è usato da "+refLabels.join("; ")+".";}
         rmBtn.addEventListener(EV, function(){
           if(blockIfMonthReadOnly(mese)){return;}
+          var currentRefs=globalPostReferenceLabels(post);
+          if(currentRefs.length){alert("Non puoi rimuovere il Post globale n° "+post.globalNo+": è ancora usato da una lavorazione attiva ("+currentRefs.join("; ")+").");return;}
           mese.posts = mese.posts.filter(function(x){ return x.id !== post.id; });
           scheduleSave(0); renderAll();
         });
@@ -1607,13 +1976,17 @@
   function cumulativeG(pos){ var tot=0; for(var i=1;i<=pos;i++){ tot=tot+valoreG(i); } return tot; }
   function valorePP(post){ var v = parseInt(post && post.pp != null ? post.pp : 0, 10); if(isNaN(v) || v < 0){ return 0; } return v; }
   function meseBonusPP(mese){ var v=parseInt(mese && mese.eventoBonusPP != null ? mese.eventoBonusPP : 0,10); if(isNaN(v)||v<0){return 0;} return v; }
-  function postEligibleForEventBonus(post){ return !!(post && String(post.link || "").trim() !== "" && !post.eventoBonusEscluso); }
+  function describedEventBonusPP(mese){
+    var s=String(mese&&mese.eventoBonusDescrizione||""); var m=s.match(/\+?\s*(\d+)\s*PP\b/i);
+    return m?Math.max(0,parseInt(m[1],10)||0):null;
+  }
+  function postEligibleForEventBonus(post){ return !!(post && isValidPostLink(post.link) && !post.eventoBonusEscluso); }
   function eventBonusEligibleCount(posts,endExclusive){ var count=0; for(var i=0;i<endExclusive;i++){ if(postEligibleForEventBonus(posts[i])){count++;} } return count; }
-  function cumulativeBasePP(posts, endExclusive){ var tot=0; for(var i=0;i<endExclusive;i++){ if(posts[i] && String(posts[i].link || "").trim() !== ""){ tot += valorePP(posts[i]); } } return tot; }
+  function cumulativeBasePP(posts, endExclusive){ var tot=0; for(var i=0;i<endExclusive;i++){ if(posts[i] && isValidPostLink(posts[i].link)){ tot += valorePP(posts[i]); } } return tot; }
   function eventBonusTotal(mese,posts,endExclusive){ var bonus=meseBonusPP(mese); if(!bonus){return 0;} return eventBonusEligibleCount(posts,endExclusive)*bonus; }
   function cumulativePP(posts, endExclusive, mese){ return cumulativeBasePP(posts,endExclusive)+eventBonusTotal(mese,posts,endExclusive); }
   function makeEventBonusExclusionCell(post,mese,locked){
-    var td=el("td"),line=el("label","chk-line"),cb=el("input"); cb.type="checkbox"; cb.checked=!!(post&&post.eventoBonusEscluso); cb.disabled=!!locked || !post || String(post.link||"").trim()==="";
+    var td=el("td"),line=el("label","chk-line"),cb=el("input"); cb.type="checkbox"; cb.checked=!!(post&&post.eventoBonusEscluso); cb.disabled=!!locked || !post || !isValidPostLink(post.link);
     cb.addEventListener("change",function(){ if(blockIfMonthReadOnly(mese)){cb.checked=!!post.eventoBonusEscluso;return;} post.eventoBonusEscluso=!!cb.checked; scheduleSave(0); renderAll(); });
     line.appendChild(cb); line.appendChild(el("span",null,"Escludi bonus")); td.appendChild(line); return td;
   }
@@ -1654,25 +2027,19 @@
     var accBadge = el("div", "guide-text");
     if(!fbConnected){
       accBadge.textContent = "Connettiti nello Step 1 per vedere lo stato di accredito confermato dal Narratore.";
-    } else if(accreditiCache === null){
-      accBadge.textContent = "Verifico lo stato di accredito\u2026";
-      if(window.fbReady){
-        window.fbGetAccrediti(STUDENTE.nome).then(function(data){
-          accreditiCache = data || {};
-          syncAccreditiAudit(accreditiCache);
-          var socialChanged=syncSocialFromNarratorIfNew(); if(socialChanged){ scheduleSave(0,false); }
-          renderAll();
-        });
-      }
+    } else if(ACCREDITI_LOAD_STATE === "loading" || ACCREDITI_LOAD_STATE === "idle"){
+      accBadge.innerHTML = "<b>⏳ Verifico lo stato di accredito…</b> — la Camera Blindata resta temporaneamente in sola lettura.";
+    } else if(ACCREDITI_LOAD_STATE === "error" || accreditiCache === null){
+      accBadge.innerHTML = "<b style=\"color:#8c2f2f\">⚠ Stato accrediti non verificabile</b> — per sicurezza la Camera Blindata è in sola lettura finché Firebase non torna disponibile.";
     } else {
-      var accreditato = !!accreditiCache[meseObj.id];
+      var accreditato = monthIsAccredited(meseObj);
       accBadge.innerHTML = accreditato
         ? "<b style=\"color:#2e6b3e\">\u2705 Accreditato dal Narratore</b>"
         : "<b style=\"color:#8c2f2f\">\u23f3 In attesa di accredito dal Narratore</b>";
     }
     p.appendChild(accBadge);
 
-    var bonusLocked = !!(meseObj.chiuso && archiveLocked(meseObj)) || monthIsAccredited(meseObj);
+    var bonusLocked = !!(meseObj.chiuso && archiveLocked(meseObj)) || monthIsAccredited(meseObj) || (fbConnected && !accreditiVerified());
     var bonusBox = el("div", "card");
     bonusBox.appendChild(el("h4", null, "🎉 Bonus Evento del mese"));
     bonusBox.appendChild(el("p", "small-note", "Impostalo una sola volta per questo Mese. Il Tool propone automaticamente questi PP a <b>ogni post con un link</b>. Se nella descrizione scrivi, per esempio, <b>+3 PP</b>, il valore viene riconosciuto automaticamente; il campo numerico resta disponibile per correggerlo. Nei singoli post inserisci soltanto i PP base. <b>Se un post non rientra nell’Evento (per esempio non è una free role), usa «Escludi bonus» nella tabella sottostante:</b> quel post continuerà a contare normalmente per Galeoni e PP base, ma non riceverà i PP extra dell’Evento."));
@@ -1687,6 +2054,11 @@
     bonusPp.addEventListener("input",function(){if(blockIfMonthReadOnly(meseObj)){return;}meseObj.eventoBonusPP=Math.max(0,parseInt(bonusPp.value,10)||0);scheduleSave(450);});
     bonusPp.addEventListener("change",function(){if(blockIfMonthReadOnly(meseObj)){return;}meseObj.eventoBonusPP=Math.max(0,parseInt(bonusPp.value,10)||0);scheduleSave(0);renderAll();});
     bonusPpCell.appendChild(bonusPp); bonusRow.appendChild(bonusPpCell); bonusBox.appendChild(bonusRow);
+    var describedBonus=describedEventBonusPP(meseObj),numericBonus=meseBonusPP(meseObj);
+    if(describedBonus!==null && describedBonus!==numericBonus){ bonusBox.appendChild(el("div","warning-alert","⚠ La descrizione indica <b>+"+describedBonus+" PP</b>, ma il campo numerico è impostato su <b>+"+numericBonus+" PP</b>. Correggi uno dei due valori prima di continuare.")); }
+    if(!bonusLocked && (String(meseObj.eventoBonusDescrizione||"").trim()!=="" || numericBonus>0)){
+      var clearBonus=el("button","action danger small","Azzera Bonus Evento"); clearBonus.type="button"; clearBonus.addEventListener(EV,function(){if(blockIfMonthReadOnly(meseObj)){return;}if(!confirm("Azzerare descrizione e PP del Bonus Evento per questo Mese?")){return;}meseObj.eventoBonusDescrizione="";meseObj.eventoBonusPP=0;for(var cbi=0;cbi<meseObj.posts.length;cbi++){meseObj.posts[cbi].eventoBonusEscluso=false;}scheduleSave(0);renderAll();}); bonusBox.appendChild(clearBonus);
+    }
     if(bonusLocked){
       var bonusLockMsg=monthIsAccredited(meseObj)?"Il Mese è già accreditato: Bonus Evento, Note e PP base sono congelati finché il Narratore non revoca l'accredito.":"Il Mese è in un archivio consolidato: il bonus Evento non è più modificabile.";
       bonusBox.appendChild(el("p","small-note",bonusLockMsg));
@@ -1695,7 +2067,7 @@
 
     var postiDelMese = meseObj.posts;
     var totFilled = 0;
-    for(var j=0;j<postiDelMese.length;j++){ if(String(postiDelMese[j].link || "").trim() !== ""){ totFilled = totFilled + 1; } }
+    for(var j=0;j<postiDelMese.length;j++){ if(isValidPostLink(postiDelMese[j].link)){ totFilled = totFilled + 1; } }
     var totG = totFilled > 0 ? cumulativeG(totFilled) : 0;
     var totPPBase = cumulativeBasePP(postiDelMese, postiDelMese.length);
     var postBonusEvento = eventBonusEligibleCount(postiDelMese, postiDelMese.length);
@@ -1732,7 +2104,7 @@
       tdPpCb.appendChild(ppCb); tr.appendChild(tdPpCb);
       if(bonusAttivo){ tr.appendChild(makeEventBonusExclusionCell(lp,meseObj,bonusLocked)); }
       var linkedUpTo = 0;
-      for(var gx=0; gx<=li; gx++){ if(String(postiDelMese[gx].link || "").trim() !== ""){ linkedUpTo++; } }
+      for(var gx=0; gx<=li; gx++){ if(isValidPostLink(postiDelMese[gx].link)){ linkedUpTo++; } }
       tr.appendChild(el("td", "g-value", cumulativeG(linkedUpTo) + " G"));
       tr.appendChild(el("td", "g-value", cumulativePP(postiDelMese, li + 1, meseObj) + " PP"));
       tblLive.appendChild(tr);
@@ -1891,7 +2263,7 @@
   function newMovimentoDispensa(){
     movimentoCounter++;
     var firstId = DISPENSA.ingredienti.length ? DISPENSA.ingredienti[0].id : "";
-    return { id:movimentoCounter, ingredienteId:firstId, nomeIngrediente:"", classificazione:"X", tipo:"Usato ONGame in purezza", quantita:1, galeoni:0, link:"", data:"", commerciante:"Lo Zoppo", applicato:false, lottiScelti:{}, lottiUsati:[] };
+    return { id:movimentoCounter, ingredienteId:firstId, nomeIngrediente:"", classificazione:"X", tipo:"Usato ONGame in purezza", quantita:1, galeoni:0, link:"", data:"", commerciante:"Lo Zoppo", applicato:false, _appliedAt:"", lottiScelti:{}, lottiUsati:[] };
   }
   function getIngredienteDispensa(id){
     for(var i=0;i<DISPENSA.ingredienti.length;i++){var ing=DISPENSA.ingredienti[i];if(String(ing.id)===String(id)){return ing;}if(Array.isArray(ing.legacyIds)&&ing.legacyIds.indexOf(String(id))>=0){return ing;}}
@@ -1930,7 +2302,7 @@
     if(visible){body.appendChild(tbl);}else{body.appendChild(el("p","small-note","Non ci sono dosi disponibili da selezionare."));}
     var r1=el("div","row");var t=el("div");t.appendChild(el("label",null,"Cosa è successo agli Ingredienti selezionati?"));t.appendChild(buildSelect(TIPI_MOVIMENTO_DISPENSA,DISPENSA_BATCH.tipo,function(v){DISPENSA_BATCH.tipo=v;if(!/^Vendita/.test(v)){DISPENSA_BATCH.galeoni=0;}renderAll();}));r1.appendChild(t);var d=el("div");d.appendChild(el("label",null,"Data"));d.appendChild(buildDateInput(DISPENSA_BATCH.data,function(v){DISPENSA_BATCH.data=v;}));r1.appendChild(d);body.appendChild(r1);
     var r2=el("div","row");if(/^Vendita/.test(DISPENSA_BATCH.tipo)){var cm=el("div");cm.appendChild(el("label",null,"Commerciante"));cm.appendChild(buildSelect(COMMERCIANTI_DISPENSA,DISPENSA_BATCH.commerciante,function(v){DISPENSA_BATCH.commerciante=v;}));r2.appendChild(cm);var ga=el("div");ga.appendChild(el("label",null,"Galeoni totali dell'operazione"));var gi=el("input");gi.type="number";gi.min="0";gi.step="1";gi.value=DISPENSA_BATCH.galeoni;gi.addEventListener("input",function(){DISPENSA_BATCH.galeoni=Math.max(0,num(gi.value,0));});ga.appendChild(gi);r2.appendChild(ga);}var lk=el("div");lk.appendChild(el("label",null,"Unico link della role / vendita / scarto"));var lki=el("input");lki.type="text";lki.placeholder="https://...";lki.value=DISPENSA_BATCH.link;lki.addEventListener("input",function(){DISPENSA_BATCH.link=lki.value;});lk.appendChild(lki);var ico=makeLinkIcon(DISPENSA_BATCH.link,"Apri il link");if(ico){lk.appendChild(ico);}r2.appendChild(lk);body.appendChild(r2);
-    var acts=el("div","dispensa-batch-actions");var ok=el("button","action","Conferma movimento multiplo");ok.addEventListener(EV,function(){var ids=Object.keys(DISPENSA_BATCH.selected||{}),righe=[],totale=0;for(var x=0;x<ids.length;x++){var ing=getIngredienteDispensa(ids[x]),qty=Math.max(0,num(DISPENSA_BATCH.selected[ids[x]],0));if(!ing||qty<=0){continue;}var resolved=resolveLotSelection(ing,qty,(DISPENSA_BATCH.lotti||{})[ids[x]]||{});if(!resolved.ok){alert("«"+(ing.nome||"Ingrediente")+"»: "+resolved.error);return;}syncIngredienteFromCatalog(ing);righe.push({ingredienteId:ing.id,nomeIngrediente:ing.nome,classificazione:ing.classificazione,quantita:qty,illegale:!!ing.illegale,esotico:!!ing.esotico,pozionista:!!ing.pozionista,classeBene:ing.classeBene||"",lotSelection:resolved.map});totale+=qty;}if(!righe.length){alert("Seleziona almeno un Ingrediente e indica le dosi da rimuovere.");return;}if(DISPENSA_BATCH.tipo==="Vendita legale"){for(var vl=0;vl<righe.length;vl++){if(righe[vl].illegale||/^Non Commerciabile/i.test(righe[vl].classeBene||"")){alert("La selezione contiene Ingredienti illegali o non commerciabili: non possono essere registrati come vendita legale.");return;}}}if(DISPENSA_BATCH.tipo==="Vendita illegale"){for(var vi=0;vi<righe.length;vi++){if(!righe[vi].illegale){alert("La selezione contiene Ingredienti legali: separali dagli Ingredienti venduti illegalmente.");return;}}}for(var y=0;y<righe.length;y++){var src=getIngredienteDispensa(righe[y].ingredienteId),cons=consumeIngredientLots(src,righe[y].quantita,righe[y].lotSelection);if(!cons.ok){alert(cons.error);return;}righe[y].lottiUsati=cons.used;delete righe[y].lotSelection;}var m=newMovimentoDispensa();m.ingredienteId=righe.length===1?righe[0].ingredienteId:"";m.nomeIngrediente=righe.length===1?righe[0].nomeIngrediente:(righe.length+" Ingredienti");m.classificazione=righe.length===1?righe[0].classificazione:"Multipla";m.quantita=totale;m.righe=righe;m.tipo=DISPENSA_BATCH.tipo;m.data=DISPENSA_BATCH.data;m.link=DISPENSA_BATCH.link;m.commerciante=DISPENSA_BATCH.commerciante;m.galeoni=/^Vendita/.test(m.tipo)?Math.max(0,num(DISPENSA_BATCH.galeoni,0)):0;m.applicato=true;DISPENSA.movimenti.push(m);resetDispensaBatch();OPEN_DETAILS["dispensa:batch"]=false;scheduleSave(0);renderAll();});acts.appendChild(ok);var clear=el("button","action danger","Azzera selezione");clear.addEventListener(EV,function(){resetDispensaBatch();renderAll();});acts.appendChild(clear);body.appendChild(acts);det.appendChild(body);parent.appendChild(det);
+    var acts=el("div","dispensa-batch-actions");var ok=el("button","action","Conferma movimento multiplo");ok.addEventListener(EV,function(){var ids=Object.keys(DISPENSA_BATCH.selected||{}),righe=[],totale=0;for(var x=0;x<ids.length;x++){var ing=getIngredienteDispensa(ids[x]),qty=Math.max(0,num(DISPENSA_BATCH.selected[ids[x]],0));if(!ing||qty<=0){continue;}var resolved=resolveLotSelection(ing,qty,(DISPENSA_BATCH.lotti||{})[ids[x]]||{});if(!resolved.ok){alert("«"+(ing.nome||"Ingrediente")+"»: "+resolved.error);return;}syncIngredienteFromCatalog(ing);righe.push({ingredienteId:ing.id,nomeIngrediente:ing.nome,classificazione:ing.classificazione,quantita:qty,illegale:!!ing.illegale,esotico:!!ing.esotico,pozionista:!!ing.pozionista,classeBene:ing.classeBene||"",lotSelection:resolved.map});totale+=qty;}if(!righe.length){alert("Seleziona almeno un Ingrediente e indica le dosi da rimuovere.");return;}if(DISPENSA_BATCH.tipo==="Vendita legale"){for(var vl=0;vl<righe.length;vl++){if(righe[vl].illegale||/^Non Commerciabile/i.test(righe[vl].classeBene||"")){alert("La selezione contiene Ingredienti illegali o non commerciabili: non possono essere registrati come vendita legale.");return;}}}if(DISPENSA_BATCH.tipo==="Vendita illegale"){for(var vi=0;vi<righe.length;vi++){if(!righe[vi].illegale){alert("La selezione contiene Ingredienti legali: separali dagli Ingredienti venduti illegalmente.");return;}}}for(var y=0;y<righe.length;y++){var src=getIngredienteDispensa(righe[y].ingredienteId),cons=consumeIngredientLots(src,righe[y].quantita,righe[y].lotSelection);if(!cons.ok){alert(cons.error);return;}righe[y].lottiUsati=cons.used;delete righe[y].lotSelection;}var m=newMovimentoDispensa();m.ingredienteId=righe.length===1?righe[0].ingredienteId:"";m.nomeIngrediente=righe.length===1?righe[0].nomeIngrediente:(righe.length+" Ingredienti");m.classificazione=righe.length===1?righe[0].classificazione:"Multipla";m.quantita=totale;m.righe=righe;m.tipo=DISPENSA_BATCH.tipo;m.data=DISPENSA_BATCH.data;m.link=DISPENSA_BATCH.link;m.commerciante=DISPENSA_BATCH.commerciante;m.galeoni=/^Vendita/.test(m.tipo)?Math.max(0,num(DISPENSA_BATCH.galeoni,0)):0;m.applicato=true;m._appliedAt=new Date().toISOString();DISPENSA.movimenti.push(m);resetDispensaBatch();OPEN_DETAILS["dispensa:batch"]=false;scheduleSave(0);renderAll();});acts.appendChild(ok);var clear=el("button","action danger","Azzera selezione");clear.addEventListener(EV,function(){resetDispensaBatch();renderAll();});acts.appendChild(clear);body.appendChild(acts);det.appendChild(body);parent.appendChild(det);
   }
 
   function renderDispensaStep(container){
@@ -1966,7 +2338,7 @@
     var qr=el("div","row");
     var qnW=el("div");qnW.appendChild(el("label",null,"Nome Ingrediente"));var qn=el("input");qn.type="text";qn.setAttribute("list","ingredienti-glossario");qn.placeholder="Inizia a scrivere o incolla il nome…";qnW.appendChild(qn);qr.appendChild(qnW);
     var qqW=el("div");qqW.appendChild(el("label",null,"Quantità"));var qq=el("input");qq.type="number";qq.min="1";qq.step="1";qq.value="1";qqW.appendChild(qq);qr.appendChild(qqW);
-    var qpW=el("div");qpW.appendChild(el("label",null,"Come l’hai ottenuto?"));var qp=buildSelect(PROVENIENZE_DISPENSA,"Trovato",function(v){qp.value=v;toggleProducer();});qpW.appendChild(qp);qr.appendChild(qpW);quick.appendChild(qr);
+    var qpW=el("div");qpW.appendChild(el("label",null,"Come l’hai ottenuto?"));var qp=buildSelect(PROVENIENZE_DISPENSA,"Trovato",function(v){qp.value=v;toggleProducer();},false);qpW.appendChild(qp);qr.appendChild(qpW);quick.appendChild(qr);
     var qr2=el("div","row");var qlW=el("div");qlW.appendChild(el("label",null,"Link ottenimento"));var ql=el("input");ql.type="text";ql.placeholder="https://...";qlW.appendChild(ql);qr2.appendChild(qlW);var qprodW=el("div");qprodW.appendChild(el("label",null,"PG produttore (solo se autoprodotto)"));var qprod=el("input");qprod.type="text";qprodW.appendChild(qprod);qr2.appendChild(qprodW);quick.appendChild(qr2);
     function toggleProducer(){qprodW.style.display=qp.value==="Autoprodotto"?"block":"none";} toggleProducer();
     var qpreview=el("p","small-note",""); function previewGloss(){var rec=catalogIngredient(qn.value);qpreview.textContent=rec?(rec.nome+ingredientSymbols(rec)+" — "+rec.classificazione+" — "+rec.classeBene+" — "+rec.provenienzaGlossario): (qn.value.trim()?"Nome non riconosciuto: scegli una voce esatta del Glossario.":"");} qn.addEventListener("input",previewGloss);quick.appendChild(qpreview);
@@ -2027,7 +2399,7 @@
         }
         var lk=el("div"); lk.appendChild(el("label",null,"Link utilizzo / vendita / scarto")); var lki=el("input"); lki.type="text"; lki.placeholder="https://..."; lki.value=mov.link; lki.disabled=mov.applicato; lki.addEventListener("input",function(){mov.link=lki.value;}); lk.appendChild(lki); r2.appendChild(lk); body.appendChild(r2);
         if(!mov.applicato){
-          var ok=el("button","action","Conferma movimento e scala dalla Dispensa"); ok.addEventListener(EV,function(){var ing=getIngredienteDispensa(mov.ingredienteId),qty=Math.max(1,num(mov.quantita,1));if(!ing){alert("Scegli prima un Ingrediente.");return;}var resolved=resolveLotSelection(ing,qty,mov.lottiScelti||{});if(!resolved.ok){alert(resolved.error);return;}syncIngredienteFromCatalog(ing);mov.quantita=qty;mov.nomeIngrediente=ing.nome;mov.classificazione=ing.classificazione;mov.illegale=!!ing.illegale;mov.esotico=!!ing.esotico;mov.pozionista=!!ing.pozionista;mov.classeBene=ing.classeBene||"";if(mov.tipo==="Vendita legale"&&(mov.illegale||/^Non Commerciabile/i.test(mov.classeBene))){alert("Questo Ingrediente non può essere registrato come vendita legale.");return;}if(mov.tipo==="Vendita illegale"&&!mov.illegale){alert("Questo Ingrediente è legale: usa Vendita legale.");return;}var cons=consumeIngredientLots(ing,qty,resolved.map);if(!cons.ok){alert(cons.error);return;}mov.lottiUsati=cons.used;mov.applicato=true;scheduleSave(0);renderAll();}); body.appendChild(ok);
+          var ok=el("button","action","Conferma movimento e scala dalla Dispensa"); ok.addEventListener(EV,function(){var ing=getIngredienteDispensa(mov.ingredienteId),qty=Math.max(1,num(mov.quantita,1));if(!ing){alert("Scegli prima un Ingrediente.");return;}var resolved=resolveLotSelection(ing,qty,mov.lottiScelti||{});if(!resolved.ok){alert(resolved.error);return;}syncIngredienteFromCatalog(ing);mov.quantita=qty;mov.nomeIngrediente=ing.nome;mov.classificazione=ing.classificazione;mov.illegale=!!ing.illegale;mov.esotico=!!ing.esotico;mov.pozionista=!!ing.pozionista;mov.classeBene=ing.classeBene||"";if(mov.tipo==="Vendita legale"&&(mov.illegale||/^Non Commerciabile/i.test(mov.classeBene))){alert("Questo Ingrediente non può essere registrato come vendita legale.");return;}if(mov.tipo==="Vendita illegale"&&!mov.illegale){alert("Questo Ingrediente è legale: usa Vendita legale.");return;}var cons=consumeIngredientLots(ing,qty,resolved.map);if(!cons.ok){alert(cons.error);return;}mov.lottiUsati=cons.used;mov.applicato=true;mov._appliedAt=new Date().toISOString();scheduleSave(0);renderAll();}); body.appendChild(ok);
           var del=el("button","action danger","Elimina bozza"); del.style.marginLeft="8px"; del.addEventListener(EV,function(){ DISPENSA.movimenti=DISPENSA.movimenti.filter(function(x){return x.id!==mov.id;}); scheduleSave(0); renderAll(); }); body.appendChild(del);
         } else {
           body.appendChild(el("div","guide-text","Movimento registrato: <b>"+mov.quantita+" dose/i di "+(mov.nomeIngrediente||"Ingrediente")+"</b> sono state scalate dalla Dispensa.")); if(Array.isArray(mov.lottiUsati)&&mov.lottiUsati.length){body.appendChild(el("div","small-note","Provenienza usata: "+mov.lottiUsati.map(function(l){return l.quantita+"× "+lotSummaryText(l);}).join(" · ")));}
@@ -2241,11 +2613,11 @@
     var row2 = el("div", "row");
     var dPost = el("div"); dPost.appendChild(el("label", null, "Post richiesti (dalla tua tabella)"));
     var iPost = el("input"); iPost.type="number"; iPost.min="0"; iPost.value = postaz.postRichiesti;
-    iPost.addEventListener("change", function(){ postaz.postRichiesti = num(iPost.value, 0); renderAll(); });
+    iPost.addEventListener("change", function(){ var proposed=Math.max(0,num(iPost.value,0));if(!validateGlobalIntervalOrAlert(postaz.startIndex,proposed)){iPost.value=postaz.postRichiesti;return;}postaz.postRichiesti=proposed;renderAll(); });
     dPost.appendChild(iPost); row2.appendChild(dPost);
     var dStart = el("div"); dStart.appendChild(el("label", null, "Comincia dal post globale n\u00b0"));
     var iStart = el("input"); iStart.type="number"; iStart.min="1"; iStart.value = postaz.startIndex;
-    iStart.addEventListener("change", function(){ postaz.startIndex = num(iStart.value, 1); renderAll(); });
+    iStart.addEventListener("change", function(){ var proposed=Math.max(1,num(iStart.value,1));if(!validateGlobalIntervalOrAlert(proposed,postaz.postRichiesti)){iStart.value=postaz.startIndex;return;}postaz.startIndex=proposed;renderAll(); });
     dStart.appendChild(iStart); row2.appendChild(dStart);
     wrap.appendChild(row2);
     return wrap;
@@ -2271,7 +2643,7 @@
     for(var k=0;k<CALDERONI.length;k++){
       var pz = CALDERONI[k];
       var voce = "- ";
-      voce = voce + (pz.dataLink !== "" ? "[URL=" + pz.dataLink + "]Calderone n\u00b0" + pz.numero + ":[/URL]" : "Calderone n\u00b0" + pz.numero + ":");
+      voce = voce + forumBbUrl(pz.dataLink, "Calderone n\u00b0" + pz.numero + ":");
       voce = voce + " " + pz.nomePozione + ", " + pz.classificazione;
       listaLines.push(voce);
     }
@@ -2283,31 +2655,31 @@
       var postaz = CALDERONI[n];
       lines.push("");
       lines.push("[color=" + postaz.colore + "]<b>Postazione n\u00b0" + postaz.numero + "</b>[/color]");
-      lines.push("<b>\u2a2f Data di creazione e link della role, se presente:</b> " + (postaz.dataLink !== "" ? "[URL=" + postaz.dataLink + "]" + postaz.dataTesto + "[/URL]" : postaz.dataTesto));
+      lines.push("<b>\u2a2f Data di creazione e link della role, se presente:</b> " + forumBbUrl(postaz.dataLink, postaz.dataTesto));
       lines.push("<b>\u2a2f Nome Pozione e Classificazione:</b> " + postaz.nomePozione + ", " + postaz.classificazione);
       lines.push("<b>\u2a2f Tipologia:</b> " + postaz.tipologia);
       lines.push("<b>\u2a2f Calderone e/o Oggetti utilizzati:</b> " + postaz.calderoneOggetti);
       lines.push("<b>\u2a2f Fasi di creazione:</b>");
 
       var prepSign = postaz.prepEsito === "fallita" ? 0 - Math.abs(postaz.prepValore) : Math.abs(postaz.prepValore);
-      lines.push("- <u>Preparazione degli Ingredienti:</u> " + (postaz.prepLink !== "" ? "[URL=" + postaz.prepLink + "]" + postaz.prepEsito + "[/URL]" : postaz.prepEsito) + " \u2192 " + fmtPct(prepSign) + " Forza");
+      lines.push("- <u>Preparazione degli Ingredienti:</u> " + forumBbUrl(postaz.prepLink, postaz.prepEsito) + " \u2192 " + fmtPct(prepSign) + " Forza");
       var prodSign = postaz.prodEsito === "fallita" ? 0 - Math.abs(postaz.prodValore) : Math.abs(postaz.prodValore);
-      lines.push("- <u>Produzione:</u> " + (postaz.prodLink !== "" ? "[URL=" + postaz.prodLink + "]" + postaz.prodEsito + "[/URL]" : postaz.prodEsito) + " \u2192 " + fmtPct(prodSign) + " Forza");
-      lines.push("- <u>Uso della Bacchetta magica:</u> " + (postaz.bacchettaLink !== "" ? "[URL=" + postaz.bacchettaLink + "]" + postaz.bacchettaEsito + "[/URL]" : postaz.bacchettaEsito) + " \u2192 " + postaz.dosi + " Dosi");
+      lines.push("- <u>Produzione:</u> " + forumBbUrl(postaz.prodLink, postaz.prodEsito) + " \u2192 " + fmtPct(prodSign) + " Forza");
+      lines.push("- <u>Uso della Bacchetta magica:</u> " + forumBbUrl(postaz.bacchettaLink, postaz.bacchettaEsito) + " \u2192 " + postaz.dosi + " Dosi");
       if(postaz.distillSvolta){
-        var dtxt = "- <u> Distillazione:</u> " + (postaz.distillLink !== "" ? "[URL=" + postaz.distillLink + "]x[/URL]" : "x");
+        var dtxt = "- <u> Distillazione:</u> " + forumBbUrl(postaz.distillLink, "x");
         if(postaz.distillEsito !== ""){ dtxt = dtxt + " \u2192 " + postaz.distillEsito; }
         lines.push(dtxt);
       } else { lines.push("- <u> Distillazione:</u> //"); }
 
       var forzaTotale = prepSign + prodSign;
       lines.push("<b>\u2a2f Forza totale Pozione:</b> " + fmtPct(forzaTotale) + " Forza finale");
-      lines.push("- <u> Imbottigliamento e Pulizia del Calderone:</u> " + (postaz.imbottLink !== "" ? "[URL=" + postaz.imbottLink + "]" + postaz.imbottPercent + "%[/URL]" : postaz.imbottPercent + "%") + ", Calderaio " + postaz.calderaio + ", " + postaz.classificazione + " \u2192 " + postaz.postRichiesti + " post");
+      lines.push("- <u> Imbottigliamento e Pulizia del Calderone:</u> " + forumBbUrl(postaz.imbottLink, postaz.imbottPercent + "%") + ", Calderaio " + postaz.calderaio + ", " + postaz.classificazione + " \u2192 " + postaz.postRichiesti + " post");
 
       lines.push("[SPOILER]");
       for(var s=0; s<postaz.postRichiesti; s++){
         var slotPost = getPostByGlobalNo(postaz.startIndex + s);
-        lines.push(slotPost ? (s+1) + ": [URL=" + slotPost.link + "]x[/URL]" : (s+1) + ":");
+        lines.push(slotPost ? (s+1) + ": " + forumBbUrl(slotPost.link,"x") : (s+1) + ":");
       }
       lines.push("[/SPOILER]");
     }
@@ -2385,11 +2757,11 @@
     dEsito.appendChild(iEsito); row.appendChild(dEsito);
     var dPost = el("div"); dPost.appendChild(el("label", null, "Post necessari"));
     var iPost = el("input"); iPost.type="number"; iPost.min="0"; iPost.value = sub.postRichiesti;
-    iPost.addEventListener("change", function(){ sub.postRichiesti = num(iPost.value, 0); renderAll(); });
+    iPost.addEventListener("change", function(){ var proposed=Math.max(0,num(iPost.value,0));if(!validateGlobalIntervalOrAlert(sub.startIndex,proposed)){iPost.value=sub.postRichiesti;return;}sub.postRichiesti=proposed;renderAll(); });
     dPost.appendChild(iPost); row.appendChild(dPost);
     var dStart = el("div"); dStart.appendChild(el("label", null, "Dal post globale n\u00b0"));
     var iStart = el("input"); iStart.type="number"; iStart.min="1"; iStart.value = sub.startIndex;
-    iStart.addEventListener("change", function(){ sub.startIndex = num(iStart.value, 1); renderAll(); });
+    iStart.addEventListener("change", function(){ var proposed=Math.max(1,num(iStart.value,1));if(!validateGlobalIntervalOrAlert(proposed,sub.postRichiesti)){iStart.value=sub.startIndex;return;}sub.startIndex=proposed;renderAll(); });
     dStart.appendChild(iStart); row.appendChild(dStart);
     wrap.appendChild(row);
     var filled = 0;
@@ -2711,11 +3083,11 @@
     return null;
   }
   function buildSubEntryLine(sub, eventoLabel, ottenutiLabel){
-    var out = "<i>" + eventoLabel + "</i> = " + (sub.esitoLink !== "" ? "[URL=" + sub.esitoLink + "]" + (sub.esitoText !== "" ? sub.esitoText : "esito") + "[/URL]" : (sub.esitoText !== "" ? sub.esitoText : "Esito dado")) + "; " + sub.postRichiesti + " post\n";
+    var out = "<i>" + eventoLabel + "</i> = " + forumBbUrl(sub.esitoLink, (sub.esitoText !== "" ? sub.esitoText : "Esito dado")) + "; " + sub.postRichiesti + " post\n";
     var slots = [];
     for(var i=0;i<sub.postRichiesti;i++){
       var post = getPostByGlobalNo(sub.startIndex + i);
-      slots.push(post ? "[URL=" + post.link + "]Post " + (i+1) + "[/URL]" : "Post " + (i+1));
+      slots.push(post ? forumBbUrl(post.link, "Post " + (i+1)) : "Post " + (i+1));
     }
     out = out + slots.join(" - ");
     if(ottenutiLabel){ out = out + "\n<u>" + ottenutiLabel + ":</u> " + sub.ottenuti; }
@@ -2725,13 +3097,13 @@
     var lines = [];
     var nomeConStato = occupant.morta ? occupant.nome + " (Deceduta/o)" : occupant.nome;
     lines.push("[color=green]<b>" + nomeConStato + "</b>[/color]");
-    lines.push("<b>\u2a2f Data di ritrovamento/domesticazione e link della role:</b> " + (occupant.dataLink !== "" ? occupant.dataTesto + "; [URL=" + occupant.dataLink + "]link role[/URL]" : occupant.dataTesto));
-    var classTxt = occupant.classificazioneLink !== "" ? "[URL=" + occupant.classificazioneLink + "]" + occupant.classificazione + "[/URL]" : occupant.classificazione;
+    var roleLink=forumBbUrlOptional(occupant.dataLink,"link role"); lines.push("<b>\u2a2f Data di ritrovamento/domesticazione e link della role:</b> " + occupant.dataTesto + (roleLink?"; "+roleLink:""));
+    var classTxt = forumBbUrl(occupant.classificazioneLink, occupant.classificazione);
     lines.push("<b>\u2a2f Classificazione:</b> " + classTxt);
-    var specieTxt = occupant.specieLink !== "" ? "[URL=" + occupant.specieLink + "]" + occupant.specieSesso + "[/URL]" : occupant.specieSesso;
+    var specieTxt = forumBbUrl(occupant.specieLink, occupant.specieSesso);
     lines.push("<b>\u2a2f " + config.specieLabel + ":</b> " + specieTxt);
     lines.push("<b>\u2a2f Parenti:</b> " + occupant.parenti);
-    var faseTxt = occupant.faseLink !== "" ? "[URL=" + occupant.faseLink + "]" + occupant.faseAttuale + "[/URL]" : occupant.faseAttuale;
+    var faseTxt = forumBbUrl(occupant.faseLink, occupant.faseAttuale);
     lines.push("<b>\u2a2f Fase vitale attuale e data di inizio:</b> " + faseTxt + ", " + occupant.faseDataInizio);
     lines.push("<b>\u2a2f Numero Cicli di Produzione/Riproduzione completati in ogni fase:</b>");
     for(var s=0;s<stages.length;s++){
@@ -2896,7 +3268,7 @@
     for(var k=0;k<LIST.length;k++){
       var oc = LIST[k];
       var voce = "- " + oc.nome + ", " + oc.specieSesso + ", " + oc.classificazione;
-      if(oc.dataLink !== ""){ voce = voce + " [URL=" + oc.dataLink + "]link[/URL]"; }
+      var ocLink=forumBbUrlOptional(oc.dataLink,"link"); if(ocLink){ voce = voce + " " + ocLink; }
       listaLines.push(voce);
     }
     lines.push("<details><summary><b>" + listaLabel + "</b></summary>");
@@ -2905,7 +3277,7 @@
 
     if(!isCubicolo){
       var voceM = "- " + MEDICHERIA.nome + ", " + MEDICHERIA.specie + ", " + MEDICHERIA.classificazione;
-      if(String(MEDICHERIA.link || "").trim() !== ""){ voceM = voceM + " [URL=" + MEDICHERIA.link + "]link[/URL]"; }
+      var medLink=forumBbUrlOptional(MEDICHERIA.link,"link"); if(medLink){ voceM = voceM + " " + medLink; }
       lines.push("<details><summary><b>Creatura in Medicheria</b></summary>");
       lines.push(voceM);
       lines.push("</details>");
@@ -3009,8 +3381,11 @@
     if(document.visibilityState === "hidden" && fbConnected){
       if(DATA_DIRTY){ scheduleSave(0); }
       if(PENDING_AUDIT_STATE){ flushAuditNow(); }
+    } else if(document.visibilityState === "visible" && fbConnected && ACCREDITI_LOAD_STATE === "error"){
+      startAccreditiWatch(currentSocialPgId()); renderAll();
     }
   });
+  window.addEventListener("focus",function(){if(fbConnected && ACCREDITI_LOAD_STATE === "error"){startAccreditiWatch(currentSocialPgId());renderAll();}});
   window.addEventListener("load",notifyParentHeight);
 
 })();
