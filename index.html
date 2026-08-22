@@ -233,6 +233,12 @@
   .audit-footer strong{color:#d98778}.audit-footer .audit-narrator{color:#d6b477}.audit-footer .audit-explain{display:block;margin-top:3px;opacity:.72;font-size:.72rem}
   .audit-mini{margin-top:8px;text-align:left}.audit-mini summary{cursor:pointer;color:#d6b477}.audit-mini ul{margin:8px 0 0 18px;padding:0}.audit-mini li{margin:4px 0}
 
+  /* v66 - altezza del documento svincolata dall'altezza corrente dell'iframe */
+  html, body{
+    height:auto !important;
+    min-height:0 !important;
+  }
+
   /* v64 - sfondi indipendenti dall'altezza dinamica della pagina
      L'immagine viene dimensionata sulla larghezza del tool e NON sulla sua altezza:
      così una tavola lunga continua a crescere normalmente senza ingrandire/allungare lo sfondo. */
@@ -3601,32 +3607,64 @@
   installUniversalAutosave();
   renderAll();
 
-  function notifyParentHeight(){
-    if(window.parent===window){return;}
+  var ffLastSentHeight=0;
+  var ffHeightTimer=0;
+
+  function getFelixContentHeight(){
     var wrap=document.querySelector(".wrap");
-    var h=0;
     if(wrap){
-      h=Math.ceil(wrap.getBoundingClientRect().bottom + window.scrollY);
-    }else{
-      h=Math.ceil(document.body ? document.body.offsetHeight : 0);
+      var r=wrap.getBoundingClientRect();
+      return Math.max(1,Math.ceil(r.bottom-Math.min(0,r.top)));
     }
-    h=Math.max(1,h);
-    try{window.parent.postMessage({tipo:"felix-tool-height",tool:"studente",height:h},"*");}catch(e){}
+    return Math.max(1,Math.ceil(document.body?document.body.getBoundingClientRect().height:1));
   }
+
+  function notifyParentHeight(force){
+    if(window.parent===window){return;}
+    var h=getFelixContentHeight();
+    if(!force && Math.abs(h-ffLastSentHeight)<2){return;}
+    ffLastSentHeight=h;
+    try{
+      window.parent.postMessage({
+        tipo:"felix-tool-height",
+        tool:"studente",
+        height:h,
+        altezza:h
+      },"*");
+    }catch(e){}
+  }
+
+  function scheduleParentHeight(){
+    if(ffHeightTimer){clearTimeout(ffHeightTimer);}
+    ffHeightTimer=setTimeout(function(){notifyParentHeight(false);},40);
+  }
+
   if(typeof ResizeObserver!=="undefined"){
-    var heightTarget=document.querySelector(".wrap")||document.documentElement;
-    new ResizeObserver(function(){notifyParentHeight();}).observe(heightTarget);
+    new ResizeObserver(scheduleParentHeight).observe(document.querySelector(".wrap")||document.body||document.documentElement);
   }
-  document.addEventListener("visibilitychange", function(){
-    if(document.visibilityState === "hidden" && fbConnected){
-      if(DATA_DIRTY){ scheduleSave(0); }
-      if(PENDING_AUDIT_STATE){ flushAuditNow(); }
-    } else if(document.visibilityState === "visible" && fbConnected && ACCREDITI_LOAD_STATE === "error"){
-      startAccreditiWatch(currentSocialPgId()); renderAll();
+
+  if(typeof MutationObserver!=="undefined"){
+    var ffMutationTarget=document.querySelector(".wrap")||document.body;
+    if(ffMutationTarget){
+      new MutationObserver(scheduleParentHeight).observe(ffMutationTarget,{
+        childList:true,subtree:true,attributes:true,characterData:true
+      });
+    }
+  }
+
+  window.addEventListener("resize",scheduleParentHeight);
+
+  window.addEventListener("message",function(event){
+    if(event.data && event.data.tipo==="felix-tool-height-request"){
+      notifyParentHeight(true);
     }
   });
-  window.addEventListener("focus",function(){if(fbConnected && ACCREDITI_LOAD_STATE === "error"){startAccreditiWatch(currentSocialPgId());renderAll();}});
-  window.addEventListener("load",notifyParentHeight);
+
+  window.addEventListener("load",function(){
+    notifyParentHeight(true);
+    setTimeout(function(){notifyParentHeight(true);},120);
+    setTimeout(function(){notifyParentHeight(true);},500);
+  });
 
 })();
 </script>
