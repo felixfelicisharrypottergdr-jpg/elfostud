@@ -613,6 +613,7 @@
   /* v71 - Anno Scolastico: modifica sempre disponibile + promemoria confermabile ogni agosto */
   /* v70 - fix Camera Blindata Studente: rimosso riferimento a funzione solo Adulto */
   /* v69 - Da accreditare: riepilogo ultimo Post + evidenza valori */
+  /* Camera Blindata: post.pp legacy ignorato; PP conteggiati solo dai Bonus correnti */
   /* Cronologia sessione: Annulla / Ripristina disponibile in tutte le interfacce del PG */
   /* Dispensa: tre blocchi; Incolla + aggiunta manuale riuniti nel Blocco 1 */
   /* Dispensa: quattro grandi blocchi numerati e visivamente separati */
@@ -3186,7 +3187,11 @@
   function bonusManualPPTotal(b){return b.modalita==="manual"?Math.max(0,parseInt(b.utilizziManuali,10)||0)*Math.max(0,parseInt(b.pp,10)||0):0;}
   function bonusManualGTotal(b){return b.modalita==="manual"?Math.max(0,parseInt(b.utilizziManuali,10)||0)*Math.max(0,parseInt(b.galeoni,10)||0):0;}
 
-  function cumulativeBasePP(posts,endExclusive){var tot=0;for(var i=0;i<endExclusive;i++){if(posts[i]&&isValidPostLink(posts[i].link))tot+=valorePP(posts[i]);}return tot;}
+  function cumulativeBasePP(posts,endExclusive){
+    /* post.pp è un residuo delle vecchie versioni della Camera Blindata.
+       Non deve più essere sommato: i PP sono gestiti dai Bonus generici. */
+    return 0;
+  }
   function eventBonusTotal(mese,posts,endExclusive){
     var bonuses=activeMonthBonuses(mese),tot=0,limit=Math.min(endExclusive,posts.length);
     for(var b=0;b<bonuses.length;b++){
@@ -3219,9 +3224,8 @@
     return out.join(", ");
   }
   function postBonusTotals(mese,post){
-    var legacyPP=valorePP(post);
     return {
-      pp:legacyPP+bonusPPForPost(mese,post),
+      pp:bonusPPForPost(mese,post),
       galeoni:bonusGForPost(mese,post),
       altro:bonusAltroForPost(mese,post)
     };
@@ -3248,7 +3252,7 @@
       index:idx,localNo:idx+1,linkedPos:linkedPos,
       globalNo:parseInt(post.globalNo,10)>0?parseInt(post.globalNo,10):null,
       galeoni:valoreG(linkedPos)+bonusGForPost(mese,post),
-      pp:valorePP(post)+bonusPPForPost(mese,post),
+      pp:bonusPPForPost(mese,post),
       altro:bonusAltroForPost(mese,post)
     };
   }
@@ -3383,13 +3387,6 @@
       })(bonuses[i],i);
     }
 
-    var legacyPP=parseInt(post&&post.pp!=null?post.pp:0,10);
-    if(!isNaN(legacyPP)&&legacyPP>0){
-      shown++;
-      var legacy=el("div","cb-bonus-line");
-      legacy.appendChild(el("span","cb-bonus-values","+"+legacyPP+" PP"));
-      td.appendChild(legacy);
-    }
     if(!shown)td.appendChild(el("span","cb-bonus-none","—"));
     return td;
   }
