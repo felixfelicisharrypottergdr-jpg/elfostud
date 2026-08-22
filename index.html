@@ -204,6 +204,23 @@
   .bonus-use-counter.update{color:#b86b00;}
   .bonus-use-counter.exhausted{color:#9b2f2a;text-decoration:underline;}
 
+  .cb-total-bonus,
+  .cb-total-complete{
+    min-width:120px;
+    font-weight:bold;
+    line-height:1.35;
+  }
+  .cb-total-bonus{ color:#8c2f2f; }
+  .cb-total-complete{ color:#17392e; }
+  .cb-total-line{ display:block; white-space:nowrap; }
+  .cb-total-altro{
+    display:block;
+    margin-top:2px;
+    font-size:.72rem;
+    font-weight:normal;
+    white-space:normal;
+  }
+
   /* v71 - promemoria annuale Anno Scolastico nel mese di agosto */
   .school-year-reminder{
     margin:0 0 14px;
@@ -408,6 +425,8 @@
   /* v71 - Anno Scolastico: modifica sempre disponibile + promemoria confermabile ogni agosto */
   /* v70 - fix Camera Blindata Studente: rimosso riferimento a funzione solo Adulto */
   /* v69 - Da accreditare: riepilogo ultimo Post + evidenza valori */
+  /* Riepilogo Bonus: mostra Post del mese e N. globale degli utilizzi */
+  /* Totali per singolo post: Totale Bonus + Totale complessivo; contatore usi solo nel riepilogo Bonus */
   /* Bonus variabile: valore solo per singolo post; Azzera elimina tutti i Bonus */
   /* Utilizzi a consumo: stato iniziale obbligatorio prima dei post; rimossi casi non-CB */
   /* Bonus a utilizzi: fisso/variabile, link tiro, stato Bagaglio */
@@ -2532,6 +2551,22 @@
     for(var i=0;i<limit;i++){if(postUsesLimitedBonus(posts[i],b))c++;}
     return c;
   }
+  function bonusUsedPostRefs(b,posts){
+    var out=[],localNo=0;
+    if(!b||b.modalita!=="posts"){return out;}
+    posts=Array.isArray(posts)?posts:[];
+    for(var i=0;i<posts.length;i++){
+      var post=posts[i];
+      if(!post||!isValidPostLink(post.link)){continue;}
+      localNo++;
+      if(!postUsesLimitedBonus(post,b)){continue;}
+      var globalNo=parseInt(post.globalNo,10);
+      var label="Post "+localNo;
+      if(!isNaN(globalNo)&&globalNo>0){label+=" (N. globale "+globalNo+")";}
+      out.push(label);
+    }
+    return out;
+  }
   function bonusUsedThisMonth(b,posts){
     if(b.modalita==="posts"){return bonusPostsUsedThisMonth(b,posts,posts.length);}
     if(b.modalita==="manual"){return Math.max(0,parseInt(b.utilizziManuali,10)||0);}
@@ -2643,6 +2678,21 @@
     var bonuses=activeMonthBonuses(mese),out=[];
     for(var i=0;i<bonuses.length;i++){var a=bonusAltroOnPost(bonuses[i],post);if(a)out.push(a);}
     return out.join(", ");
+  }
+  function postBonusTotals(mese,post){
+    var legacyPP=valorePP(post);
+    return {
+      pp:legacyPP+bonusPPForPost(mese,post),
+      galeoni:bonusGForPost(mese,post),
+      altro:bonusAltroForPost(mese,post)
+    };
+  }
+  function appendMoneyParts(cell,parts,altro){
+    var shown=false;
+    if(parts.galeoni>0){cell.appendChild(el("span","cb-total-line","+"+parts.galeoni+" G"));shown=true;}
+    if(parts.pp>0){cell.appendChild(el("span","cb-total-line","+"+parts.pp+" PP"));shown=true;}
+    if(altro){cell.appendChild(el("span","cb-total-altro","Altro: "+altro));shown=true;}
+    if(!shown){cell.appendChild(el("span","cb-bonus-none","—"));}
   }
   function cumulativePP(posts,endExclusive,mese){return cumulativeBasePP(posts,endExclusive)+eventBonusTotal(mese,posts,endExclusive);}
   function cumulativeGWithEvent(posts,endExclusive,mese){
@@ -2790,10 +2840,6 @@
           if(values)txt.appendChild(el("span","cb-bonus-values",values));
         }
 
-        if(b.modalita==="posts"&&b.maxUtilizzi>0){
-          var cls=bonusUsageClass(b,mese.posts);
-          txt.appendChild(el("span","bonus-use-counter "+cls,bonusCurrentUses(b,mese.posts)+"/"+b.maxUtilizzi));
-        }
         line.appendChild(txt);td.appendChild(line);
       })(bonuses[i],i);
     }
@@ -3119,7 +3165,9 @@
           if(bi.galeoni>0)parts.push("+"+bi.galeoni+" G per utilizzo");
           if(bi.altro)parts.push("Altro: "+bi.altro);
         }
+        var usedRefs=bonusUsedPostRefs(bi,postiDelMese);
         modeText="Utilizzi: "+bonusCurrentUses(bi,postiDelMese)+(bi.maxUtilizzi>0?"/"+bi.maxUtilizzi:"");
+        if(usedRefs.length){modeText+=" · "+usedRefs.join(", ");}
       }else{
         if(bi.pp>0)parts.push("+"+bi.pp+" PP per utilizzo");
         if(bi.galeoni>0)parts.push("+"+bi.galeoni+" G per utilizzo");
@@ -3131,7 +3179,7 @@
     }
 
     var tblLive = el("table", "posts");
-    tblLive.appendChild(el("tr", null, "<th>N.</th><th>Link</th><th>Galeoni</th><th>N. globale</th><th>Bonus</th>"));
+    tblLive.appendChild(el("tr", null, "<th>N.</th><th>Link</th><th>Galeoni accumulati</th><th>N. globale</th><th>Bonus</th><th>Totale Bonus</th><th>Totale complessivo</th>"));
 
     var showUpToLive = postiDelMese.length;
     if(showUpToLive < 1){ showUpToLive = 0; }
@@ -3166,11 +3214,30 @@
       tr.appendChild(globalTd);
 
       tr.appendChild(makeEventBonusExclusionCell(lp,meseObj,bonusLocked));
+
+      /* Totale Bonus del singolo post: somma tutti i bonus applicati
+         (PP, Galeoni e Altro), inclusi eventuali vecchi PP manuali salvati. */
+      var bonusTotals=postBonusTotals(meseObj,lp);
+      var bonusTotalTd=el("td","cb-total-bonus");
+      appendMoneyParts(bonusTotalTd,bonusTotals,bonusTotals.altro);
+      tr.appendChild(bonusTotalTd);
+
+      /* Totale complessivo del singolo post:
+         Galeoni propri di QUEL post + eventuali Galeoni Bonus;
+         tutti i PP del post derivano dai Bonus. */
+      var completeTd=el("td","cb-total-complete");
+      var baseGThisPost=valoreG(linkedUpTo);
+      var completeG=baseGThisPost+bonusTotals.galeoni;
+      completeTd.appendChild(el("span","cb-total-line",completeG+" G"));
+      if(bonusTotals.pp>0){completeTd.appendChild(el("span","cb-total-line",bonusTotals.pp+" PP"));}
+      if(bonusTotals.altro){completeTd.appendChild(el("span","cb-total-altro","Altro: "+bonusTotals.altro));}
+      tr.appendChild(completeTd);
+
       tblLive.appendChild(tr);
     }
 
     if(showUpToLive === 0 || totFilled===0){
-      p.appendChild(el("p", "small-note", "Nessun post ancora in questo Mese: aggiungine allo Step precedente per vedere qui Galeoni, N. globale e Bonus."));
+      p.appendChild(el("p", "small-note", "Nessun post ancora in questo Mese: aggiungine allo Step precedente per vedere qui Galeoni, N. globale, Bonus e totali."));
     } else {
       p.appendChild(el("h4", null, "Progressivo del mese"));
       p.appendChild(tblLive);
