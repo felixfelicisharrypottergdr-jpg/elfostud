@@ -129,6 +129,14 @@
   .cb-bonus-values{ color:#8c2f2f; font-weight:bold; }
   .cb-bonus-none{ opacity:.68; font-style:italic; }
 
+  .bonus-actions{
+    display:flex;
+    flex-wrap:wrap;
+    gap:10px;
+    margin-top:18px;
+    padding-top:4px;
+  }
+
   /* v71 - promemoria annuale Anno Scolastico nel mese di agosto */
   .school-year-reminder{
     margin:0 0 14px;
@@ -2625,21 +2633,36 @@
     bonusBox.appendChild(bonusRow);
 
     var numericBonus=meseBonusPP(meseObj),numericBonusG=meseBonusGaleoni(meseObj),bonusAltroText=meseBonusAltro(meseObj);
-    if(!bonusLocked && (String(meseObj.eventoBonusDescrizione||"").trim()!=="" || numericBonus>0 || numericBonusG>0 || bonusAltroText!=="")){
-      var clearBonus=el("button","action danger small","Azzera Bonus"); clearBonus.type="button"; clearBonus.addEventListener(EV,function(){if(blockIfMonthReadOnly(meseObj)){return;}if(!confirm("Azzerare questo Bonus?")){return;}meseObj.eventoBonusDescrizione="";meseObj.eventoBonusPP=0;meseObj.eventoBonusGaleoni=0;meseObj.eventoBonusAltro="";for(var cbi=0;cbi<meseObj.posts.length;cbi++){meseObj.posts[cbi].eventoBonusEscluso=false;}scheduleSave(0);renderAll();}); bonusBox.appendChild(clearBonus);
-    }
-
     var extraBonuses=ensureBonusExtras(meseObj);
     for(var ebi=0;ebi<extraBonuses.length;ebi++){appendExtraBonusEditor(bonusBox,meseObj,extraBonuses[ebi],ebi,bonusLocked);}
 
     if(!bonusLocked){
-      var addBonusBtn=el("button","action small","+ Aggiungi Bonus"); addBonusBtn.type="button"; addBonusBtn.style.marginTop="10px";
+      var bonusActions=el("div","bonus-actions");
+
+      var addBonusBtn=el("button","action small","+ Aggiungi Bonus"); addBonusBtn.type="button";
       addBonusBtn.addEventListener(EV,function(){
         if(blockIfMonthReadOnly(meseObj)){return;}
         ensureBonusExtras(meseObj).push({id:newBonusId(),descrizione:"",pp:0,galeoni:0,altro:""});
         scheduleSave(0);renderAll();
       });
-      bonusBox.appendChild(addBonusBtn);
+      bonusActions.appendChild(addBonusBtn);
+
+      if(String(meseObj.eventoBonusDescrizione||"").trim()!=="" || numericBonus>0 || numericBonusG>0 || bonusAltroText!==""){
+        var clearBonus=el("button","action danger small","Azzera Bonus"); clearBonus.type="button";
+        clearBonus.addEventListener(EV,function(){
+          if(blockIfMonthReadOnly(meseObj)){return;}
+          if(!confirm("Azzerare questo Bonus?")){return;}
+          meseObj.eventoBonusDescrizione="";
+          meseObj.eventoBonusPP=0;
+          meseObj.eventoBonusGaleoni=0;
+          meseObj.eventoBonusAltro="";
+          for(var cbi=0;cbi<meseObj.posts.length;cbi++){meseObj.posts[cbi].eventoBonusEscluso=false;}
+          scheduleSave(0);renderAll();
+        });
+        bonusActions.appendChild(clearBonus);
+      }
+
+      bonusBox.appendChild(bonusActions);
     }
     if(bonusLocked){
       var bonusLockMsg=monthIsAccredited(meseObj)?"Il Mese è già accreditato: i Bonus sono congelati finché il Narratore non revoca l'accredito.":"Il Mese è in un archivio consolidato: il Bonus non è più modificabile.";
@@ -2684,19 +2707,22 @@
       p.appendChild(el("div","guide-text","<b>"+bonusDisplayName(bi,bsi)+":</b> "+premioParts.join(" · ")+" · <b>Post ammessi: "+eligibleCount+" su "+totFilled+"</b>"));
     }
     var tblLive = el("table", "posts");
-    tblLive.appendChild(el("tr", null, "<th>Link</th><th>Galeoni</th><th>N. globale</th><th>Bonus</th>"));
+    tblLive.appendChild(el("tr", null, "<th>N.</th><th>Link</th><th>Galeoni</th><th>N. globale</th><th>Bonus</th>"));
 
     var showUpToLive = postiDelMese.length;
     if(showUpToLive < 1){ showUpToLive = 0; }
 
+    var localPostNo = 0;
     for(var li=0; li<showUpToLive; li++){
       let lp = postiDelMese[li];
       if(!lp || !isValidPostLink(lp.link)){continue;}
+      localPostNo++;
 
       var tr = el("tr");
       var isLatestCreditRow = !!(latestCredit && li===latestCredit.index);
       if(isLatestCreditRow){tr.classList.add("cb-latest-row");}
 
+      tr.appendChild(el("td",null,String(localPostNo)));
       tr.appendChild(makeLinkCell(lp.link, "Apri il post"));
 
       var linkedUpTo = 0;
