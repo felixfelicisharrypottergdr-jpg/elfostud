@@ -398,6 +398,11 @@
     border-color:#a95b50;
   }
 
+  /* Spazio tra i riquadri Totale e il riepilogo Evento in Camera Blindata */
+  body.screen-cb .totals + .guide-text{
+    margin-top:14px;
+  }
+
 </style>
 </head>
 <body>
@@ -2436,10 +2441,6 @@
       for(var gx=0; gx<=li; gx++){ if(isValidPostLink(postiDelMese[gx].link)){ linkedUpTo++; } }
       var gCell=el("td","g-value",(cumulativeG(linkedUpTo) + eventBonusGaleoniTotal(meseObj, postiDelMese, li + 1)) + " G");
       var ppCell=el("td","g-value",cumulativePP(postiDelMese, li + 1, meseObj) + " PP");
-      if(isLatestCreditRow){
-        gCell.appendChild(el("span","cb-earned-now","+"+latestCredit.galeoni+" G questo post"));
-        ppCell.appendChild(el("span","cb-earned-now","+"+latestCredit.pp+" PP questo post"));
-      }
       tr.appendChild(gCell);
       tr.appendChild(ppCell);
       tblLive.appendChild(tr);
