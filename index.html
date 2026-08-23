@@ -73,6 +73,7 @@
 
   /* Serra/Cubicolo + Riserva/Recinto: link ottenimenti, quantità Riproduzione, progressi x/y, storico Fasi, riepilogo ed export numerato */
   /* Distillazione: campo «Spazio occupato nel Bagaglio» accanto all'Esito, incluso nell'esportazione */
+  /* fix avvio: corretta la virgola nel record Pozione e mantenuta compatibilità con imbottPercent */
   /* Imbottigliamento/Pulizia: rimossi i campi di livello Calderaio; restano Link, Esito, post d'attesa + Modificatori facoltativi */
   /* Laboratorio: Uso della Bacchetta magica separato in un blocco autonomo tra Produzione e Distillazione */
   /* Laboratorio: Preparazione/Produzione/Distillazione in tendina chiusa; Imbottigliamento/Pulizia separato e aperto */
@@ -2485,7 +2486,8 @@
       dispensa: "screen-dispensa",
       postazione: "theme-pozioni screen-lab",
       cubicolo: "theme-serra screen-green",
-      recinto: "theme-creature screen-creatures"
+      recinto: "theme-creature screen-creatures",
+      esporta: "screen-import"
     };
     document.body.className = themeMap[currentStep] ? themeMap[currentStep] : "";
   }
@@ -5107,7 +5109,8 @@
       bacchettaLink: "", bacchettaEsito: "riuscita", dosi: 2,
       distillSvolta: false, distillLink: "", distillEsito: "", distillBagaglio: "",
       imbottLink: "", imbottPercent: "100", calderaio: "0",
-      postRichiesti: 10, startIndex: nextGlobalPostNumber()
+      postRichiesti: 10, startIndex: nextGlobalPostNumber(),
+      imbottModificatori:""
     };
   }
 
@@ -5305,9 +5308,9 @@
     dLink.appendChild(iLink); row.appendChild(dLink);
 
     var dEsito=el("div"); dEsito.appendChild(el("label",null,"Esito"));
-    var iEsito=el("input"); iEsito.type="text"; iEsito.value=postaz.imbottEsito||"";
+    var iEsito=el("input"); iEsito.type="text"; iEsito.value=postaz.imbottPercent||"";
     iEsito.placeholder="Es. 100%";
-    iEsito.addEventListener("input",function(){postaz.imbottEsito=iEsito.value;});
+    iEsito.addEventListener("input",function(){postaz.imbottPercent=iEsito.value;});
     dEsito.appendChild(iEsito); row.appendChild(dEsito);
 
     var dPost=el("div"); dPost.appendChild(el("label",null,"N° di post d'attesa"));
@@ -5383,7 +5386,9 @@
 
       var forzaTotale = prepSign + prodSign;
       lines.push("<b>\u2a2f Forza totale Pozione:</b> " + fmtPct(forzaTotale) + " Forza finale");
-      lines.push("- <u> Imbottigliamento e Pulizia del Calderone:</u> " + forumBbUrl(postaz.imbottLink, postaz.imbottPercent + "%") + ", Calderaio " + postaz.calderaio + ", " + postaz.classificazione + " \u2192 " + postaz.postRichiesti + " post");
+      var imbottEsitoExport=String(postaz.imbottPercent||"").trim();
+      if(/^\d+(?:[.,]\d+)?$/.test(imbottEsitoExport)){imbottEsitoExport=imbottEsitoExport+"%";}
+      lines.push("- <u> Imbottigliamento e Pulizia del Calderone:</u> " + forumBbUrl(postaz.imbottLink, imbottEsitoExport||"Esito") + " → " + postaz.postRichiesti + " post");
       if(String(postaz.imbottModificatori||"").trim()!==""){ lines.push("<b>Modificatori applicati:</b> "+String(postaz.imbottModificatori).trim()); }
 
       lines.push("[SPOILER]");
