@@ -8,6 +8,9 @@
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
 <link rel="preload" as="image" href="https://i.postimg.cc/6pKKxhkk/elfo-biblioteca.webp" fetchpriority="high">
 <style>
+  /* v121 - Pozioni: di default resta aperta solo la tendina
+     «Imbottigliamento e Pulizia del Calderone»; le altre Fasi partono chiuse */
+
   /* v120 - Pozioni: gli specchietti cambiano colore in base alla Classificazione,
      come Piante e Creature; aggiornamento immediato al cambio della tendina */
 
@@ -4967,7 +4970,7 @@
   }
   function buildPotionPhaseDetails(postaz,key,label,nodes){
     var det=el("details","entity-section potion-phase");
-    keepDetailsState(det,"postazione:fase:"+postaz.id+":"+key,false);
+    keepDetailsState(det,"postazione:fase:"+postaz.id+":"+key,key==="imbott");
     det.appendChild(el("summary",null,label));
     var body=el("div","potion-phase-body");
     for(var i=0;i<nodes.length;i++){if(nodes[i]){body.appendChild(nodes[i]);}}
