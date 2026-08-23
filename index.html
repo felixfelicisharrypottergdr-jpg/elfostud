@@ -183,6 +183,49 @@
     font-weight:600;
     text-shadow:none;
   }
+
+  /* Allineamento comune Pianta / Creatura / Pozione */
+  .structure-ui .entity-card{
+    position:relative;
+  }
+  .structure-ui .entity-card > .row + .row{
+    margin-top:10px;
+  }
+  .structure-ui .entity-card > .entity-full-field{
+    margin-top:10px;
+  }
+  .structure-ui .entity-card h3{
+    display:flex;
+    align-items:flex-start;
+    justify-content:space-between;
+    flex-wrap:wrap;
+  }
+  .structure-ui .entity-heading-main{
+    min-width:0;
+    flex:1 1 240px;
+  }
+  .structure-ui .entity-card h3 .structure-actions{
+    flex:0 0 auto;
+    margin-top:0;
+  }
+  .structure-ui .plant-card{
+    border-left:4px solid #6f9b63;
+  }
+  .structure-ui .creature-card{
+    border-left:4px solid #c27a36;
+    background:rgba(255,248,237,.48);
+  }
+  .structure-ui .potion-card{
+    border-left:4px solid #8051ad;
+    background:rgba(248,242,253,.42);
+  }
+  .structure-ui .entity-title-meta{
+    margin-top:4px;
+    line-height:1.25;
+  }
+  .structure-ui .entity-card .entity-secondary-field{
+    margin-top:10px;
+  }
   .structure-ui .plant-class-x{background:#f0f8eb;border-color:#a8c89e;}
   .structure-ui .plant-class-xx{background:#dcefd1;border-color:#7fa66c;}
   .structure-ui .plant-class-xxx{background:#fff2bd;border-color:#c9a74d;}
@@ -251,6 +294,23 @@
     background:#f2ead7;
     border:1px solid #b7a47b;
     box-shadow:0 0 5px rgba(128,96,42,.10);
+  }
+
+  /* Più respiro attorno al riquadro Avanzamento fase vitale */
+  .structure-ui .advancement-panel{
+    margin:22px 0 24px !important;
+    padding:14px 17px !important;
+    line-height:1.45;
+  }
+  .structure-ui .advancement-panel > div:last-child{
+    display:flex;
+    flex-wrap:wrap;
+    gap:9px;
+    margin-top:14px;
+  }
+  .structure-ui .advancement-panel > div:last-child button{
+    margin-top:0;
+    margin-right:0 !important;
   }
   .structure-ui .cycle-wait-note{
     display:block;
@@ -4643,7 +4703,7 @@
   }
   function buildCalderoneCard(postaz){
     var card=el("div","card entity-card potion-card");
-    var h=el("h3"); var titleWrap=el("span"); var potionName=postaz.nomePozione!==""?postaz.nomePozione:"Pozione da definire";
+    var h=el("h3"); var titleWrap=el("span","entity-heading-main"); var potionName=postaz.nomePozione!==""?postaz.nomePozione:"Pozione da definire";
     titleWrap.appendChild(el("span","entity-title potion-title",potionName)); titleWrap.appendChild(el("span","entity-title-meta","Postazione n°"+postaz.numero)); h.appendChild(titleWrap);
     var actionWrap=el("div","structure-actions");
     var archP=el("button","action small","Archivia Pozione conclusa"); archP.addEventListener(EV,function(){CALDERONI=CALDERONI.filter(function(x){return x.id!==postaz.id;});archiveStamp(postaz);ARCHIVIO_CALDERONI.push(postaz);scheduleSave(0);renderAll();}); actionWrap.appendChild(archP);
@@ -4659,9 +4719,9 @@
     var dClass=el("div"); dClass.appendChild(el("label",null,"Classificazione")); dClass.appendChild(buildSelect(CLASSI_STUD,postaz.classificazione,function(v){postaz.classificazione=v;})); row2.appendChild(dClass);
     var dTipo=el("div"); dTipo.appendChild(el("label",null,"Tipologia")); dTipo.appendChild(buildSelect(TIPOLOGIE,postaz.tipologia,function(v){postaz.tipologia=v;})); row2.appendChild(dTipo); card.appendChild(row2);
 
-    var dOgg=el("div"); dOgg.appendChild(el("label",null,"Calderone e/o Oggetti utilizzati")); var iOgg=el("input"); iOgg.type="text"; iOgg.value=postaz.calderoneOggetti; iOgg.addEventListener("input",function(){postaz.calderoneOggetti=iOgg.value;}); dOgg.appendChild(iOgg); card.appendChild(dOgg);
+    var dOgg=el("div","entity-full-field"); dOgg.appendChild(el("label",null,"Calderone e/o Oggetti utilizzati")); var iOgg=el("input"); iOgg.type="text"; iOgg.value=postaz.calderoneOggetti; iOgg.addEventListener("input",function(){postaz.calderoneOggetti=iOgg.value;}); dOgg.appendChild(iOgg); card.appendChild(dOgg);
 
-    var phases=el("details","entity-section"); keepDetailsState(phases,"postazione:fasi:"+postaz.id,false); phases.appendChild(el("summary",null,"Fasi di creazione")); phases.appendChild(buildFaseRow(postaz,"prep","Preparazione degli Ingredienti",true)); phases.appendChild(buildFaseRow(postaz,"prod","Produzione",true)); phases.appendChild(buildBacchettaRow(postaz)); phases.appendChild(buildDistillRow(postaz)); phases.appendChild(buildImbottRow(postaz)); phases.appendChild(buildPostsFromSharedList(postaz)); card.appendChild(phases);
+    var phases=el("details","entity-section entity-secondary-field"); keepDetailsState(phases,"postazione:fasi:"+postaz.id,false); phases.appendChild(el("summary",null,"Fasi di creazione")); phases.appendChild(buildFaseRow(postaz,"prep","Preparazione degli Ingredienti",true)); phases.appendChild(buildFaseRow(postaz,"prod","Produzione",true)); phases.appendChild(buildBacchettaRow(postaz)); phases.appendChild(buildDistillRow(postaz)); phases.appendChild(buildImbottRow(postaz)); phases.appendChild(buildPostsFromSharedList(postaz)); card.appendChild(phases);
     return card;
   }
   function buildFaseRow(postaz, prefix, label, hasValore){
@@ -4929,8 +4989,23 @@
     var isPlant=config.tipoLabel==="Pianta";
     var card=el("div","card entity-card "+(isPlant?"plant-card":"creature-card"));
     if(isPlant){var cc=String(occupant.classificazione||"").toLowerCase();if(cc==="x"||cc==="xx"||cc==="xxx"||cc==="xxxx"||cc==="xxxxx"){card.classList.add("plant-class-"+cc);}}
-    var h=el("h3"); var titoloCard=occupant.nome!==""?occupant.nome:("Nuova "+config.tipoLabel); if(occupant.morta){titoloCard+=" †";} h.appendChild(el("span","entity-title "+(isPlant?"plant-title":"creature-title"),titoloCard));
-    var rm=el("button","action danger small","Rimuovi"); rm.addEventListener(EV,function(){var idx=listRef.indexOf(occupant);if(idx>-1){listRef.splice(idx,1);}scheduleSave(0);renderAll();}); h.appendChild(rm); card.appendChild(h);
+    var h=el("h3");
+    var headingMain=el("span","entity-heading-main");
+    var titoloCard=occupant.nome!==""?occupant.nome:("Nuova "+config.tipoLabel);
+    if(occupant.morta){titoloCard+=" †";}
+    headingMain.appendChild(el("span","entity-title "+(isPlant?"plant-title":"creature-title"),titoloCard));
+    var metaParts=[];
+    if(occupant.classificazione){metaParts.push("Classificazione "+occupant.classificazione);}
+    if(String(occupant.specieSesso||"").trim()){metaParts.push(String(occupant.specieSesso).trim());}
+    headingMain.appendChild(el("span","entity-title-meta",metaParts.join(" · ")||config.tipoLabel));
+    h.appendChild(headingMain);
+
+    var actionWrap=el("div","structure-actions");
+    var rm=el("button","action danger small","Rimuovi");
+    rm.addEventListener(EV,function(){var idx=listRef.indexOf(occupant);if(idx>-1){listRef.splice(idx,1);}scheduleSave(0);renderAll();});
+    actionWrap.appendChild(rm);
+    h.appendChild(actionWrap);
+    card.appendChild(h);
 
     var row1=el("div","row"); var dNome=el("div"); dNome.appendChild(el("label",null,"Nome "+config.tipoLabel)); var iNome=el("input"); iNome.type="text"; iNome.value=occupant.nome; iNome.addEventListener("change",function(){occupant.nome=iNome.value;renderAll();}); dNome.appendChild(iNome); row1.appendChild(dNome);
     var dData=el("div"); dData.appendChild(el("label",null,"Data ritrovamento/domesticazione (GG/MM/AAAA)")); var iData=buildDateInput(occupant.dataTesto,function(v){occupant.dataTesto=v;}); dData.appendChild(iData); row1.appendChild(dData);
@@ -4940,17 +5015,25 @@
     var dClassL=el("div"); dClassL.appendChild(el("label",null,"Link Classificazione")); var iClassL=el("input"); iClassL.type="text"; iClassL.value=occupant.classificazioneLink; iClassL.addEventListener("input",function(){occupant.classificazioneLink=iClassL.value;}); dClassL.appendChild(iClassL); row2.appendChild(dClassL);
     var dSpecie=el("div"); dSpecie.appendChild(el("label",null,config.specieLabel)); var iSpecie=el("input"); iSpecie.type="text"; iSpecie.value=occupant.specieSesso; iSpecie.addEventListener("input",function(){occupant.specieSesso=iSpecie.value;}); dSpecie.appendChild(iSpecie); row2.appendChild(dSpecie);
     var dSpecieL=el("div"); dSpecieL.appendChild(el("label",null,"Link Specie")); var iSpecieL=el("input"); iSpecieL.type="text"; iSpecieL.value=occupant.specieLink; iSpecieL.addEventListener("input",function(){occupant.specieLink=iSpecieL.value;}); dSpecieL.appendChild(iSpecieL); row2.appendChild(dSpecieL);
-    if(!isPlant){var dParenti=el("div"); dParenti.appendChild(el("label",null,"Parenti")); var iParenti=el("input"); iParenti.type="text"; iParenti.value=occupant.parenti; iParenti.addEventListener("input",function(){occupant.parenti=iParenti.value;}); dParenti.appendChild(iParenti); row2.appendChild(dParenti);} card.appendChild(row2);
+    card.appendChild(row2);
+    if(!isPlant){
+      var dParenti=el("div","entity-full-field");
+      dParenti.appendChild(el("label",null,"Parenti"));
+      var iParenti=el("input"); iParenti.type="text"; iParenti.value=occupant.parenti;
+      iParenti.addEventListener("input",function(){occupant.parenti=iParenti.value;});
+      dParenti.appendChild(iParenti);
+      card.appendChild(dParenti);
+    }
 
     var row3=el("div","row"); var dFase=el("div"); dFase.appendChild(el("label",null,"Fase vitale attuale")); var stageLabels=[]; for(var si=0;si<stages.length;si++){stageLabels.push(stages[si].label);} dFase.appendChild(buildSelect(stageLabels,occupant.faseAttuale,function(v){occupant.faseAttuale=canonicalStageLabel(stages,v);occupant.faseHistory=[];openStageDetails(occupant,stages,config,occupant.faseAttuale);renderAll();})); row3.appendChild(dFase);
     var dFaseL=el("div"); dFaseL.appendChild(el("label",null,"Link Fase vitale")); var iFaseL=el("input"); iFaseL.type="text"; iFaseL.value=occupant.faseLink; iFaseL.addEventListener("input",function(){occupant.faseLink=iFaseL.value;}); dFaseL.appendChild(iFaseL); row3.appendChild(dFaseL);
     var dFaseData=el("div"); dFaseData.appendChild(el("label",null,"Data inizio fase attuale (GG/MM/AAAA)")); var iFaseData=buildDateInput(occupant.faseDataInizio,function(v){occupant.faseDataInizio=v;}); dFaseData.appendChild(iFaseData); row3.appendChild(dFaseData); card.appendChild(row3);
 
-    var dNote=el("div"); dNote.appendChild(el("label",null,"Note")); var iNote=el("input"); iNote.type="text"; iNote.value=occupant.note; iNote.addEventListener("input",function(){occupant.note=iNote.value;}); dNote.appendChild(iNote); card.appendChild(dNote);
+    var dNote=el("div","entity-full-field"); dNote.appendChild(el("label",null,"Note")); var iNote=el("input"); iNote.type="text"; iNote.value=occupant.note; iNote.addEventListener("input",function(){occupant.note=iNote.value;}); dNote.appendChild(iNote); card.appendChild(dNote);
 
     card.appendChild(buildAdvancementPanel(occupant,stages,listRef,archivioRef));
 
-    var agendaDet=el("details","entity-section"); keepDetailsState(agendaDet,"agenda:"+config.tipoLabel+":"+occupant.id,false); agendaDet.appendChild(el("summary",null,"Agenda crescita OFF")); var agendaRow=el("div","row");
+    var agendaDet=el("details","entity-section entity-secondary-field"); keepDetailsState(agendaDet,"agenda:"+config.tipoLabel+":"+occupant.id,false); agendaDet.appendChild(el("summary",null,"Agenda crescita OFF")); var agendaRow=el("div","row");
     for(var a=0;a<config.agendaLabels.length;a++){(function(label){var d=el("div");d.appendChild(el("label",null,label));var iAg=buildDateInput(occupant.agenda[label]||"",function(v){occupant.agenda[label]=v;});d.appendChild(iAg);agendaRow.appendChild(d);})(config.agendaLabels[a]);} agendaDet.appendChild(agendaRow); card.appendChild(agendaDet);
 
     var currentStageIdx=stageIndex(stages,occupant.faseAttuale); if(currentStageIdx>=0){card.appendChild(buildStageDetails(occupant,stages[currentStageIdx],config,false));}
@@ -4989,7 +5072,7 @@
 
   function buildAdvancementPanel(occupant, stages, listRef, archivioRef){
     ensureOccupantStageData(occupant, stages);
-    var wrap = el("div", "guide-text");
+    var wrap = el("div", "guide-text advancement-panel");
     var phaseConfig = { tipoLabel: (stages.length && stages[0].key === "seme") ? "Pianta" : "Creatura" };
     var currentStage = null;
     for(var i=0;i<stages.length;i++){ if(stages[i].label === occupant.faseAttuale){ currentStage = stages[i]; } }
