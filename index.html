@@ -8,6 +8,20 @@
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
 <link rel="preload" as="image" href="https://i.postimg.cc/6pKKxhkk/elfo-biblioteca.webp" fetchpriority="high">
 <style>
+  /* v116 - Camera Blindata: colonna Utilizzi progressivi dopo Totale Bonus;
+     stato AGGIORNARE/TERMINATO anche nel riepilogo; nessun flag duplicato nella colonna Utilizzi */
+
+  /* v115 - Camera Blindata: Link ultimo; numero Post mensile in grassetto;
+     numeri globali alternati rosso/giallino; Bonus con «Nome: +X» */
+
+  /* v114 - Postazione/Cubicolo/Recinto allineati alla struttura grafica
+     di Laboratorio/Serra/Riserva: shell a tendina, blocco dati generali,
+     sezione contenuti e Archivio organizzati nello stesso ordine */
+
+  /* v113 - Allineamento grafico/organizzativo Studenti:
+     colori Classificazione per Piante/Creature (anche Archivio e Medicheria)
+     + Fasi Pozioni in tendine indipendenti */
+
   @font-face {font-family: 'magic';
  src: url('https://dl.dropboxusercontent.com/scl/fi/nbzmrri4qyvc3tzx96911/HarryBeastDisplay-Regular.woff2?rlkey=he290voe32k33gowug23c1osc&st=nj9fgly1') format('woff2');
  font-weight: normal;
@@ -226,11 +240,16 @@
   .structure-ui .entity-card .entity-secondary-field{
     margin-top:10px;
   }
-  .structure-ui .plant-class-x{background:#f0f8eb;border-color:#a8c89e;}
-  .structure-ui .plant-class-xx{background:#dcefd1;border-color:#7fa66c;}
-  .structure-ui .plant-class-xxx{background:#fff2bd;border-color:#c9a74d;}
-  .structure-ui .plant-class-xxxx{background:#ffe1b9;border-color:#d48b3c;}
-  .structure-ui .plant-class-xxxxx{background:#f6cbc7;border-color:#bb554e;}
+  .structure-ui .plant-class-x,
+  .structure-ui .creature-class-x{background:#f0f8eb !important;border-color:#a8c89e !important;}
+  .structure-ui .plant-class-xx,
+  .structure-ui .creature-class-xx{background:#dcefd1 !important;border-color:#7fa66c !important;}
+  .structure-ui .plant-class-xxx,
+  .structure-ui .creature-class-xxx{background:#fff2bd !important;border-color:#c9a74d !important;}
+  .structure-ui .plant-class-xxxx,
+  .structure-ui .creature-class-xxxx{background:#ffe1b9 !important;border-color:#d48b3c !important;}
+  .structure-ui .plant-class-xxxxx,
+  .structure-ui .creature-class-xxxxx{background:#f6cbc7 !important;border-color:#bb554e !important;}
   .structure-ui details.entity-section,
   .structure-ui details.cycle-group,
   .structure-ui details.cycle-item,
@@ -248,6 +267,15 @@
     font-weight:800;
     padding:3px 2px;
     color:var(--green-dark);
+  }
+  .structure-ui .potion-phase{
+    margin:10px 0 !important;
+  }
+  .structure-ui .potion-phase > summary{
+    font-size:.96rem;
+  }
+  .structure-ui .potion-phase-body{
+    padding:8px 2px 2px;
   }
   .structure-ui details.cycle-item{
     margin:9px 0;
@@ -545,6 +573,54 @@
     color:#8c2f2f;
   }
   .cb-total-line{ display:block; white-space:nowrap; }
+  .cb-local-post-number{
+    font-weight:800;
+    text-align:center;
+  }
+  .cb-global-alt-0{
+    background:#8f3b3b !important;
+    color:#fffaf0 !important;
+  }
+  .cb-global-alt-1{
+    background:#d8b95f !important;
+    color:#3a2b1a !important;
+    border-color:#9f7d28 !important;
+  }
+  .cb-post-link-last{
+    min-width:54px;
+    text-align:center;
+  }
+  .cb-usage-cell{
+    min-width:150px;
+    line-height:1.35;
+  }
+  .cb-usage-line{
+    margin:2px 0;
+  }
+  .cb-usage-badge,
+  .cb-summary-usage-badge{
+    display:inline-block;
+    padding:3px 6px;
+    border-radius:5px;
+    font-size:.72rem;
+    font-weight:800;
+    white-space:normal;
+  }
+  .cb-summary-usage-badge{
+    margin-left:5px;
+  }
+  .cb-usage-badge.update,
+  .cb-summary-usage-badge.update{
+    background:#fff0cf;
+    border:1px solid #d88b18;
+    color:#9a5400;
+  }
+  .cb-usage-badge.exhausted,
+  .cb-summary-usage-badge.exhausted{
+    background:#f8dfda;
+    border:1px solid #9b2f2a;
+    color:#8f211d;
+  }
   .cb-total-altro{
     display:block;
     margin-top:2px;
@@ -3453,6 +3529,54 @@
     if(monthUsed>0){return current+"/"+b.maxUtilizzi+" — aggiornare nel Bagaglio in Scheda PG (da "+start+"/"+b.maxUtilizzi+" a "+current+"/"+b.maxUtilizzi+").";}
     return current+"/"+b.maxUtilizzi+" utilizzi.";
   }
+  function hasPostUsageBonuses(mese){
+    var bonuses=activeMonthBonuses(mese);
+    for(var i=0;i<bonuses.length;i++){if(bonuses[i].modalita==="posts"){return true;}}
+    return false;
+  }
+  function bonusUsageProgressAtPost(b,posts,postIndex){
+    if(!b||b.modalita!=="posts"||postIndex<0||postIndex>=posts.length){return null;}
+    if(!postUsesLimitedBonus(posts[postIndex],b)){return null;}
+    var current=Math.max(0,parseInt(b.usatiIniziali,10)||0)+bonusPostsUsedThisMonth(b,posts,postIndex+1);
+    var max=Math.max(0,parseInt(b.maxUtilizzi,10)||0);
+    return {
+      current:current,
+      max:max,
+      kind:(max>0&&current>=max)?"exhausted":"update",
+      label:max>0?(current+"/"+max):(current+" utilizzi")
+    };
+  }
+  function bonusSummaryUsageState(b,posts){
+    if(!b||b.modalita!=="posts"){return null;}
+    var used=bonusUsedThisMonth(b,posts);
+    if(used<=0){return null;}
+    var start=Math.max(0,parseInt(b.usatiIniziali,10)||0);
+    var current=start+used;
+    var max=Math.max(0,parseInt(b.maxUtilizzi,10)||0);
+    if(max>0&&current>=max){
+      return {kind:"exhausted",text:"TERMINATO — "+current+"/"+max+" · rimuovere dal Bagaglio in Scheda PG"};
+    }
+    if(max>0){
+      return {kind:"update",text:"AGGIORNARE — "+start+"/"+max+" → "+current+"/"+max+" nel Bagaglio in Scheda PG"};
+    }
+    return {kind:"update",text:"AGGIORNARE — "+current+" utilizzi registrati"};
+  }
+  function makeBonusUsageProgressCell(post,mese,posts,postIndex){
+    var td=el("td","cb-usage-cell"),bonuses=activeMonthBonuses(mese),shown=0;
+    for(var i=0;i<bonuses.length;i++){
+      var b=bonuses[i];
+      if(b.modalita!=="posts"){continue;}
+      var progress=bonusUsageProgressAtPost(b,posts,postIndex);
+      if(!progress){continue;}
+      shown++;
+      var line=el("div","cb-usage-line");
+      var label=bonusDisplayName(b,i)+": "+progress.label+" — "+(progress.kind==="exhausted"?"TERMINATO":"AGGIORNARE");
+      line.appendChild(el("span","cb-usage-badge "+progress.kind,label));
+      td.appendChild(line);
+    }
+    if(!shown){td.appendChild(el("span","cb-bonus-none","—"));}
+    return td;
+  }
   function bonusBagWarnings(mese,posts){
     var bonuses=activeMonthBonuses(mese),out=[];
     for(var i=0;i<bonuses.length;i++){
@@ -3654,7 +3778,7 @@
 
         var txt=el("span");
         var name=bonusDisplayName(b,idx);
-        txt.appendChild(el("span","cb-bonus-name",name+(b.modalita==="posts"?": ":"")));
+        txt.appendChild(el("span","cb-bonus-name",name+": "));
 
         if(b.modalita==="posts"&&b.valore==="variable"){
           var r=getBonusUsageRecord(post,b,true);
@@ -3855,7 +3979,7 @@
   function renderBlindataStep(container){
     var p = el("div", "panel");
     p.appendChild(el("h2", null, "Camera Blindata (Studente)"));
-    p.appendChild(el("div", "guide-text", "Un blocco per ogni Mese creato allo Step 2. Qui controlli <b>Link, Galeoni, N. globale e Bonus</b>. I Bonus si impostano nel riquadro qui sotto e compaiono automaticamente nella colonna Bonus dei post a cui si applicano. Scala Galeoni: 30-20-15-10-8-6-4-3-2-2, poi 1 G ciascuno."));
+    p.appendChild(el("div", "guide-text", "Un blocco per ogni Mese creato allo Step 2. Qui controlli <b>Galeoni, N. globale, Bonus, Totale Bonus e Link</b>. I Bonus si impostano nel riquadro qui sotto e compaiono automaticamente nella colonna Bonus dei post a cui si applicano. Scala Galeoni: 30-20-15-10-8-6-4-3-2-2, poi 1 G ciascuno."));
 
     if(MESI.length === 0){
       p.appendChild(el("div", "guide-text", "Non hai ancora creato nessun Mese. Torna allo Step 2.")); container.appendChild(p); return;
@@ -3991,11 +4115,6 @@
 
       p.appendChild(el("div","cb-credit-alert","<b>DA ACCREDITARE — "+creditLabel+": </b><span class=\"cb-credit-values\">"+creditParts.join(" · ")+"</span>"));
     }
-    var bagWarnings=bonusBagWarnings(meseObj,postiDelMese);
-    for(var bwi=0;bwi<bagWarnings.length;bwi++){
-      p.appendChild(el("div",bagWarnings[bwi].kind==="remove"?"bag-remove-warning":"bag-update-warning",bagWarnings[bwi].text));
-    }
-
     var totals = el("div", "totals");
     totals.appendChild(el("div", "box", "Totale Post<br><b>" + totFilled + "</b>"));
     totals.appendChild(el("div", "box", "Totale Galeoni<br><b>" + totG + " G</b>"));
@@ -4031,11 +4150,22 @@
         modeText="Utilizzi manuali: "+bonusCurrentUses(bi,postiDelMese)+(bi.maxUtilizzi>0?"/"+bi.maxUtilizzi:"");
       }
       if(!parts.length)parts.push("nessun valore economico");
-      p.appendChild(el("div","guide-text","<b>"+bonusDisplayName(bi,bsi)+":</b> "+parts.join(" · ")+" · <b>"+modeText+"</b>"));
+      var summaryLine=el("div","guide-text");
+      summaryLine.appendChild(el("b",null,bonusDisplayName(bi,bsi)+": "));
+      summaryLine.appendChild(document.createTextNode(parts.join(" · ")+" · "));
+      summaryLine.appendChild(el("b",null,modeText));
+      var usageState=bonusSummaryUsageState(bi,postiDelMese);
+      if(usageState){
+        summaryLine.appendChild(document.createTextNode(" · "));
+        summaryLine.appendChild(el("span","cb-summary-usage-badge "+usageState.kind,usageState.text));
+      }
+      p.appendChild(summaryLine);
     }
 
+    var showUsageColumn=hasPostUsageBonuses(meseObj);
     var tblLive = el("table", "posts");
-    tblLive.appendChild(el("tr", null, "<th>N.</th><th>Link</th><th>Galeoni accumulati</th><th>N. globale</th><th>Bonus</th><th>Totale Bonus</th>"));
+    var cbHeader="<th>N.</th><th>Galeoni accumulati</th><th>N. globale</th><th>Bonus</th><th>Totale Bonus</th>"+(showUsageColumn?"<th>Utilizzi</th>":"")+"<th>Link</th>";
+    tblLive.appendChild(el("tr", null, cbHeader));
 
     var showUpToLive = postiDelMese.length;
     if(showUpToLive < 1){ showUpToLive = 0; }
@@ -4050,8 +4180,8 @@
       var isLatestCreditRow = !!(latestCredit && li===latestCredit.index);
       if(isLatestCreditRow){tr.classList.add("cb-latest-row");}
 
-      tr.appendChild(el("td",null,String(localPostNo)));
-      tr.appendChild(makeLinkCell(lp.link, "Apri il post"));
+      /* Numero del Post nel Mese: distinto dal numero globale e sempre in grassetto. */
+      tr.appendChild(el("td","cb-local-post-number",String(localPostNo)));
 
       var linkedUpTo = 0;
       for(var gx=0; gx<=li; gx++){
@@ -4059,11 +4189,11 @@
       }
       tr.appendChild(el("td","g-value",(cumulativeG(linkedUpTo) + eventBonusGaleoniTotal(meseObj, postiDelMese, li + 1)) + " G"));
 
-      var globalTd=el("td");
+      /* Numero globale: alternanza stabile rosso / giallino basata sul numero stesso. */
+      var globalTd=el("td","global-number-cell");
       var globalNo=parseInt(lp.globalNo,10);
-      var monthTone=Math.max(0,MESI.indexOf(meseObj)) % 3;
       if(!isNaN(globalNo) && globalNo>0){
-        globalTd.appendChild(el("span","global-post-number global-month-tone-"+monthTone,String(globalNo)));
+        globalTd.appendChild(el("span","global-post-number cb-global-alt-"+(globalNo%2),String(globalNo)));
       }else{
         globalTd.appendChild(el("span","cb-bonus-none","—"));
       }
@@ -4078,11 +4208,22 @@
       appendMoneyParts(bonusTotalTd,bonusTotals,bonusTotals.altro);
       tr.appendChild(bonusTotalTd);
 
+      /* Nessun flag duplicato qui: la colonna mostra soltanto la progressione
+         degli utilizzi già selezionati nella colonna Bonus. */
+      if(showUsageColumn){
+        tr.appendChild(makeBonusUsageProgressCell(lp,meseObj,postiDelMese,li));
+      }
+
+      /* Il link del Post è volutamente l'ultima colonna. */
+      var linkTd=makeLinkCell(lp.link, "Apri il post");
+      linkTd.classList.add("cb-post-link-last");
+      tr.appendChild(linkTd);
+
       tblLive.appendChild(tr);
     }
 
     if(showUpToLive === 0 || totFilled===0){
-      p.appendChild(el("p", "small-note", "Nessun post ancora in questo Mese: aggiungine allo Step precedente per vedere qui Galeoni, N. globale, Bonus e totali."));
+      p.appendChild(el("p", "small-note", "Nessun post ancora in questo Mese: aggiungine allo Step precedente per vedere qui Galeoni, N. globale, Bonus, Totale Bonus, Utilizzi (quando presenti) e Link."));
     } else {
       p.appendChild(el("h4", null, "Progressivo del mese"));
       p.appendChild(tblLive);
@@ -4675,22 +4816,27 @@
       p.appendChild(el("div", "guide-text", "Non hai attivato la Postazione nella schermata «Dati Personaggio e Strutture»."));
       container.appendChild(p); return;
     }
-    p.appendChild(el("h2", null, "Dati della Postazione"));
+    p.appendChild(el("h2", null, "La tua Postazione"));
+
+    var shell=el("details","stage structure-shell");
+    keepDetailsState(shell,"postazione:principale",false);
+    var cap=ANNO_POSTI[STUDENTE.anno];
+    shell.appendChild(el("summary",null,"Postazione — "+CALDERONI.length+"/"+cap+" Pozioni"));
 
     var general=el("div","structure-general-block");
     general.appendChild(el("div","structure-block-head","Dati generali della Postazione"));
-    general.appendChild(el("p", null, "<b>Posti disponibili:</b> " + ANNO_POSTI[STUDENTE.anno] + " (Anno " + STUDENTE.anno + ") — Classificazione sempre fra X e XXX."));
+    general.appendChild(el("p", null, "<b>Posti disponibili:</b> " + cap + " (Anno " + STUDENTE.anno + ") — Classificazione sempre fra X e XXX."));
     var d7=el("div");d7.appendChild(el("label",null,"Link descrizione"));var i7=el("input");i7.type="text";i7.value=POSTAZIONE_FAC.descrizione||"";i7.placeholder="https://...";i7.addEventListener("input",function(){POSTAZIONE_FAC.descrizione=i7.value;});d7.appendChild(i7);general.appendChild(d7);
-    p.appendChild(general);
+    shell.appendChild(general);
 
-    p.appendChild(el("h4","structure-section-title","Pozioni / lavorazioni presenti"));
-    for(var i=0;i<CALDERONI.length;i++){ p.appendChild(buildCalderoneCard(CALDERONI[i])); }
+    shell.appendChild(el("h4","structure-section-title","Pozioni / lavorazioni presenti"));
+    for(var i=0;i<CALDERONI.length;i++){ shell.appendChild(buildCalderoneCard(CALDERONI[i])); }
     var addBtn=el("button","action","+ Aggiungi Calderone");
     addBtn.addEventListener(EV,function(){
       if(CALDERONI.length>=ANNO_POSTI[STUDENTE.anno]){alert("Hai già raggiunto il numero massimo di Pozioni contemporanee consentite dal tuo Anno Scolastico.");return;}
       CALDERONI.push(newCalderone());scheduleSave(0);renderAll();
     });
-    p.appendChild(addBtn);
+    shell.appendChild(addBtn);
 
     var ad=el("details","structure-archive");keepDetailsState(ad,"postazione:archivio",false);ad.appendChild(el("summary",null,"📦 Archivio Pozioni ("+ARCHIVIO_CALDERONI.length+")"));
     if(!ARCHIVIO_CALDERONI.length){ad.appendChild(el("p","small-note","Nessuna Pozione archiviata."));}
@@ -4698,7 +4844,8 @@
       var lockedPz=archiveLocked(pz);var row=el("div","card entity-card"+(lockedPz?" archive-locked":""));row.appendChild(el("div","entity-title potion-title",pz.nomePozione||("Postazione n°"+pz.numero)));row.appendChild(el("div","small-note","Postazione n°"+pz.numero+" · "+(pz.classificazione||"")));if(lockedPz){row.appendChild(el("div","archive-lock-note",archiveLockText(pz)));}
       var restore=el("button","action small",lockedPz?"🔒 Consolidata":"Ripristina");restore.disabled=lockedPz;restore.addEventListener(EV,function(){if(blockIfArchiveLocked(pz))return;ARCHIVIO_CALDERONI=ARCHIVIO_CALDERONI.filter(function(x){return x.id!==pz.id;});pz._archivedAt="";CALDERONI.push(pz);scheduleSave(0);renderAll();});row.appendChild(restore);ad.appendChild(row);
     })(ARCHIVIO_CALDERONI[ap]);}
-    p.appendChild(ad);
+    shell.appendChild(ad);
+    p.appendChild(shell);
     container.appendChild(p);
   }
   function buildCalderoneCard(postaz){
@@ -4721,12 +4868,26 @@
 
     var dOgg=el("div","entity-full-field"); dOgg.appendChild(el("label",null,"Calderone e/o Oggetti utilizzati")); var iOgg=el("input"); iOgg.type="text"; iOgg.value=postaz.calderoneOggetti; iOgg.addEventListener("input",function(){postaz.calderoneOggetti=iOgg.value;}); dOgg.appendChild(iOgg); card.appendChild(dOgg);
 
-    var phases=el("details","entity-section entity-secondary-field"); keepDetailsState(phases,"postazione:fasi:"+postaz.id,false); phases.appendChild(el("summary",null,"Fasi di creazione")); phases.appendChild(buildFaseRow(postaz,"prep","Preparazione degli Ingredienti",true)); phases.appendChild(buildFaseRow(postaz,"prod","Produzione",true)); phases.appendChild(buildBacchettaRow(postaz)); phases.appendChild(buildDistillRow(postaz)); phases.appendChild(buildImbottRow(postaz)); phases.appendChild(buildPostsFromSharedList(postaz)); card.appendChild(phases);
+    card.appendChild(el("h4","structure-section-title entity-secondary-field","Fasi di creazione"));
+    card.appendChild(buildPotionPhaseDetails(postaz,"prep","Preparazione degli Ingredienti",[buildFaseRow(postaz,"prep","Preparazione degli Ingredienti",true,true)]));
+    card.appendChild(buildPotionPhaseDetails(postaz,"prod","Produzione",[buildFaseRow(postaz,"prod","Produzione",true,true)]));
+    card.appendChild(buildPotionPhaseDetails(postaz,"bacchetta","Uso della Bacchetta magica",[buildBacchettaRow(postaz,true)]));
+    card.appendChild(buildPotionPhaseDetails(postaz,"distill","Distillazione (facoltativa)",[buildDistillRow(postaz,true)]));
+    card.appendChild(buildPotionPhaseDetails(postaz,"imbott","Imbottigliamento e Pulizia del Calderone",[buildImbottRow(postaz,true),buildPostsFromSharedList(postaz)]));
     return card;
   }
-  function buildFaseRow(postaz, prefix, label, hasValore){
+  function buildPotionPhaseDetails(postaz,key,label,nodes){
+    var det=el("details","entity-section potion-phase");
+    keepDetailsState(det,"postazione:fase:"+postaz.id+":"+key,false);
+    det.appendChild(el("summary",null,label));
+    var body=el("div","potion-phase-body");
+    for(var i=0;i<nodes.length;i++){if(nodes[i]){body.appendChild(nodes[i]);}}
+    det.appendChild(body);
+    return det;
+  }
+  function buildFaseRow(postaz, prefix, label, hasValore, hideTitle){
     var wrap = el("div");
-    wrap.appendChild(el("p", null, "<u>" + label + "</u>"));
+    if(!hideTitle){wrap.appendChild(el("p", null, "<u>" + label + "</u>"));}
     var row = el("div", "row");
     var dLink = el("div"); dLink.appendChild(el("label", null, "Link al post"));
     var iLink = el("input"); iLink.type="text"; iLink.value = postaz[prefix + "Link"];
@@ -4744,9 +4905,9 @@
     wrap.appendChild(row);
     return wrap;
   }
-  function buildBacchettaRow(postaz){
+  function buildBacchettaRow(postaz, hideTitle){
     var wrap = el("div");
-    wrap.appendChild(el("p", null, "<u>Uso della Bacchetta magica</u>"));
+    if(!hideTitle){wrap.appendChild(el("p", null, "<u>Uso della Bacchetta magica</u>"));}
     var row = el("div", "row");
     var dLink = el("div"); dLink.appendChild(el("label", null, "Link al post"));
     var iLink = el("input"); iLink.type="text"; iLink.value = postaz.bacchettaLink;
@@ -4762,9 +4923,9 @@
     wrap.appendChild(row);
     return wrap;
   }
-  function buildDistillRow(postaz){
+  function buildDistillRow(postaz, hideTitle){
     var wrap = el("div");
-    wrap.appendChild(el("p", null, "<u>Distillazione</u> (facoltativa)"));
+    if(!hideTitle){wrap.appendChild(el("p", null, "<u>Distillazione</u> (facoltativa)"));}
     var chk = el("div", "chk-line");
     var chkBox = el("input"); chkBox.type="checkbox"; chkBox.checked = postaz.distillSvolta;
     chkBox.addEventListener("change", function(){ postaz.distillSvolta = chkBox.checked; renderAll(); });
@@ -4784,9 +4945,9 @@
     }
     return wrap;
   }
-  function buildImbottRow(postaz){
+  function buildImbottRow(postaz, hideTitle){
     var wrap = el("div");
-    wrap.appendChild(el("p", null, "<u>Imbottigliamento e Pulizia del Calderone</u>"));
+    if(!hideTitle){wrap.appendChild(el("p", null, "<u>Imbottigliamento e Pulizia del Calderone</u>"));}
     var row = el("div", "row");
     var dLink = el("div"); dLink.appendChild(el("label", null, "Link al post"));
     var iLink = el("input"); iLink.type="text"; iLink.value = postaz.imbottLink;
@@ -4988,7 +5149,10 @@
     ensureOccupantStageData(occupant,stages);
     var isPlant=config.tipoLabel==="Pianta";
     var card=el("div","card entity-card "+(isPlant?"plant-card":"creature-card"));
-    if(isPlant){var cc=String(occupant.classificazione||"").toLowerCase();if(cc==="x"||cc==="xx"||cc==="xxx"||cc==="xxxx"||cc==="xxxxx"){card.classList.add("plant-class-"+cc);}}
+    var cc=String(occupant.classificazione||"").toLowerCase();
+    if(cc==="x"||cc==="xx"||cc==="xxx"||cc==="xxxx"||cc==="xxxxx"){
+      card.classList.add((isPlant?"plant-class-":"creature-class-")+cc);
+    }
     var h=el("h3");
     var headingMain=el("span","entity-heading-main");
     var titoloCard=occupant.nome!==""?occupant.nome:("Nuova "+config.tipoLabel);
@@ -5411,25 +5575,30 @@
       p.appendChild(el("div", "guide-text", "Non hai attivato il " + titolo + " nella schermata «Dati Personaggio e Strutture»."));
       container.appendChild(p); return;
     }
-    p.appendChild(el("h2", null, "Dati del " + titolo));
+    p.appendChild(el("h2", null, "Il tuo " + titolo));
+
+    var capienzaStud=ANNO_POSTI[STUDENTE.anno];
+    var shell=el("details","stage structure-shell");
+    keepDetailsState(shell,(isCubicolo?"cubicolo:":"recinto:")+"principale",false);
+    shell.appendChild(el("summary",null,titolo+" — "+LIST.length+"/"+capienzaStud+" "+(isCubicolo?"Piante":"Creature")));
 
     var general=el("div","structure-general-block");
     general.appendChild(el("div","structure-block-head","Dati generali del "+titolo));
-    general.appendChild(el("p",null,"<b>Posti disponibili:</b> "+ANNO_POSTI[STUDENTE.anno]+" (Anno "+STUDENTE.anno+") — Classificazione sempre fra X e XXX."));
+    general.appendChild(el("p",null,"<b>Posti disponibili:</b> "+capienzaStud+" (Anno "+STUDENTE.anno+") — Classificazione sempre fra X e XXX."));
     if(!isCubicolo){var artiglBox=el("div","guide-text");artiglBox.innerHTML="<b>Rischio Artigliatite</b> — se un tuo PG subisce ONGame una ferita da taglio per via di una Creatura Magica, tira questo dado: la contrae se 1-3.";general.appendChild(artiglBox);}
-    var d7=el("div");d7.appendChild(el("label",null,"Link descrizione"));var i7=el("input");i7.type="text";i7.value=FAC.descrizione||"";i7.placeholder="https://...";i7.addEventListener("input",function(){FAC.descrizione=i7.value;});d7.appendChild(i7);general.appendChild(d7);p.appendChild(general);
+    var d7=el("div");d7.appendChild(el("label",null,"Link descrizione"));var i7=el("input");i7.type="text";i7.value=FAC.descrizione||"";i7.placeholder="https://...";i7.addEventListener("input",function(){FAC.descrizione=i7.value;});d7.appendChild(i7);general.appendChild(d7);shell.appendChild(general);
 
-    var capienzaStud=ANNO_POSTI[STUDENTE.anno];
-    p.appendChild(el("h4","structure-section-title",(config.tipoLabel==="Pianta"?"Piante presenti":"Creature presenti")+" — "+LIST.length+"/"+capienzaStud));
-    for(var i=0;i<LIST.length;i++){p.appendChild(buildOccupantCard(LIST[i],stages,config,LIST,ARCHIVIO));}
-    var addBtn=el("button","action","+ Aggiungi "+config.tipoLabel);addBtn.addEventListener(EV,function(){if(LIST.length>=ANNO_POSTI[STUDENTE.anno]){alert("Hai già raggiunto il numero massimo consentito dal tuo Anno Scolastico.");return;}var o=newOccupant(stages);if(isCubicolo){piantaCounter=piantaCounter+1;o.id=piantaCounter;}else{creaturaCounter=creaturaCounter+1;o.id=creaturaCounter;}LIST.push(o);scheduleSave(0);renderAll();});p.appendChild(addBtn);
+    shell.appendChild(el("h4","structure-section-title",(config.tipoLabel==="Pianta"?"Piante presenti":"Creature presenti")));
+    for(var i=0;i<LIST.length;i++){shell.appendChild(buildOccupantCard(LIST[i],stages,config,LIST,ARCHIVIO));}
+    var addBtn=el("button","action","+ Aggiungi "+config.tipoLabel);addBtn.addEventListener(EV,function(){if(LIST.length>=ANNO_POSTI[STUDENTE.anno]){alert("Hai già raggiunto il numero massimo consentito dal tuo Anno Scolastico.");return;}var o=newOccupant(stages);if(isCubicolo){piantaCounter=piantaCounter+1;o.id=piantaCounter;}else{creaturaCounter=creaturaCounter+1;o.id=creaturaCounter;}LIST.push(o);scheduleSave(0);renderAll();});shell.appendChild(addBtn);
 
-    if(!isCubicolo){var med=el("details","entity-section");keepDetailsState(med,"recinto:medicheria",false);med.appendChild(el("summary",null,"Medicheria — 1 Creatura di passaggio"));var card=el("div","card entity-card creature-card");var row=el("div","row");var d1=el("div");d1.appendChild(el("label",null,"Nome"));var im1=el("input");im1.type="text";im1.value=MEDICHERIA.nome;im1.addEventListener("input",function(){MEDICHERIA.nome=im1.value;});d1.appendChild(im1);row.appendChild(d1);var d2=el("div");d2.appendChild(el("label",null,"Specie"));var im2=el("input");im2.type="text";im2.value=MEDICHERIA.specie;im2.addEventListener("input",function(){MEDICHERIA.specie=im2.value;});d2.appendChild(im2);row.appendChild(d2);var d3=el("div");d3.appendChild(el("label",null,"Classificazione"));d3.appendChild(buildSelect(CLASSI_STUD,MEDICHERIA.classificazione,function(v){MEDICHERIA.classificazione=v;}));row.appendChild(d3);var d4=el("div");d4.appendChild(el("label",null,"Link abitacolo"));var im4=el("input");im4.type="text";im4.value=MEDICHERIA.link;im4.addEventListener("input",function(){MEDICHERIA.link=im4.value;});d4.appendChild(im4);row.appendChild(d4);card.appendChild(row);med.appendChild(card);p.appendChild(med);}
+    if(!isCubicolo){var med=el("details","entity-section");keepDetailsState(med,"recinto:medicheria",false);med.appendChild(el("summary",null,"Medicheria — 1 Creatura di passaggio"));var mc=String(MEDICHERIA.classificazione||"").toLowerCase();var mclass=(mc==="x"||mc==="xx"||mc==="xxx"||mc==="xxxx"||mc==="xxxxx")?(" creature-class-"+mc):"";var card=el("div","card entity-card creature-card"+mclass);var row=el("div","row");var d1=el("div");d1.appendChild(el("label",null,"Nome"));var im1=el("input");im1.type="text";im1.value=MEDICHERIA.nome;im1.addEventListener("input",function(){MEDICHERIA.nome=im1.value;});d1.appendChild(im1);row.appendChild(d1);var d2=el("div");d2.appendChild(el("label",null,"Specie"));var im2=el("input");im2.type="text";im2.value=MEDICHERIA.specie;im2.addEventListener("input",function(){MEDICHERIA.specie=im2.value;});d2.appendChild(im2);row.appendChild(d2);var d3=el("div");d3.appendChild(el("label",null,"Classificazione"));d3.appendChild(buildSelect(CLASSI_STUD,MEDICHERIA.classificazione,function(v){MEDICHERIA.classificazione=v;renderAll();}));row.appendChild(d3);var d4=el("div");d4.appendChild(el("label",null,"Link abitacolo"));var im4=el("input");im4.type="text";im4.value=MEDICHERIA.link;im4.addEventListener("input",function(){MEDICHERIA.link=im4.value;});d4.appendChild(im4);row.appendChild(d4);card.appendChild(row);med.appendChild(card);shell.appendChild(med);}
 
     var arch=el("details","structure-archive");keepDetailsState(arch,(isCubicolo?"cubicolo:":"recinto:")+"archivio",false);arch.appendChild(el("summary",null,"📦 Archivio — "+(config.tipoLabel==="Pianta"?"Piante decedute":"Creature decedute")+" ("+ARCHIVIO.length+")"));
     if(!ARCHIVIO.length){arch.appendChild(el("p","small-note","Nessuna "+(config.tipoLabel==="Pianta"?"pianta":"creatura")+" nell'archivio."));}
-    for(var ai=0;ai<ARCHIVIO.length;ai++){(function(occ){var lockedOcc=archiveLocked(occ);var archCard=el("div","card entity-card"+(lockedOcc?" archive-locked":""));var ah=el("h3");ah.appendChild(el("span","entity-title "+(isCubicolo?"plant-title":"creature-title"),(occ.nome!==""?occ.nome:"(senza nome)")+" †"));var btnGroup=el("div","structure-actions");var btnRestore=el("button","action small",lockedOcc?"🔒 Consolidata":"Ripristina");btnRestore.disabled=lockedOcc;btnRestore.addEventListener(EV,function(){if(blockIfArchiveLocked(occ)){return;}occ.morta=false;occ._archivedAt="";var idx=ARCHIVIO.indexOf(occ);if(idx>-1){ARCHIVIO.splice(idx,1);}LIST.push(occ);scheduleSave(0);renderAll();});btnGroup.appendChild(btnRestore);var btnDelete=el("button","action danger small","Elimina definitivamente");btnDelete.disabled=lockedOcc;btnDelete.addEventListener(EV,function(){if(blockIfArchiveLocked(occ)){return;}var nomeOcc=occ.nome!==""?occ.nome:(config.tipoLabel+" senza nome");if(!confirm("Eliminare definitivamente dall’Archivio «"+nomeOcc+"»?\n\nL’operazione verrà comunque protetta da uno snapshot automatico prima del salvataggio.")){return;}var idx2=ARCHIVIO.indexOf(occ);if(idx2>-1){ARCHIVIO.splice(idx2,1);}scheduleSave(0);renderAll();});btnGroup.appendChild(btnDelete);ah.appendChild(btnGroup);archCard.appendChild(ah);if(lockedOcc){archCard.appendChild(el("div","archive-lock-note",archiveLockText(occ)));}archCard.appendChild(el("p","small-note","Classificazione "+occ.classificazione+" — ultima fase: "+occ.faseAttuale));arch.appendChild(archCard);})(ARCHIVIO[ai]);}
-    p.appendChild(arch);
+    for(var ai=0;ai<ARCHIVIO.length;ai++){(function(occ){var lockedOcc=archiveLocked(occ);var ac=String(occ.classificazione||"").toLowerCase();var acolor=(ac==="x"||ac==="xx"||ac==="xxx"||ac==="xxxx"||ac==="xxxxx")?(" "+(isCubicolo?"plant-class-":"creature-class-")+ac):"";var archCard=el("div","card entity-card"+acolor+(lockedOcc?" archive-locked":""));var ah=el("h3");ah.appendChild(el("span","entity-title "+(isCubicolo?"plant-title":"creature-title"),(occ.nome!==""?occ.nome:"(senza nome)")+" †"));var btnGroup=el("div","structure-actions");var btnRestore=el("button","action small",lockedOcc?"🔒 Consolidata":"Ripristina");btnRestore.disabled=lockedOcc;btnRestore.addEventListener(EV,function(){if(blockIfArchiveLocked(occ)){return;}occ.morta=false;occ._archivedAt="";var idx=ARCHIVIO.indexOf(occ);if(idx>-1){ARCHIVIO.splice(idx,1);}LIST.push(occ);scheduleSave(0);renderAll();});btnGroup.appendChild(btnRestore);var btnDelete=el("button","action danger small","Elimina definitivamente");btnDelete.disabled=lockedOcc;btnDelete.addEventListener(EV,function(){if(blockIfArchiveLocked(occ)){return;}var nomeOcc=occ.nome!==""?occ.nome:(config.tipoLabel+" senza nome");if(!confirm("Eliminare definitivamente dall’Archivio «"+nomeOcc+"»?\n\nL’operazione verrà comunque protetta da uno snapshot automatico prima del salvataggio.")){return;}var idx2=ARCHIVIO.indexOf(occ);if(idx2>-1){ARCHIVIO.splice(idx2,1);}scheduleSave(0);renderAll();});btnGroup.appendChild(btnDelete);ah.appendChild(btnGroup);archCard.appendChild(ah);if(lockedOcc){archCard.appendChild(el("div","archive-lock-note",archiveLockText(occ)));}archCard.appendChild(el("p","small-note","Classificazione "+occ.classificazione+" — ultima fase: "+occ.faseAttuale));arch.appendChild(archCard);})(ARCHIVIO[ai]);}
+    shell.appendChild(arch);
+    p.appendChild(shell);
     container.appendChild(p);
   }
   function buildFacilityOutput(FAC, LIST, ARCHIVIO, stages, config, listaLabel, isCubicolo){
