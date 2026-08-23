@@ -859,6 +859,38 @@
   .dispensa-page .dispensa-sales-block{
     background:rgba(246,242,226,.94);
   }
+
+  .dispensa-save-row{
+    display:flex;
+    align-items:center;
+    flex-wrap:wrap;
+    gap:9px;
+    margin:14px 0 4px;
+    padding-top:12px;
+    border-top:1px solid rgba(128,96,42,.28);
+  }
+  .dispensa-save-row .small-note{
+    margin:0;
+  }
+  .dispensa-sales-total{
+    display:flex;
+    align-items:baseline;
+    justify-content:space-between;
+    flex-wrap:wrap;
+    gap:8px 16px;
+    margin:12px 0 16px;
+    padding:11px 14px;
+    border:1px solid var(--gold);
+    border-radius:7px;
+    background:rgba(255,255,255,.45);
+  }
+  .dispensa-sales-total span{
+    font-weight:700;
+  }
+  .dispensa-sales-total b{
+    font-size:1.08rem;
+    color:#7a3b24;
+  }
   .dispensa-page .dispensa-sales-block > .divider:first-of-type{display:none;}
   .ingredient-entry{margin:0; border-top:1px solid rgba(90,65,30,.20); background:transparent;}
   .ingredient-entry:first-of-type{border-top:0;}
@@ -4376,6 +4408,56 @@
     sel.addEventListener("change",function(){ onChange(sel.value); scheduleSave(80); });
     return sel;
   }
+
+  function saveDispensaNow(btn){
+    if(!fbConnected || !window.fbReady || !window.fbSaveState){
+      if(btn){
+        var old0=btn.textContent;
+        btn.textContent="Connettiti prima";
+        setTimeout(function(){btn.textContent=old0;},1400);
+      }
+      return;
+    }
+
+    /* Prima di salvare riallineiamo quantità aggregate e lotti:
+       il valore mostrato fuori dalla tendina deve corrispondere subito
+       a quello appena modificato nell'editor. */
+    normalizeDispensaLots();
+    syncAllDispensaCatalog();
+    DATA_DIRTY=true;
+
+    if(fbSaveTimer){clearTimeout(fbSaveTimer);fbSaveTimer=null;}
+
+    var old=btn?btn.textContent:"Salva modifiche";
+    if(btn){btn.disabled=true;btn.textContent="Salvataggio…";}
+    fbStatusText="Salvataggio Dispensa in corso…";
+    updateFbIndicator();
+
+    serializedSaveLatest().then(function(ok){
+      fbStatusText=ok?"Dispensa salvata su Firebase":saveErrorStatus();
+      updateFbIndicator();
+
+      if(ok){
+        /* Il render aggiorna anche i totali visibili nelle intestazioni
+           degli Ingredienti (es. 5 dosi → 1 dose). */
+        renderAll();
+      }else if(btn){
+        btn.disabled=false;
+        btn.textContent="Riprova";
+        setTimeout(function(){btn.textContent=old;},1200);
+      }
+    }).catch(function(e){
+      console.error(e);
+      fbStatusText="Errore nel salvataggio della Dispensa";
+      updateFbIndicator();
+      if(btn){
+        btn.disabled=false;
+        btn.textContent="Riprova";
+        setTimeout(function(){btn.textContent=old;},1200);
+      }
+    });
+  }
+
   function renderBatchDispensa(parent){
     if(!DISPENSA.ingredienti.length){ return; }
     var det=el("details","dispensa-batch"); keepDetailsState(det,"dispensa:batch",false);
@@ -4399,12 +4481,6 @@
       container.appendChild(p); return;
     }
     p.appendChild(el("div","guide-text","Qui puoi tenere il conto delle dosi possedute, della loro provenienza e dello storico di utilizzi, vendite e scarti. Per gli Ingredienti autoprodotti indica sempre il PG produttore: quando vengono usati in una Pozione, ogni dose autoprodotta conferisce il bonus previsto dal regolamento."));
-
-    var sum=el("div","dispensa-summary");
-    var s1=el("div","dispensa-stat","Ingredienti registrati<b>"+DISPENSA.ingredienti.length+"</b>");
-    var s2=el("div","dispensa-stat","Dosi attualmente possedute<b>"+totalDosiDispensa()+"</b>");
-    var s3=el("div","dispensa-stat","Galeoni da vendite registrate<b>"+totalGaleoniDispensa()+" G</b>");
-    sum.appendChild(s1); sum.appendChild(s2); sum.appendChild(s3); p.appendChild(sum);
 
     var salesDet=el("details","stage dispensa-sales-details");
     keepDetailsState(salesDet,"dispensa:vendite:progressi",false);
@@ -4672,10 +4748,19 @@
         var summary=document.createElement("summary");summary.className="ingredient-entry-summary";var line=el("span","ingredient-line");var name=document.createElement("span");name.className="ingredient-name";name.textContent=ing.nome||"Ingrediente senza nome";line.appendChild(name);if(recMeta.esotico){line.appendChild(el("span","ingredient-mini-badge exotic","🌴 Esotico"));}if(recMeta.illegale){line.appendChild(el("span","ingredient-mini-badge warn","🚫 Illegale"));}if(recMeta.pozionista){line.appendChild(el("span","ingredient-mini-badge craft","⚗ ✔ Pozionista"));}line.appendChild(el("span","ingredient-qty",ingredientTotalQty(ing)+" dose/i"));summary.appendChild(line);det.appendChild(summary);var body=el("div","ingredient-entry-body");
         var r1=el("div","row");var d1=el("div");d1.appendChild(el("label",null,"Nome Ingrediente"));var n1=el("input");n1.type="text";n1.value=ing.nome;n1.setAttribute("list","ingredienti-glossario");n1.addEventListener("change",function(){ing.nome=n1.value;var rec=syncIngredienteFromCatalog(ing);if(!rec){ing.classificazione=ing.classificazione||"Non classificato";}normalizeDispensaLots();renderAll();});d1.appendChild(n1);r1.appendChild(d1);var d3=el("div");d3.appendChild(el("label",null,"Classificazione (dal Glossario)"));var cl=el("input");cl.type="text";cl.value=ing.classificazione||"Non classificato";cl.readOnly=!!catalogIngredient(ing.nome);cl.addEventListener("change",function(){if(!cl.readOnly){ing.classificazione=cl.value||"Non classificato";renderAll();}});d3.appendChild(cl);r1.appendChild(d3);body.appendChild(r1);if(recMeta&&recMeta.classeBene){body.appendChild(el("div","ingredient-meta","<b>Glossario:</b> "+recMeta.classeBene+" · Provenienza: "+recMeta.provenienzaGlossario));}
         var lotsBox=el("div","ingredient-lots");lotsBox.appendChild(el("div","ingredient-lots-title","Dosi possedute — "+ingredientTotalQty(ing)+" totali"));var lots=activeIngredientLots(ing);if(!lots.length){lotsBox.appendChild(el("div","small-note","Nessuna dose attualmente posseduta."));}
-        for(var lii=0;lii<lots.length;lii++){(function(lot){var lr=el("div","ingredient-lot-row");lr.appendChild(el("span","ingredient-lot-qty",lot.quantita+" dose/i"));lr.appendChild(el("span","ingredient-lot-origin",lot.provenienza||"Trovato"));if(lot.provenienza==="Autoprodotto"&&lot.produttore){lr.appendChild(el("span","ingredient-lot-producer","· "+lot.produttore));}var icon=makeLinkIcon(lot.link,"Apri il link di ottenimento");if(icon){lr.appendChild(icon);}var edit=el("details","ingredient-lot-edit");keepDetailsState(edit,"dispensa:lotedit:"+String(ing.id)+":"+String(lot.id),false);edit.appendChild(el("summary",null,"✎ Modifica"));var ed=el("div","ingredient-lot-editor");var er=el("div","row");var eqw=el("div");eqw.appendChild(el("label",null,"Quantità del lotto"));var eq=el("input");eq.type="number";eq.min="1";eq.step="1";eq.value=lot.quantita;eq.addEventListener("input",function(){lot.quantita=Math.max(1,num(eq.value,1));syncIngredientQuantity(ing);});eqw.appendChild(eq);er.appendChild(eqw);var epw=el("div");epw.appendChild(el("label",null,"Come è stato ottenuto?"));var eps=buildSelect(PROVENIENZE_DISPENSA,lot.provenienza,function(v){lot.provenienza=v;syncIngredientQuantity(ing);renderAll();});epw.appendChild(eps);er.appendChild(epw);ed.appendChild(er);var er2=el("div","row");var elw=el("div");elw.appendChild(el("label",null,lot.provenienza==="10d90 di Benvenuto"?"Link del primo dado del 10d90":"Link ottenimento"));var eli=el("input");eli.type="text";eli.value=lot.link||"";eli.placeholder="https://...";eli.addEventListener("input",function(){lot.link=eli.value;});elw.appendChild(eli);er2.appendChild(elw);if(lot.provenienza==="Autoprodotto"){var epr=el("div");epr.appendChild(el("label",null,"PG produttore"));var epi=el("input");epi.type="text";epi.value=lot.produttore||"";epi.addEventListener("input",function(){lot.produttore=epi.value;});epr.appendChild(epi);er2.appendChild(epr);var epa=el("div");epa.appendChild(el("label",null,"Parametro / riferimento (facoltativo)"));var epai=el("input");epai.type="text";epai.value=lot.parametro||"";epai.addEventListener("input",function(){lot.parametro=epai.value;});epa.appendChild(epai);er2.appendChild(epa);}ed.appendChild(er2);var delLot=el("button","action danger small","Elimina questo lotto inserito per errore");delLot.addEventListener(EV,function(e){e.preventDefault();if(confirm("Eliminare questo lotto dalla Dispensa?")){ing.lotti=ing.lotti.filter(function(x){return String(x.id)!==String(lot.id);});syncIngredientQuantity(ing);scheduleSave(0);renderAll();}});ed.appendChild(delLot);edit.appendChild(ed);lr.appendChild(edit);lotsBox.appendChild(lr);})(lots[lii]);}
+        for(var lii=0;lii<lots.length;lii++){(function(lot){var lr=el("div","ingredient-lot-row");lr.appendChild(el("span","ingredient-lot-qty",lot.quantita+" dose/i"));lr.appendChild(el("span","ingredient-lot-origin",lot.provenienza||"Trovato"));if(lot.provenienza==="Autoprodotto"&&lot.produttore){lr.appendChild(el("span","ingredient-lot-producer","· "+lot.produttore));}var icon=makeLinkIcon(lot.link,"Apri il link di ottenimento");if(icon){lr.appendChild(icon);}var edit=el("details","ingredient-lot-edit");keepDetailsState(edit,"dispensa:lotedit:"+String(ing.id)+":"+String(lot.id),false);edit.appendChild(el("summary",null,"✎ Modifica"));var ed=el("div","ingredient-lot-editor");var er=el("div","row");var eqw=el("div");eqw.appendChild(el("label",null,"Quantità del lotto"));var eq=el("input");eq.type="number";eq.min="1";eq.step="1";eq.value=lot.quantita;eq.addEventListener("input",function(){lot.quantita=Math.max(1,num(eq.value,1));syncIngredientQuantity(ing);});eq.addEventListener("change",function(){lot.quantita=Math.max(1,num(eq.value,1));syncIngredientQuantity(ing);});eqw.appendChild(eq);er.appendChild(eqw);var epw=el("div");epw.appendChild(el("label",null,"Come è stato ottenuto?"));var eps=buildSelect(PROVENIENZE_DISPENSA,lot.provenienza,function(v){lot.provenienza=v;syncIngredientQuantity(ing);renderAll();});epw.appendChild(eps);er.appendChild(epw);ed.appendChild(er);var er2=el("div","row");var elw=el("div");elw.appendChild(el("label",null,lot.provenienza==="10d90 di Benvenuto"?"Link del primo dado del 10d90":"Link ottenimento"));var eli=el("input");eli.type="text";eli.value=lot.link||"";eli.placeholder="https://...";eli.addEventListener("input",function(){lot.link=eli.value;});elw.appendChild(eli);er2.appendChild(elw);if(lot.provenienza==="Autoprodotto"){var epr=el("div");epr.appendChild(el("label",null,"PG produttore"));var epi=el("input");epi.type="text";epi.value=lot.produttore||"";epi.addEventListener("input",function(){lot.produttore=epi.value;});epr.appendChild(epi);er2.appendChild(epr);var epa=el("div");epa.appendChild(el("label",null,"Parametro / riferimento (facoltativo)"));var epai=el("input");epai.type="text";epai.value=lot.parametro||"";epai.addEventListener("input",function(){lot.parametro=epai.value;});epa.appendChild(epai);er2.appendChild(epa);}ed.appendChild(er2);var delLot=el("button","action danger small","Elimina questo lotto inserito per errore");delLot.addEventListener(EV,function(e){e.preventDefault();if(confirm("Eliminare questo lotto dalla Dispensa?")){ing.lotti=ing.lotti.filter(function(x){return String(x.id)!==String(lot.id);});syncIngredientQuantity(ing);scheduleSave(0);renderAll();}});ed.appendChild(delLot);edit.appendChild(ed);lr.appendChild(edit);lotsBox.appendChild(lr);})(lots[lii]);}
         var addLot=el("button","action small","+ Aggiungi altra provenienza / lotto");addLot.addEventListener(EV,function(){ing.lotti.push(newDispensaLot(1,"Trovato","","","",ing.id));syncIngredientQuantity(ing);scheduleSave(0);renderAll();});lotsBox.appendChild(addLot);body.appendChild(lotsBox);
         if(lots.some(function(l){return l.provenienza==="Autoprodotto";})){body.appendChild(el("div","guide-text","<b>Dosi autoprodotte:</b> restano distinte dalle altre provenienze. Quando le utilizzi, il tool ti chiede da quale lotto prelevare, così il bonus previsto per le Pozioni rimane tracciabile."));}
         var nd=el("div");nd.appendChild(el("label",null,"Note generali sull'Ingrediente"));var nta=el("textarea");nta.value=ing.note||"";nta.addEventListener("input",function(){ing.note=nta.value;});nd.appendChild(nta);body.appendChild(nd);
+
+        var saveRow=el("div","dispensa-save-row");
+        var saveIng=el("button","action","Salva modifiche");
+        saveIng.type="button";
+        saveIng.addEventListener(EV,function(){saveDispensaNow(saveIng);});
+        saveRow.appendChild(saveIng);
+        saveRow.appendChild(el("span","small-note","Salva quantità, provenienze, link e note e aggiorna subito i valori mostrati nella Dispensa."));
+        body.appendChild(saveRow);
+
         var use=el("button","action","× Usa / vendi / rimuovi");use.addEventListener(EV,function(){var total=ingredientTotalQty(ing);if(total<=0){alert("Non risultano dosi disponibili di questo Ingrediente.");return;}DISPENSA_BATCH.selected[String(ing.id)]=Math.max(1,Math.min(total,num(DISPENSA_BATCH.selected[String(ing.id)],1)));if(!DISPENSA_BATCH.lotti[String(ing.id)]){DISPENSA_BATCH.lotti[String(ing.id)]={};}OPEN_DETAILS["dispensa:batch"]=true;renderAll();});body.appendChild(use);var rm=el("button","action danger","Elimina voce inserita per errore");rm.style.marginLeft="8px";rm.addEventListener(EV,function(){var used=DISPENSA.movimenti.some(function(m){if(!m.applicato){return false;}if(Array.isArray(m.righe)){return m.righe.some(function(r){return String(r.ingredienteId)===String(ing.id)||(Array.isArray(ing.legacyIds)&&ing.legacyIds.indexOf(String(r.ingredienteId))>=0);});}return String(m.ingredienteId)===String(ing.id)||(Array.isArray(ing.legacyIds)&&ing.legacyIds.indexOf(String(m.ingredienteId))>=0);});if(used){alert("Questa voce ha già uno storico: usa i movimenti per rimuovere le dosi, oppure annulla prima i movimenti collegati.");return;}if(confirm("Eliminare definitivamente questa voce perché inserita per errore?")){DISPENSA.ingredienti=DISPENSA.ingredienti.filter(function(x){return x.id!==ing.id;});delete DISPENSA_BATCH.selected[String(ing.id)];delete DISPENSA_BATCH.lotti[String(ing.id)];scheduleSave(0);renderAll();}});body.appendChild(rm);det.appendChild(body);group.appendChild(det);
       })(groupItems[ii]);
       }
@@ -4685,6 +4770,12 @@
 
     var salesBlock=el("div","dispensa-block dispensa-sales-block");
     salesBlock.appendChild(el("div","dispensa-block-head","<span class=\"dispensa-block-number\">3</span><span class=\"dispensa-block-label\">Vendite e movimenti</span>"));
+
+    var salesTotal=el("div","dispensa-sales-total");
+    salesTotal.appendChild(el("span",null,"Galeoni ottenuti dalle vendite registrate"));
+    salesTotal.appendChild(el("b",null,totalGaleoniDispensa()+" G"));
+    salesBlock.appendChild(salesTotal);
+
     salesBlock.appendChild(salesDet);
 
     renderBatchDispensa(salesBlock);
