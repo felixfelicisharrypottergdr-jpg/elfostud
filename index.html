@@ -70,6 +70,54 @@
   textarea{ min-height: 60px; resize: vertical; }
   .row{ display:flex; flex-wrap:wrap; gap: 12px; }
   .row > div{ flex: 1; min-width: 150px; }
+
+  /* Mesi archiviati: eliminazione definitiva disponibile al PG con controlli di sicurezza */
+  /* I tuoi Post: più spazio attorno alle azioni principali */
+  .month-create-actions{
+    display:flex;
+    flex-wrap:wrap;
+    gap:10px;
+    margin:14px 0 22px;
+  }
+  .month-create-actions button{ margin:0; }
+  .month-post-actions{
+    display:flex;
+    flex-wrap:wrap;
+    gap:10px;
+    margin:16px 0 4px;
+    padding-top:10px;
+    border-top:1px solid rgba(128,96,42,.24);
+  }
+  .month-post-actions button{ margin:0; }
+
+  .month-header-actions{
+    display:flex;
+    align-items:center;
+    justify-content:flex-end;
+    flex-wrap:wrap;
+    gap:8px;
+  }
+  .month-header-actions button{ margin:0; }
+  .archived-month-delete-box{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    flex-wrap:wrap;
+    gap:10px 14px;
+    margin:12px 0 18px;
+    padding:10px 12px;
+    border:1px solid #a23a34;
+    border-radius:7px;
+    background:#f8e8e5;
+  }
+  .archived-month-delete-box .small-note{
+    flex:1 1 360px;
+    margin:0;
+  }
+  .archived-month-delete-box button{
+    flex:0 0 auto;
+    margin:0;
+  }
   .chk-line{ display:flex; align-items:center; gap:8px; margin-top:10px; font-size:.88rem; }
   .chk-line input{ width:auto; }
   button.action{ background: var(--green); color: var(--parch); border: 1px solid var(--gold); border-radius: 6px; padding: 7px 13px; cursor: pointer; font-family: inherit; font-size: .82rem; margin-top: 10px; }
@@ -218,6 +266,19 @@
   .structure-ui .potion-card{
     border-left:4px solid #8051ad;
     background:rgba(248,242,253,.42);
+  }
+
+  /* Pozioni: sfondo per Classificazione, mantenendo titolo/bordo viola */
+  .structure-ui .potion-card.potion-class-x{background:#f0f8eb;}
+  .structure-ui .potion-card.potion-class-xx{background:#dcefd1;}
+  .structure-ui .potion-card.potion-class-xxx{background:#fff2bd;}
+  .structure-ui .potion-card.potion-class-xxxx{background:#ffe1b9;}
+  .structure-ui .potion-card.potion-class-xxxxx{background:#f6cbc7;}
+  .structure-ui .lab-capacity-note{
+    margin:10px 0 0;
+    font-size:.78rem;
+    color:#665b43;
+    font-style:italic;
   }
   .structure-ui .entity-title-meta{
     margin-top:4px;
@@ -1664,6 +1725,86 @@
   }
 
 
+  function archivedMonthDeleteBlockReason(mese){
+    if(!mese || !mese.chiuso){return "Il Mese deve essere prima archiviato.";}
+    if(fbConnected && !accreditiVerified()){return "Non posso verificare lo stato dell'accredito su Firebase. Riprova quando la connessione è disponibile.";}
+    if(monthIsAccredited(mese)){return "Il Mese è già stato accreditato: il Narratore deve prima revocare l'accredito.";}
+    if(archiveLocked(mese)){return "L'Archivio è consolidato: il Narratore deve prima usare «Sblocca archivi 24h».";}
+
+    var refs=[];
+    var posts=Array.isArray(mese.posts)?mese.posts:[];
+    for(var i=0;i<posts.length;i++){
+      var p=posts[i];
+      if(!p){continue;}
+      var labels=globalPostReferenceLabels(p);
+      if(labels.length){
+        var gn=parseInt(p.globalNo,10);
+        refs.push("Post globale n° "+(gn>0?gn:"?")+" ("+labels.join("; ")+")");
+      }
+    }
+    if(refs.length){return "Alcuni Post del Mese sono ancora usati da lavorazioni attive: "+refs.join(" · ");}
+    return "";
+  }
+
+  function deleteArchivedMonthAsPlayer(mese){
+    var reason=archivedMonthDeleteBlockReason(mese);
+    if(reason){
+      alert("Questo Mese non può essere eliminato definitivamente.\n\n"+reason);
+      renderAll();
+      return;
+    }
+
+    var nome=String(mese&&mese.nome||"").trim() || "Mese senza nome";
+    var typed=prompt(
+      "Stai per eliminare definitivamente dalla Camera Blindata «"+nome+"».\n\n"+
+      "Verranno rimossi dal database del PG il Mese, i suoi Post e i suoi Bonus. "+
+      "I numeri globali già assegnati NON verranno riutilizzati.\n\n"+
+      "Per confermare, riscrivi esattamente il nome del Mese:"
+    );
+    if(typed===null){return;}
+    if(String(typed).trim()!==nome){
+      alert("Nome del Mese non corrispondente. Eliminazione annullata.");
+      return;
+    }
+    if(!confirm("Confermi l'eliminazione definitiva di «"+nome+"»?\n\nIl Mese sparirà dal Tracker e dalla Camera Blindata.")){return;}
+
+    var idx=MESI.indexOf(mese);
+    if(idx<0){return;}
+
+    var sk=socialMonthKey(mese.nome);
+    if(sk && VERIFICHE_PARAMETRI_SOCIALI[sk]){delete VERIFICHE_PARAMETRI_SOCIALI[sk];}
+
+    MESI.splice(idx,1);
+
+    /* Ricostruisce l'elenco dei Post conservati, ma NON abbassa
+       globalPostCounter: i numeri globali eliminati restano buchi storici. */
+    recomputePosts();
+
+    if(meseSelezionatoBlindataIdx===idx){
+      meseSelezionatoBlindataIdx=Math.min(idx,MESI.length-1);
+    }else if(meseSelezionatoBlindataIdx>idx){
+      meseSelezionatoBlindataIdx--;
+    }
+    if(!MESI.length){meseSelezionatoBlindataIdx=-1;}
+
+    DATA_DIRTY=true;
+    FORCE_PERSIST_SAVE=true;
+    scheduleSave(0);
+    renderAll();
+  }
+
+  function buildArchivedMonthDeleteButton(mese,label){
+    var btn=el("button","action danger small",label||"Elimina definitivamente");
+    btn.type="button";
+    var reason=archivedMonthDeleteBlockReason(mese);
+    btn.disabled=!!reason;
+    btn.title=reason||"Elimina definitivamente questo Mese archiviato dal database del PG.";
+    btn.addEventListener(EV,function(){deleteArchivedMonthAsPlayer(mese);});
+    return btn;
+  }
+
+
+
   var PARAMETRI_SOCIALI = {popolarita:null,stima:null,bonta:null,malvagita:null};
   var VERIFICHE_PARAMETRI_SOCIALI = {};
   var SOCIAL_SYNC_META = { lastStaffFingerprint:"" };
@@ -1802,7 +1943,7 @@
 
   var STRUTTURE = { dispensa:false, postazione:false, cubicolo:false, recinto:false };
 
-  var POSTAZIONE_FAC = { descrizione:"" };
+  var POSTAZIONE_FAC = { descrizione:"", distillatoriMax:0 };
   var CALDERONI = []; var calderoneCounter = 0;
   var ARCHIVIO_CALDERONI = [];
 
@@ -2495,7 +2636,7 @@
     POSTS = []; MESI = []; meseCounter = 0; postCounter = 0; globalPostCounter = 0; ARCHIVIO_DB = { periodiche:[], ultima:null };
     STUDENTE = { nome:"", anno:"V", annoPromemoriaAgosto:0 };
     STRUTTURE = { dispensa:false, postazione:false, cubicolo:false, recinto:false };
-    POSTAZIONE_FAC = { descrizione:"" }; CALDERONI = []; calderoneCounter = 0; ARCHIVIO_CALDERONI = [];
+    POSTAZIONE_FAC = { descrizione:"", distillatoriMax:0 }; CALDERONI = []; calderoneCounter = 0; ARCHIVIO_CALDERONI = [];
     CUBICOLO_FAC = { descrizione:"" }; PIANTE = []; piantaCounter = 0; ARCHIVIO_PIANTE = [];
     RECINTO_FAC = { descrizione:"" }; CREATURE = []; creaturaCounter = 0; ARCHIVIO_CREATURE = [];
     MEDICHERIA = { nome:"", specie:"", classificazione:"X", link:"" };
@@ -2588,6 +2729,9 @@
     LAST_SESSION_ID = data._lastSessionId || "";
     ARCHIVE_UNLOCK_UNTIL = data._archiveUnlockUntil || null;
     if(data.POSTAZIONE_FAC){ POSTAZIONE_FAC = data.POSTAZIONE_FAC; }
+    if(!POSTAZIONE_FAC || typeof POSTAZIONE_FAC!=="object"){POSTAZIONE_FAC={descrizione:"",distillatoriMax:0};DATA_DIRTY=true;}
+    if(POSTAZIONE_FAC.distillatoriMax==null || isNaN(parseInt(POSTAZIONE_FAC.distillatoriMax,10))){POSTAZIONE_FAC.distillatoriMax=0;DATA_DIRTY=true;}
+    POSTAZIONE_FAC.distillatoriMax=Math.max(0,parseInt(POSTAZIONE_FAC.distillatoriMax,10)||0);
     if(data.CALDERONI){ CALDERONI = data.CALDERONI; }
     if(data.ARCHIVIO_CALDERONI){ ARCHIVIO_CALDERONI = data.ARCHIVIO_CALDERONI; }
     if(!Array.isArray(CALDERONI)){CALDERONI=[];DATA_DIRTY=true;}
@@ -3093,7 +3237,9 @@
       if(monthNameAlreadyUsed(candidate,null)){alert("Esiste già un Mese chiamato «"+candidate+"». Ogni Mese deve avere un nome diverso.");return;}
       requestSocialVerificationForMonth(candidate,function(){MESI.push(newMese(candidate));scheduleSave(0);renderAll();});
     });
-    p.appendChild(addMeseBtn);
+    var monthCreateActions=el("div","month-create-actions");
+    monthCreateActions.appendChild(addMeseBtn);
+    p.appendChild(monthCreateActions);
 
     if(MESI.length === 0){
       p.appendChild(el("div", "guide-text", "Nessun Mese ancora creato. Premi \u00ab+ Nuovo Mese\u00bb per cominciare."));
@@ -3194,7 +3340,12 @@
       else { mese.chiuso = false; mese._archivedAt = ""; }
       scheduleSave(0); renderAll();
     });
-    h.appendChild(btnToggle);
+    var monthHeaderActions=el("div","month-header-actions");
+    monthHeaderActions.appendChild(btnToggle);
+    if(mese.chiuso){
+      monthHeaderActions.appendChild(buildArchivedMonthDeleteButton(mese,"Elimina definitivamente"));
+    }
+    h.appendChild(monthHeaderActions);
     card.appendChild(h);
     if(locked){ card.appendChild(el("div", "archive-lock-note", archiveLockText(mese))); }
     if(accreditato){ card.appendChild(el("div", "guide-text", "<b>✅ Mese accreditato:</b> link e contenuti della Camera Blindata sono congelati. Per correggerli, il Narratore deve prima revocare l'accredito.")); }
@@ -3289,7 +3440,9 @@
       mese.posts.push({ id: postCounter, globalNo:null, link: "", nota: "", pp: "", eventoBonusEscluso:false, bonusUtilizzi:{} });
       scheduleSave(0); renderAll();
     });
-    card.appendChild(addBtn);
+    var postActions=el("div","month-post-actions");
+    postActions.appendChild(addBtn);
+    card.appendChild(postActions);
 
     return card;
   }
@@ -3930,6 +4083,18 @@
         : "<b style=\"color:#8c2f2f\">\u23f3 In attesa di accredito dal Narratore</b>";
     }
     p.appendChild(accBadge);
+
+    if(meseObj.chiuso){
+      var deleteBox=el("div","archived-month-delete-box");
+      var deleteReason=archivedMonthDeleteBlockReason(meseObj);
+      deleteBox.appendChild(el("span","small-note",
+        deleteReason
+          ? "<b>Eliminazione definitiva non disponibile:</b> "+deleteReason
+          : "<b>Mese archiviato.</b> Puoi eliminarlo completamente dal database del PG."
+      ));
+      deleteBox.appendChild(buildArchivedMonthDeleteButton(meseObj,"Elimina Mese archiviato"));
+      p.appendChild(deleteBox);
+    }
 
     var bonusLocked = !!(meseObj.chiuso && archiveLocked(meseObj)) || monthIsAccredited(meseObj) || (fbConnected && !accreditiVerified());
     var bonusBox=el("div","card");
@@ -4844,17 +5009,37 @@
     };
   }
 
+  function postazioneDistillatoriUsati(){
+    var n=0;
+    for(var i=0;i<CALDERONI.length;i++){if(CALDERONI[i]&&CALDERONI[i].distillSvolta){n++;}}
+    return n;
+  }
+
   function renderPostazioneStep(container){
     var p = el("div", "panel structure-ui");
     if(!STRUTTURE.postazione){
       p.appendChild(el("div", "guide-text", "Non hai attivato la Postazione nella schermata «Dati Personaggio e Strutture»."));
       container.appendChild(p); return;
     }
-    p.appendChild(el("h2", null, "Dati della Postazione"));
+    var distMax=POSTAZIONE_FAC.distillatoriMax>0?POSTAZIONE_FAC.distillatoriMax:"?";
+    p.appendChild(el("h2", null, "Dati della Postazione — "+CALDERONI.length+"/"+ANNO_POSTI[STUDENTE.anno]+" Calderoni · "+postazioneDistillatoriUsati()+"/"+distMax+" Distillatori"));
 
     var general=el("div","structure-general-block");
     general.appendChild(el("div","structure-block-head","Dati generali della Postazione"));
-    general.appendChild(el("p", null, "<b>Posti disponibili:</b> " + ANNO_POSTI[STUDENTE.anno] + " (Anno " + STUDENTE.anno + ") — Classificazione sempre fra X e XXX."));
+
+    var capRow=el("div","row");
+    var dCaldMax=el("div");dCaldMax.appendChild(el("label",null,"Calderoni disponibili"));
+    var iCaldMax=el("input");iCaldMax.type="number";iCaldMax.value=ANNO_POSTI[STUDENTE.anno];iCaldMax.disabled=true;
+    dCaldMax.appendChild(iCaldMax);capRow.appendChild(dCaldMax);
+
+    var dDistMax=el("div");dDistMax.appendChild(el("label",null,"Distillatori disponibili"));
+    var iDistMax=el("input");iDistMax.type="number";iDistMax.min="0";iDistMax.step="1";iDistMax.value=POSTAZIONE_FAC.distillatoriMax||0;
+    iDistMax.addEventListener("change",function(){POSTAZIONE_FAC.distillatoriMax=Math.max(0,num(iDistMax.value,0));renderAll();});
+    dDistMax.appendChild(iDistMax);capRow.appendChild(dDistMax);
+    general.appendChild(capRow);
+
+    general.appendChild(el("p","lab-capacity-note","I Calderoni massimi dipendono dall'Anno scolastico. Il conteggio dei Distillatori considera le Pozioni attive per cui è stata selezionata la Distillazione. Classificazione consentita: X–XXX."));
+
     var d7=el("div");d7.appendChild(el("label",null,"Link descrizione"));var i7=el("input");i7.type="text";i7.value=POSTAZIONE_FAC.descrizione||"";i7.placeholder="https://...";i7.addEventListener("input",function(){POSTAZIONE_FAC.descrizione=i7.value;});d7.appendChild(i7);general.appendChild(d7);
     p.appendChild(general);
 
@@ -4870,14 +5055,15 @@
     var ad=el("details","structure-archive");keepDetailsState(ad,"postazione:archivio",false);ad.appendChild(el("summary",null,"📦 Archivio Pozioni ("+ARCHIVIO_CALDERONI.length+")"));
     if(!ARCHIVIO_CALDERONI.length){ad.appendChild(el("p","small-note","Nessuna Pozione archiviata."));}
     for(var ap=0;ap<ARCHIVIO_CALDERONI.length;ap++){(function(pz){
-      var lockedPz=archiveLocked(pz);var row=el("div","card entity-card"+(lockedPz?" archive-locked":""));row.appendChild(el("div","entity-title potion-title",pz.nomePozione||("Postazione n°"+pz.numero)));row.appendChild(el("div","small-note","Postazione n°"+pz.numero+" · "+(pz.classificazione||"")));if(lockedPz){row.appendChild(el("div","archive-lock-note",archiveLockText(pz)));}
+      var lockedPz=archiveLocked(pz);var archivedClass=String(pz.classificazione||"X").toLowerCase();var row=el("div","card entity-card potion-card potion-class-"+archivedClass+(lockedPz?" archive-locked":""));row.appendChild(el("div","entity-title potion-title",pz.nomePozione||("Postazione n°"+pz.numero)));row.appendChild(el("div","small-note","Postazione n°"+pz.numero+" · "+(pz.classificazione||"")));if(lockedPz){row.appendChild(el("div","archive-lock-note",archiveLockText(pz)));}
       var restore=el("button","action small",lockedPz?"🔒 Consolidata":"Ripristina");restore.disabled=lockedPz;restore.addEventListener(EV,function(){if(blockIfArchiveLocked(pz))return;ARCHIVIO_CALDERONI=ARCHIVIO_CALDERONI.filter(function(x){return x.id!==pz.id;});pz._archivedAt="";CALDERONI.push(pz);scheduleSave(0);renderAll();});row.appendChild(restore);ad.appendChild(row);
     })(ARCHIVIO_CALDERONI[ap]);}
     p.appendChild(ad);
     container.appendChild(p);
   }
   function buildCalderoneCard(postaz){
-    var card=el("div","card entity-card potion-card");
+    var potionClass=String(postaz.classificazione||"X").toLowerCase();
+    var card=el("div","card entity-card potion-card potion-class-"+potionClass);
     var h=el("h3"); var titleWrap=el("span","entity-heading-main"); var potionName=postaz.nomePozione!==""?postaz.nomePozione:"Pozione da definire";
     titleWrap.appendChild(el("span","entity-title potion-title",potionName)); titleWrap.appendChild(el("span","entity-title-meta","Postazione n°"+postaz.numero)); h.appendChild(titleWrap);
     var actionWrap=el("div","structure-actions");
@@ -4891,7 +5077,7 @@
     var dDataL=el("div"); dDataL.appendChild(el("label",null,"Link della role")); var iDataL=el("input"); iDataL.type="text"; iDataL.value=postaz.dataLink; iDataL.addEventListener("input",function(){postaz.dataLink=iDataL.value;}); dDataL.appendChild(iDataL); row1.appendChild(dDataL); card.appendChild(row1);
 
     var row2=el("div","row"); var dNome=el("div"); dNome.appendChild(el("label",null,"Nome Pozione")); var iNome=el("input"); iNome.type="text"; iNome.value=postaz.nomePozione; iNome.addEventListener("input",function(){postaz.nomePozione=iNome.value;}); iNome.addEventListener("change",function(){renderAll();}); dNome.appendChild(iNome); row2.appendChild(dNome);
-    var dClass=el("div"); dClass.appendChild(el("label",null,"Classificazione")); dClass.appendChild(buildSelect(CLASSI_STUD,postaz.classificazione,function(v){postaz.classificazione=v;})); row2.appendChild(dClass);
+    var dClass=el("div"); dClass.appendChild(el("label",null,"Classificazione")); dClass.appendChild(buildSelect(CLASSI_STUD,postaz.classificazione,function(v){postaz.classificazione=v;renderAll();})); row2.appendChild(dClass);
     var dTipo=el("div"); dTipo.appendChild(el("label",null,"Tipologia")); dTipo.appendChild(buildSelect(TIPOLOGIE,postaz.tipologia,function(v){postaz.tipologia=v;})); row2.appendChild(dTipo); card.appendChild(row2);
 
     var dOgg=el("div","entity-full-field"); dOgg.appendChild(el("label",null,"Calderone e/o Oggetti utilizzati")); var iOgg=el("input"); iOgg.type="text"; iOgg.value=postaz.calderoneOggetti; iOgg.addEventListener("input",function(){postaz.calderoneOggetti=iOgg.value;}); dOgg.appendChild(iOgg); card.appendChild(dOgg);
@@ -5001,7 +5187,8 @@
     var wrap = el("div");
     var lines = [];
     if(POSTAZIONE_FAC.descrizione !== ""){ var postDesc=forumBbUrlOptional(POSTAZIONE_FAC.descrizione,"descrizione"); lines.push("<b>Link descrizione:</b> " + (postDesc||POSTAZIONE_FAC.descrizione)); }
-    lines.push("<b>Numero di Posti disponibili:</b> " + ANNO_POSTI[STUDENTE.anno]);
+    lines.push("<b>Calderoni disponibili:</b> " + ANNO_POSTI[STUDENTE.anno]);
+    lines.push("<b>Distillatori disponibili:</b> " + (POSTAZIONE_FAC.distillatoriMax||0));
 
     var listaLines = [];
     for(var k=0;k<CALDERONI.length;k++){
