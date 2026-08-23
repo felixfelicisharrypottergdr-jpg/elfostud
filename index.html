@@ -8,6 +8,12 @@
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
 <link rel="preload" as="image" href="https://i.postimg.cc/6pKKxhkk/elfo-biblioteca.webp" fetchpriority="high">
 <style>
+  /* v120 - Pozioni: gli specchietti cambiano colore in base alla Classificazione,
+     come Piante e Creature; aggiornamento immediato al cambio della tendina */
+
+  /* v119 - Camera Blindata: il numero del Post mensile ha ora
+     una piccola pastiglia colorata per distinguerlo meglio dai Galeoni */
+
   /* v118 - CB: l'aggiornamento/rimozione dei Premi a utilizzi
      viene mostrato direttamente nella barra DA ACCREDITARE;
      rimossi i riepiloghi separati dei Bonus a consumo sotto i Totali */
@@ -248,15 +254,20 @@
     margin-top:10px;
   }
   .structure-ui .plant-class-x,
-  .structure-ui .creature-class-x{background:#f0f8eb !important;border-color:#a8c89e !important;}
+  .structure-ui .creature-class-x,
+  .structure-ui .potion-class-x{background:#f0f8eb !important;border-color:#a8c89e !important;}
   .structure-ui .plant-class-xx,
-  .structure-ui .creature-class-xx{background:#dcefd1 !important;border-color:#7fa66c !important;}
+  .structure-ui .creature-class-xx,
+  .structure-ui .potion-class-xx{background:#dcefd1 !important;border-color:#7fa66c !important;}
   .structure-ui .plant-class-xxx,
-  .structure-ui .creature-class-xxx{background:#fff2bd !important;border-color:#c9a74d !important;}
+  .structure-ui .creature-class-xxx,
+  .structure-ui .potion-class-xxx{background:#fff2bd !important;border-color:#c9a74d !important;}
   .structure-ui .plant-class-xxxx,
-  .structure-ui .creature-class-xxxx{background:#ffe1b9 !important;border-color:#d48b3c !important;}
+  .structure-ui .creature-class-xxxx,
+  .structure-ui .potion-class-xxxx{background:#ffe1b9 !important;border-color:#d48b3c !important;}
   .structure-ui .plant-class-xxxxx,
-  .structure-ui .creature-class-xxxxx{background:#f6cbc7 !important;border-color:#bb554e !important;}
+  .structure-ui .creature-class-xxxxx,
+  .structure-ui .potion-class-xxxxx{background:#f6cbc7 !important;border-color:#bb554e !important;}
   .structure-ui details.entity-section,
   .structure-ui details.cycle-group,
   .structure-ui details.cycle-item,
@@ -581,8 +592,28 @@
   }
   .cb-total-line{ display:block; white-space:nowrap; }
   .cb-local-post-number{
-    font-weight:800;
     text-align:center;
+    width:52px;
+  }
+  .cb-local-post-badge{
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    min-width:28px;
+    height:28px;
+    padding:0 8px;
+    border-radius:999px;
+    background:#efe3a8;
+    border:1px solid #bea13a;
+    color:#5b4312;
+    font-weight:800;
+    line-height:1;
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.35);
+  }
+  .cb-latest-row .cb-local-post-badge{
+    background:#f4d7d0;
+    border-color:#b13c35;
+    color:#8f2e28;
   }
   .cb-global-alt-0{
     background:#8f3b3b !important;
@@ -4235,7 +4266,9 @@
       if(isLatestCreditRow){tr.classList.add("cb-latest-row");}
 
       /* Numero del Post nel Mese: distinto dal numero globale e sempre in grassetto. */
-      tr.appendChild(el("td","cb-local-post-number",String(localPostNo)));
+      var localTd=el("td","cb-local-post-number");
+      localTd.appendChild(el("span","cb-local-post-badge",String(localPostNo)));
+      tr.appendChild(localTd);
 
       var linkedUpTo = 0;
       for(var gx=0; gx<=li; gx++){
@@ -4895,7 +4928,7 @@
     var ad=el("details","structure-archive");keepDetailsState(ad,"postazione:archivio",false);ad.appendChild(el("summary",null,"📦 Archivio Pozioni ("+ARCHIVIO_CALDERONI.length+")"));
     if(!ARCHIVIO_CALDERONI.length){ad.appendChild(el("p","small-note","Nessuna Pozione archiviata."));}
     for(var ap=0;ap<ARCHIVIO_CALDERONI.length;ap++){(function(pz){
-      var lockedPz=archiveLocked(pz);var row=el("div","card entity-card"+(lockedPz?" archive-locked":""));row.appendChild(el("div","entity-title potion-title",pz.nomePozione||("Postazione n°"+pz.numero)));row.appendChild(el("div","small-note","Postazione n°"+pz.numero+" · "+(pz.classificazione||"")));if(lockedPz){row.appendChild(el("div","archive-lock-note",archiveLockText(pz)));}
+      var lockedPz=archiveLocked(pz);var apc=String(pz.classificazione||"").toLowerCase();var apclass=(apc==="x"||apc==="xx"||apc==="xxx"||apc==="xxxx"||apc==="xxxxx")?(" potion-class-"+apc):"";var row=el("div","card entity-card"+apclass+(lockedPz?" archive-locked":""));row.appendChild(el("div","entity-title potion-title",pz.nomePozione||("Postazione n°"+pz.numero)));row.appendChild(el("div","small-note","Postazione n°"+pz.numero+" · "+(pz.classificazione||"")));if(lockedPz){row.appendChild(el("div","archive-lock-note",archiveLockText(pz)));}
       var restore=el("button","action small",lockedPz?"🔒 Consolidata":"Ripristina");restore.disabled=lockedPz;restore.addEventListener(EV,function(){if(blockIfArchiveLocked(pz))return;ARCHIVIO_CALDERONI=ARCHIVIO_CALDERONI.filter(function(x){return x.id!==pz.id;});pz._archivedAt="";CALDERONI.push(pz);scheduleSave(0);renderAll();});row.appendChild(restore);ad.appendChild(row);
     })(ARCHIVIO_CALDERONI[ap]);}
     shell.appendChild(ad);
@@ -4903,7 +4936,9 @@
     container.appendChild(p);
   }
   function buildCalderoneCard(postaz){
-    var card=el("div","card entity-card potion-card");
+    var pc=String(postaz.classificazione||"").toLowerCase();
+    var pclass=(pc==="x"||pc==="xx"||pc==="xxx")?(" potion-class-"+pc):"";
+    var card=el("div","card entity-card potion-card"+pclass);
     var h=el("h3"); var titleWrap=el("span","entity-heading-main"); var potionName=postaz.nomePozione!==""?postaz.nomePozione:"Pozione da definire";
     titleWrap.appendChild(el("span","entity-title potion-title",potionName)); titleWrap.appendChild(el("span","entity-title-meta","Postazione n°"+postaz.numero)); h.appendChild(titleWrap);
     var actionWrap=el("div","structure-actions");
@@ -4917,7 +4952,7 @@
     var dDataL=el("div"); dDataL.appendChild(el("label",null,"Link della role")); var iDataL=el("input"); iDataL.type="text"; iDataL.value=postaz.dataLink; iDataL.addEventListener("input",function(){postaz.dataLink=iDataL.value;}); dDataL.appendChild(iDataL); row1.appendChild(dDataL); card.appendChild(row1);
 
     var row2=el("div","row"); var dNome=el("div"); dNome.appendChild(el("label",null,"Nome Pozione")); var iNome=el("input"); iNome.type="text"; iNome.value=postaz.nomePozione; iNome.addEventListener("input",function(){postaz.nomePozione=iNome.value;}); iNome.addEventListener("change",function(){renderAll();}); dNome.appendChild(iNome); row2.appendChild(dNome);
-    var dClass=el("div"); dClass.appendChild(el("label",null,"Classificazione")); dClass.appendChild(buildSelect(CLASSI_STUD,postaz.classificazione,function(v){postaz.classificazione=v;})); row2.appendChild(dClass);
+    var dClass=el("div"); dClass.appendChild(el("label",null,"Classificazione")); dClass.appendChild(buildSelect(CLASSI_STUD,postaz.classificazione,function(v){postaz.classificazione=v;renderAll();})); row2.appendChild(dClass);
     var dTipo=el("div"); dTipo.appendChild(el("label",null,"Tipologia")); dTipo.appendChild(buildSelect(TIPOLOGIE,postaz.tipologia,function(v){postaz.tipologia=v;})); row2.appendChild(dTipo); card.appendChild(row2);
 
     var dOgg=el("div","entity-full-field"); dOgg.appendChild(el("label",null,"Calderone e/o Oggetti utilizzati")); var iOgg=el("input"); iOgg.type="text"; iOgg.value=postaz.calderoneOggetti; iOgg.addEventListener("input",function(){postaz.calderoneOggetti=iOgg.value;}); dOgg.appendChild(iOgg); card.appendChild(dOgg);
