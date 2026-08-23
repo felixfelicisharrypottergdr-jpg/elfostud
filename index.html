@@ -73,6 +73,7 @@
 
   /* Serra/Cubicolo + Riserva/Recinto: link ottenimenti, quantità Riproduzione, progressi x/y, storico Fasi, riepilogo ed export numerato */
   /* Distillazione: campo «Spazio occupato nel Bagaglio» accanto all'Esito, incluso nell'esportazione */
+  /* Imbottigliamento/Pulizia: rimossi i campi di livello Calderaio; restano Link, Esito, post d'attesa + Modificatori facoltativi */
   /* Laboratorio: Uso della Bacchetta magica separato in un blocco autonomo tra Produzione e Distillazione */
   /* Laboratorio: Preparazione/Produzione/Distillazione in tendina chiusa; Imbottigliamento/Pulizia separato e aperto */
   /* Mesi archiviati: eliminazione definitiva disponibile al PG con controlli di sicurezza */
@@ -5186,7 +5187,7 @@
     /* Le fasi meno usate restano raccolte in una tendina chiusa. */
     var earlyPhases=el("details","entity-section entity-secondary-field lab-phase-group");
     keepDetailsState(earlyPhases,"postazione:fasi-prep-prod-dist:"+postaz.id,false);
-    earlyPhases.appendChild(el("summary",null,"Preparazione, Produzione, Uso Bacchetta, Distillazione"));
+    earlyPhases.appendChild(el("summary",null,"Preparazione, Produzione, Distillazione"));
 
     var prepBlock=el("div","lab-phase-block");
     prepBlock.appendChild(buildFaseRow(postaz,"prep","Preparazione degli Ingredienti",true));
@@ -5291,32 +5292,43 @@
     return wrap;
   }
   function buildImbottRow(postaz){
-    var wrap = el("div");
-    wrap.appendChild(el("p", null, "<u>Imbottigliamento e Pulizia del Calderone</u>"));
-    var row = el("div", "row");
-    var dLink = el("div"); dLink.appendChild(el("label", null, "Link al post"));
-    var iLink = el("input"); iLink.type="text"; iLink.value = postaz.imbottLink;
-    iLink.addEventListener("input", function(){ postaz.imbottLink = iLink.value; });
+    if(postaz.imbottModificatori==null){postaz.imbottModificatori="";}
+
+    var wrap=el("div","lab-phase-content");
+    wrap.appendChild(el("p",null,"<b>Imbottigliamento e Pulizia del Calderone</b>"));
+
+    var row=el("div","row");
+
+    var dLink=el("div"); dLink.appendChild(el("label",null,"Link"));
+    var iLink=el("input"); iLink.type="text"; iLink.value=postaz.imbottLink||"";
+    iLink.addEventListener("input",function(){postaz.imbottLink=iLink.value;});
     dLink.appendChild(iLink); row.appendChild(dLink);
-    var dPerc = el("div"); dPerc.appendChild(el("label", null, "Percentuale"));
-    dPerc.appendChild(buildSelect(["0","33","66","100"], postaz.imbottPercent, function(v){ postaz.imbottPercent = v; }));
-    row.appendChild(dPerc);
-    var dCald = el("div"); dCald.appendChild(el("label", null, "Livello Calderaio"));
-    dCald.appendChild(buildSelect(LIVELLI, postaz.calderaio, function(v){ postaz.calderaio = v; }));
-    row.appendChild(dCald);
+
+    var dEsito=el("div"); dEsito.appendChild(el("label",null,"Esito"));
+    var iEsito=el("input"); iEsito.type="text"; iEsito.value=postaz.imbottEsito||"";
+    iEsito.placeholder="Es. 100%";
+    iEsito.addEventListener("input",function(){postaz.imbottEsito=iEsito.value;});
+    dEsito.appendChild(iEsito); row.appendChild(dEsito);
+
+    var dPost=el("div"); dPost.appendChild(el("label",null,"N° di post d'attesa"));
+    var iPost=el("input"); iPost.type="number"; iPost.min="0"; iPost.step="1";
+    iPost.value=Math.max(0,num(postaz.postRichiesti,0));
+    iPost.addEventListener("change",function(){postaz.postRichiesti=Math.max(0,num(iPost.value,0));renderAll();});
+    dPost.appendChild(iPost); row.appendChild(dPost);
+
     wrap.appendChild(row);
-    var row2 = el("div", "row");
-    var dPost = el("div"); dPost.appendChild(el("label", null, "Post richiesti (dalla tua tabella)"));
-    var iPost = el("input"); iPost.type="number"; iPost.min="0"; iPost.value = postaz.postRichiesti;
-    iPost.addEventListener("change", function(){ var proposed=Math.max(0,num(iPost.value,0));if(!validateGlobalIntervalOrAlert(postaz.startIndex,proposed)){iPost.value=postaz.postRichiesti;return;}postaz.postRichiesti=proposed;renderAll(); });
-    dPost.appendChild(iPost); row2.appendChild(dPost);
-    var dStart = el("div"); dStart.appendChild(el("label", null, "Comincia dal post globale n\u00b0"));
-    var iStart = el("input"); iStart.type="number"; iStart.min="1"; iStart.value = postaz.startIndex;
-    iStart.addEventListener("change", function(){ var proposed=Math.max(1,num(iStart.value,1));if(!validateGlobalIntervalOrAlert(proposed,postaz.postRichiesti)){iStart.value=postaz.startIndex;return;}postaz.startIndex=proposed;renderAll(); });
-    dStart.appendChild(iStart); row2.appendChild(dStart);
-    wrap.appendChild(row2);
+
+    var modRow=el("div","entity-secondary-field");
+    modRow.appendChild(el("label",null,"Modificatori applicati (facoltativo)"));
+    var iMod=el("input"); iMod.type="text"; iMod.value=postaz.imbottModificatori||"";
+    iMod.placeholder="Es. Calderaio I: +1 al range · Sintesi: +2";
+    iMod.addEventListener("input",function(){postaz.imbottModificatori=iMod.value;});
+    modRow.appendChild(iMod);
+    wrap.appendChild(modRow);
+
     return wrap;
   }
+
   function buildPostsFromSharedList(postaz){
     var wrap = el("div");
     var filled = 0;
@@ -5372,6 +5384,7 @@
       var forzaTotale = prepSign + prodSign;
       lines.push("<b>\u2a2f Forza totale Pozione:</b> " + fmtPct(forzaTotale) + " Forza finale");
       lines.push("- <u> Imbottigliamento e Pulizia del Calderone:</u> " + forumBbUrl(postaz.imbottLink, postaz.imbottPercent + "%") + ", Calderaio " + postaz.calderaio + ", " + postaz.classificazione + " \u2192 " + postaz.postRichiesti + " post");
+      if(String(postaz.imbottModificatori||"").trim()!==""){ lines.push("<b>Modificatori applicati:</b> "+String(postaz.imbottModificatori).trim()); }
 
       lines.push("[SPOILER]");
       for(var s=0; s<postaz.postRichiesti; s++){
