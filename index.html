@@ -4832,7 +4832,7 @@
   function newCalderone(){
     calderoneCounter = calderoneCounter + 1;
     return {
-      id: calderoneCounter, numero: calderoneCounter, colore: "red",
+      id: calderoneCounter, numero: calderoneCounter,
       dataTesto: "", dataLink: "", nomePozione: "", classificazione: "X", tipologia: "Generica",
       calderoneOggetti: "//",
       prepLink: "", prepEsito: "riuscita", prepValore: 0,
@@ -4885,7 +4885,7 @@
     var rm=el("button","action danger small","Rimuovi"); rm.addEventListener(EV,function(){CALDERONI=CALDERONI.filter(function(x){return x.id!==postaz.id;});scheduleSave(0);renderAll();}); actionWrap.appendChild(rm); h.appendChild(actionWrap); card.appendChild(h);
 
     var row0=el("div","row"); var dNum=el("div"); dNum.appendChild(el("label",null,"Numero Postazione")); var iNum=el("input"); iNum.type="text"; iNum.value=postaz.numero; iNum.addEventListener("change",function(){postaz.numero=iNum.value;renderAll();}); dNum.appendChild(iNum); row0.appendChild(dNum);
-    var dCol=el("div"); dCol.appendChild(el("label",null,"Colore intestazione nell'esportazione")); var iCol=el("input"); iCol.type="text"; iCol.value=postaz.colore; iCol.addEventListener("input",function(){postaz.colore=iCol.value;}); dCol.appendChild(iCol); row0.appendChild(dCol); card.appendChild(row0);
+    card.appendChild(row0);
 
     var row1=el("div","row"); var dDataT=el("div"); dDataT.appendChild(el("label",null,"Data di creazione (GG/MM/AAAA)")); var iDataT=buildDateInput(postaz.dataTesto,function(v){postaz.dataTesto=v;}); dDataT.appendChild(iDataT); row1.appendChild(dDataT);
     var dDataL=el("div"); dDataL.appendChild(el("label",null,"Link della role")); var iDataL=el("input"); iDataL.type="text"; iDataL.value=postaz.dataLink; iDataL.addEventListener("input",function(){postaz.dataLink=iDataL.value;}); dDataL.appendChild(iDataL); row1.appendChild(dDataL); card.appendChild(row1);
@@ -5018,7 +5018,7 @@
     for(var n=0;n<CALDERONI.length;n++){
       var postaz = CALDERONI[n];
       lines.push("");
-      lines.push("[color=" + postaz.colore + "]<b>Postazione n\u00b0" + postaz.numero + "</b>[/color]");
+      lines.push("[color=#7441a4]<b>Postazione n\\u00b0" + postaz.numero + "</b>[/color]");
       lines.push("<b>\u2a2f Data di creazione e link della role, se presente:</b> " + forumBbUrl(postaz.dataLink, postaz.dataTesto));
       lines.push("<b>\u2a2f Nome Pozione e Classificazione:</b> " + postaz.nomePozione + ", " + postaz.classificazione);
       lines.push("<b>\u2a2f Tipologia:</b> " + postaz.tipologia);
