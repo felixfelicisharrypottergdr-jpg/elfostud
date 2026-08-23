@@ -215,6 +215,36 @@
     font-weight:700;
     padding:2px 1px 6px;
   }
+
+  .structure-ui .cycle-summary-line{
+    display:flex;
+    align-items:center;
+    flex-wrap:wrap;
+    gap:8px;
+  }
+  .structure-ui .cycle-status{
+    display:inline-flex;
+    align-items:center;
+    padding:2px 7px;
+    border-radius:999px;
+    font-variant:small-caps;
+    letter-spacing:.045em;
+    font-size:.68rem;
+    font-weight:900;
+    line-height:1.2;
+  }
+  .structure-ui .cycle-status.in-progress{
+    color:#285d31;
+    background:#e2f1df;
+    border:1px solid #6b9f70;
+    box-shadow:0 0 6px rgba(107,159,112,.18);
+  }
+  .structure-ui .cycle-status.done{
+    color:#7d2622;
+    background:#f6d7d4;
+    border:1px solid #b95a52;
+    box-shadow:0 0 6px rgba(185,90,82,.18);
+  }
   .structure-ui details.cycle-item + details.cycle-item{ margin-top:11px; }
   .structure-ui .cycle-sections{ margin-top:10px; }
   .structure-ui .cycle-context{ margin:8px 0 10px; }
@@ -4994,7 +5024,20 @@
   }
 
   function buildCycleItemDetails(occupant, stage, config, sub, title, ottenutiLabel, keySuffix, showIra){
-    var det=el("details","cycle-item"); keepDetailsState(det,"ciclo:item:"+config.tipoLabel+":"+occupant.id+":"+stage.key+":"+keySuffix,false); det.appendChild(el("summary",null,title)); det.appendChild(buildSubEntryUI(sub,"<b>"+title+"</b>",ottenutiLabel)); if(showIra){det.appendChild(buildIraCheck(sub,occupant));} return det;
+    var det=el("details","cycle-item");
+    keepDetailsState(det,"ciclo:item:"+config.tipoLabel+":"+occupant.id+":"+stage.key+":"+keySuffix,false);
+
+    var done=subEntryFilled(sub);
+    var summary=el("summary");
+    var summaryLine=el("span","cycle-summary-line");
+    summaryLine.appendChild(el("span",null,title));
+    summaryLine.appendChild(el("span","cycle-status "+(done?"done":"in-progress"),done?"TERMINATO":"IN CORSO"));
+    summary.appendChild(summaryLine);
+    det.appendChild(summary);
+
+    det.appendChild(buildSubEntryUI(sub,"<b>"+title+"</b>",ottenutiLabel));
+    if(showIra){det.appendChild(buildIraCheck(sub,occupant));}
+    return det;
   }
 
   function buildStageDetails(occupant, stage, config, defaultOpen){
@@ -5006,7 +5049,7 @@
       for(var i=0;i<cicliData.list.length;i++){prod.appendChild(buildCycleItemDetails(occupant,stage,config,cicliData.list[i],"Ciclo di Produzione "+(i+1),"Ingredienti ottenuti","prod-"+i,mostraIra));} wrap.appendChild(prod);
     }
     if(stage.type==="ripro"){
-      var rip=el("details","cycle-group"); keepDetailsState(rip,"ciclo:riproduzione:"+config.tipoLabel+":"+occupant.id+":"+stage.key,false); rip.appendChild(el("summary",null,"Riproduzione")); rip.appendChild(buildCycleItemDetails(occupant,stage,config,cicliData.evento,"Riproduzione",stage.ottenuti,"ripro",false)); wrap.appendChild(rip);
+      var rip=el("details","cycle-group"); keepDetailsState(rip,"ciclo:riproduzione:"+config.tipoLabel+":"+occupant.id+":"+stage.key,false); rip.appendChild(el("summary",null,"Riproduzione")); rip.appendChild(buildCycleItemDetails(occupant,stage,config,cicliData.evento,"Ciclo di Riproduzione 1",stage.ottenuti,"ripro",false)); wrap.appendChild(rip);
     }
     if(stage.type==="gestazione"){
       var gest=el("details","cycle-group"); keepDetailsState(gest,"ciclo:riproduzione:"+config.tipoLabel+":"+occupant.id+":"+stage.key,false); gest.appendChild(el("summary",null,"Riproduzione / Gestazione")); gest.appendChild(buildCycleItemDetails(occupant,stage,config,cicliData.evento,"Gestazione",null,"gestazione",false)); wrap.appendChild(gest);
