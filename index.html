@@ -71,6 +71,8 @@
   .row{ display:flex; flex-wrap:wrap; gap: 12px; }
   .row > div{ flex: 1; min-width: 150px; }
 
+  /* Serra/Cubicolo + Riserva/Recinto: link ottenimenti, quantità Riproduzione, progressi x/y, storico Fasi, riepilogo ed export numerato */
+  /* Distillazione: campo «Spazio occupato nel Bagaglio» accanto all'Esito, incluso nell'esportazione */
   /* Laboratorio: Preparazione/Produzione/Distillazione in tendina chiusa; Imbottigliamento/Pulizia separato e aperto */
   /* Mesi archiviati: eliminazione definitiva disponibile al PG con controlli di sicurezza */
   /* I tuoi Post: più spazio attorno alle azioni principali */
@@ -497,6 +499,40 @@
     content:"▼";
   }
   .structure-ui .cycle-sections{ margin-top:10px; }
+
+  /* Serra/Cubicolo e Riserva/Recinto: riepiloghi, storico e risultati ottenuti */
+  .structure-ui .phase-summary-details,
+  .structure-ui .phase-history-details{
+    margin:14px 0;
+    padding:8px 10px 10px;
+    border:1px solid rgba(128,96,42,.45);
+    border-radius:7px;
+    background:rgba(255,255,255,.30);
+  }
+  .structure-ui .phase-summary-details > summary,
+  .structure-ui .phase-history-details > summary{
+    cursor:pointer;
+    font-weight:800;
+    color:var(--green-dark);
+  }
+  .structure-ui .phase-summary-list{
+    margin:10px 0 2px;
+    padding-left:18px;
+    font-size:.79rem;
+    line-height:1.55;
+  }
+  .structure-ui .phase-history-stage{
+    margin:10px 0 0;
+    border-left:3px solid rgba(128,96,42,.42);
+    padding-left:8px;
+  }
+  .structure-ui .phase-history-stage > summary{
+    cursor:pointer;
+    font-weight:800;
+    color:#665a43;
+  }
+  .structure-ui .obtained-result-row{ margin-top:10px; }
+  .structure-ui .obtained-result-row > div > label{ min-height:2.2em; }
   .structure-ui .cycle-context{ margin:8px 0 10px; }
   .structure-ui .sub-entry{
     margin:9px 0 3px;
@@ -2243,7 +2279,7 @@
     return stages.length ? stages[0].label : raw;
   }
   function makeCyclesForStage(stage){
-    if(stage.type === "gestazione"){ return { evento: newSubEntry() }; }
+    if(stage.type === "gestazione" || stage.type === "passaggio"){ return { evento: newSubEntry() }; }
     if(stage.type === "cicli"){
       var list = []; for(var i=0;i<stage.count;i++){ list.push(newSubEntry()); }
       return { list:list };
@@ -2261,12 +2297,19 @@
       var st = stages[i];
       if(!occupant.cicli[st.key]){ occupant.cicli[st.key] = makeCyclesForStage(st); }
       var data = occupant.cicli[st.key];
-      if(st.type === "gestazione"){ if(!data.evento){ data.evento = newSubEntry(); } }
+      if(st.type === "gestazione" || st.type === "passaggio"){
+        if(!data.evento){data.evento=newSubEntry();}
+        data.evento=normalizeSubEntry(data.evento);
+      }
       if(st.type === "cicli" || st.type === "ripro"){
         if(!Array.isArray(data.list)){ data.list = []; }
         while(data.list.length < st.count){ data.list.push(newSubEntry()); }
+        for(var si=0;si<data.list.length;si++){data.list[si]=normalizeSubEntry(data.list[si]);}
       }
-      if(st.type === "ripro" && !data.evento){ data.evento = newSubEntry(); }
+      if(st.type === "ripro"){
+        if(!data.evento){ data.evento = newSubEntry(); }
+        data.evento=normalizeSubEntry(data.evento);
+      }
     }
   }
   function openStageDetails(occupant, stages, config, label){
@@ -5060,7 +5103,7 @@
       prepLink: "", prepEsito: "riuscita", prepValore: 0,
       prodLink: "", prodEsito: "riuscita", prodValore: 0,
       bacchettaLink: "", bacchettaEsito: "riuscita", dosi: 2,
-      distillSvolta: false, distillLink: "", distillEsito: "",
+      distillSvolta: false, distillLink: "", distillEsito: "", distillBagaglio: "",
       imbottLink: "", imbottPercent: "100", calderaio: "0",
       postRichiesti: 10, startIndex: nextGlobalPostNumber()
     };
@@ -5235,6 +5278,12 @@
       var iEsito = el("input"); iEsito.type="text"; iEsito.value = postaz.distillEsito;
       iEsito.addEventListener("input", function(){ postaz.distillEsito = iEsito.value; });
       dEsito.appendChild(iEsito); row.appendChild(dEsito);
+
+      var dBag = el("div"); dBag.appendChild(el("label", null, "Spazio occupato nel Bagaglio"));
+      var iBag = el("input"); iBag.type="text"; iBag.value = postaz.distillBagaglio || ""; iBag.placeholder="Es. 1 spazio";
+      iBag.addEventListener("input", function(){ postaz.distillBagaglio = iBag.value; });
+      dBag.appendChild(iBag); row.appendChild(dBag);
+
       wrap.appendChild(row);
     }
     return wrap;
@@ -5314,6 +5363,7 @@
       if(postaz.distillSvolta){
         var dtxt = "- <u> Distillazione:</u> " + forumBbUrl(postaz.distillLink, "x");
         if(postaz.distillEsito !== ""){ dtxt = dtxt + " \u2192 " + postaz.distillEsito; }
+        if(String(postaz.distillBagaglio||"").trim() !== ""){ dtxt = dtxt + " · Bagaglio: " + String(postaz.distillBagaglio).trim(); }
         lines.push(dtxt);
       } else { lines.push("- <u> Distillazione:</u> //"); }
 
@@ -5339,10 +5389,10 @@
   /* ==================================================== */
   function plantStages(){
     return [
-      { key:"seme", label:"Seme", type:"gestazione", months:1 },
+      { key:"seme", label:"Seme", type:"passaggio", months:1 },
       { key:"germinazione", label:"Germinazione", type:"cicli", count:2, months:2 },
       { key:"vegetazione", label:"Vegetazione", type:"cicli", count:3, months:3 },
-      { key:"riproduzione", label:"Riproduzione", type:"ripro", count:5, ottenuti:"Semi/uova ottenuti", months:4 },
+      { key:"riproduzione", label:"Riproduzione", type:"ripro", count:5, ottenuti:"Semi ottenuti", months:4 },
       { key:"senescenza", label:"Senescenza", type:"cicli", count:2, months:2 }
     ];
   }
@@ -5358,7 +5408,36 @@
   var AGENDA_PLANT = ["Seme","Germinazione","Vegetazione","Riproduzione","Senescenza","Morte"];
   var AGENDA_CREATURE = ["Uovo/Cucciolo","Infante","Adolescente","Adulta","Anziana","Morte"];
 
-  function newSubEntry(){ return { esitoLink:"", esitoText:"", postRichiesti:0, startIndex: nextGlobalPostNumber(), ottenuti:"" }; }
+  function newSubEntry(){
+    return {
+      esitoLink:"", esitoText:"", postRichiesti:0, startIndex:nextGlobalPostNumber(),
+      ottenuti:"", ottenutiLink:"", ottenutiQuantita:""
+    };
+  }
+
+  function normalizeSubEntry(sub){
+    if(!sub || typeof sub!=="object"){ return newSubEntry(); }
+    if(sub.esitoLink==null){sub.esitoLink="";}
+    if(sub.esitoText==null){sub.esitoText="";}
+    if(sub.postRichiesti==null){sub.postRichiesti=0;}
+    if(sub.startIndex==null){sub.startIndex=nextGlobalPostNumber();}
+    if(sub.ottenuti==null){sub.ottenuti="";}
+    if(sub.ottenutiLink==null){sub.ottenutiLink="";}
+    if(sub.ottenutiQuantita==null){sub.ottenutiQuantita="";}
+    return sub;
+  }
+
+  function subEntryProgress(sub){
+    sub=normalizeSubEntry(sub);
+    var total=Math.max(0,num(sub.postRichiesti,0));
+    var filled=0;
+    for(var i=0;i<total;i++){
+      var post=getPostByGlobalNo(sub.startIndex+i);
+      if(post && String(post.link||"").trim()!==""){filled++;}
+    }
+    return {filled:filled,total:total};
+  }
+
   function newOccupant(stages){
     var o = {
       id: 0, nome: "", dataTesto: "", dataLink: "", classificazione: "X", classificazioneLink: "",
@@ -5367,7 +5446,7 @@
     };
     for(var i=0;i<stages.length;i++){
       var st = stages[i];
-      if(st.type === "gestazione"){ o.cicli[st.key] = { evento: newSubEntry() }; }
+      if(st.type === "gestazione" || st.type === "passaggio"){ o.cicli[st.key] = { evento: newSubEntry() }; }
       if(st.type === "cicli"){
         var list = []; for(var c=0;c<st.count;c++){ list.push(newSubEntry()); }
         o.cicli[st.key] = { list: list };
@@ -5380,66 +5459,106 @@
     return o;
   }
   function subEntryFilled(sub){
-    if(sub.postRichiesti <= 0){ return false; }
-    var filled = 0;
-    for(var i=0;i<sub.postRichiesti;i++){
-      var post = getPostByGlobalNo(sub.startIndex + i);
-      if(post){ if(String(post.link || "").trim() !== ""){ filled = filled + 1; } }
-    }
-    return filled >= sub.postRichiesti;
+    var pr=subEntryProgress(sub);
+    return pr.total>0 && pr.filled>=pr.total;
   }
-  function buildSubEntryUI(sub, labelHtml, ottenutiLabel){
+  function buildSubEntryUI(sub, labelHtml, ottenutiLabel, options){
+    options=options||{};
+    sub=normalizeSubEntry(sub);
+
     var wrap = el("div", "sub-entry");
     wrap.appendChild(el("p", null, labelHtml));
     var row = el("div", "row");
+
     var dLink = el("div"); dLink.appendChild(el("label", null, "Link esito dado"));
     var iLink = el("input"); iLink.type="text"; iLink.value = sub.esitoLink;
     iLink.addEventListener("input", function(){ sub.esitoLink = iLink.value; });
     iLink.addEventListener("change", function(){ sub.esitoLink = iLink.value; renderAll(); });
     dLink.appendChild(iLink); row.appendChild(dLink);
+
     var dEsito = el("div"); dEsito.appendChild(el("label", null, "Esito (es. 100%)"));
     var iEsito = el("input"); iEsito.type="text"; iEsito.value = sub.esitoText;
     iEsito.addEventListener("input", function(){ sub.esitoText = iEsito.value; });
     iEsito.addEventListener("change", function(){ sub.esitoText = iEsito.value; renderAll(); });
     dEsito.appendChild(iEsito); row.appendChild(dEsito);
+
     var dPost = el("div"); dPost.appendChild(el("label", null, "Post necessari"));
     var iPost = el("input"); iPost.type="number"; iPost.min="0"; iPost.value = sub.postRichiesti;
-    iPost.addEventListener("change", function(){ var proposed=Math.max(0,num(iPost.value,0));if(!validateGlobalIntervalOrAlert(sub.startIndex,proposed)){iPost.value=sub.postRichiesti;return;}sub.postRichiesti=proposed;renderAll(); });
+    iPost.addEventListener("change", function(){
+      var proposed=Math.max(0,num(iPost.value,0));
+      if(!validateGlobalIntervalOrAlert(sub.startIndex,proposed)){iPost.value=sub.postRichiesti;return;}
+      sub.postRichiesti=proposed;renderAll();
+    });
     dPost.appendChild(iPost); row.appendChild(dPost);
-    var dStart = el("div"); dStart.appendChild(el("label", null, "Dal post globale n\u00b0"));
+
+    var dStart = el("div"); dStart.appendChild(el("label", null, "Dal post globale n°"));
     var iStart = el("input"); iStart.type="number"; iStart.min="1"; iStart.value = sub.startIndex;
-    iStart.addEventListener("change", function(){ var proposed=Math.max(1,num(iStart.value,1));if(!validateGlobalIntervalOrAlert(proposed,sub.postRichiesti)){iStart.value=sub.startIndex;return;}sub.startIndex=proposed;renderAll(); });
+    iStart.addEventListener("change", function(){
+      var proposed=Math.max(1,num(iStart.value,1));
+      if(!validateGlobalIntervalOrAlert(proposed,sub.postRichiesti)){iStart.value=sub.startIndex;return;}
+      sub.startIndex=proposed;renderAll();
+    });
     dStart.appendChild(iStart); row.appendChild(dStart);
     wrap.appendChild(row);
-    var filled = 0;
-    for(var i=0;i<sub.postRichiesti;i++){
-      var post = getPostByGlobalNo(sub.startIndex + i);
-      if(post){ if(String(post.link || "").trim() !== ""){ filled = filled + 1; } }
-    }
-    wrap.appendChild(progressStatusNode("", filled, sub.postRichiesti));
+
+    var pr=subEntryProgress(sub);
+    wrap.appendChild(progressStatusNode("", pr.filled, pr.total));
+
     if(ottenutiLabel){
+      var resultRow=el("div","row obtained-result-row");
+
       var dOtt = el("div"); dOtt.appendChild(el("label", null, ottenutiLabel));
       var iOtt = el("input"); iOtt.type="text"; iOtt.value = sub.ottenuti;
+      iOtt.placeholder=options.isReproduction ? "Es. Semi di Amarantacea / Uova di Occamy" : "Es. 1 foglia e 1 radici";
       iOtt.addEventListener("input", function(){ sub.ottenuti = iOtt.value; });
       iOtt.addEventListener("change", function(){ sub.ottenuti = iOtt.value; renderAll(); });
-      dOtt.appendChild(iOtt); wrap.appendChild(dOtt);
+      dOtt.appendChild(iOtt); resultRow.appendChild(dOtt);
+
+      if(options.isReproduction){
+        var dQty=el("div"); dQty.appendChild(el("label",null,"Quantità ottenuta"));
+        var iQty=el("input"); iQty.type="text"; iQty.value=sub.ottenutiQuantita||""; iQty.placeholder="Es. 1";
+        iQty.addEventListener("input",function(){sub.ottenutiQuantita=iQty.value;});
+        iQty.addEventListener("change",function(){sub.ottenutiQuantita=iQty.value;renderAll();});
+        dQty.appendChild(iQty); resultRow.appendChild(dQty);
+      }
+
+      var dOttLink=el("div"); dOttLink.appendChild(el("label",null,"Link ottenimento"));
+      var iOttLink=el("input"); iOttLink.type="text"; iOttLink.value=sub.ottenutiLink||""; iOttLink.placeholder="Link del post in cui ottieni il risultato";
+      iOttLink.addEventListener("input",function(){sub.ottenutiLink=iOttLink.value;});
+      iOttLink.addEventListener("change",function(){sub.ottenutiLink=iOttLink.value;renderAll();});
+      dOttLink.appendChild(iOttLink); resultRow.appendChild(dOttLink);
+
+      wrap.appendChild(resultRow);
+
       if(/Ingredienti/i.test(ottenutiLabel) && STRUTTURE.dispensa){
         if(sub.dispensaTransfer && sub.dispensaTransfer.done){
-          var doneDisp=el("button","action small","✓ Già aggiunto alla Dispensa");doneDisp.type="button";doneDisp.disabled=true;wrap.appendChild(doneDisp);
+          var doneDisp=el("button","action small","✓ Già aggiunto alla Dispensa");
+          doneDisp.type="button";doneDisp.disabled=true;wrap.appendChild(doneDisp);
           wrap.appendChild(el("span","small-note"," Trasferimento già registrato. Se correggi l’esito, correggi anche il relativo lotto nella Dispensa."));
         }else{
-          var toDisp=el("button","action small","Aggiungi ottenuto alla Dispensa");toDisp.type="button";toDisp.addEventListener(EV,function(){
+          var toDisp=el("button","action small","Aggiungi ottenuto alla Dispensa");
+          toDisp.type="button";
+          toDisp.addEventListener(EV,function(){
             var raw=String(sub.ottenuti||"").trim(),qty=1,name=raw,m=raw.match(/^(\d+)\s*[x×|\-]?\s*(.+)$/i);
             if(m&&catalogIngredient(m[2])){qty=parseInt(m[1],10)||1;name=m[2].trim();}
-            var rec=catalogIngredient(name);if(!rec){alert("Scrivi nel campo un Ingrediente del Glossario (eventualmente preceduto dalla quantità, es. «2 x Ala di Doxy»).");return;}
-            var res=addIngredienteCatalogo(rec.nome,qty,"Autoprodotto",sub.esitoLink||"",STUDENTE.nome);
-            if(res.ok){sub.dispensaTransfer={done:true,nome:rec.nome,quantita:qty,at:new Date().toISOString()};scheduleSave(0);renderAll();alert(rec.nome+" aggiunto alla Dispensa come autoprodotto.");}
-          });wrap.appendChild(toDisp);
+            var rec=catalogIngredient(name);
+            if(!rec){
+              alert("Scrivi nel campo un Ingrediente del Glossario (eventualmente preceduto dalla quantità, es. «2 x Ala di Doxy»).");
+              return;
+            }
+            var res=addIngredienteCatalogo(rec.nome,qty,"Autoprodotto",sub.ottenutiLink||sub.esitoLink||"",PG_ID);
+            if(res.ok){
+              sub.dispensaTransfer={done:true,nome:rec.nome,quantita:qty,at:new Date().toISOString()};
+              scheduleSave(0);renderAll();alert(rec.nome+" aggiunto alla Dispensa come autoprodotto.");
+            }
+          });
+          wrap.appendChild(toDisp);
         }
       }
     }
     return wrap;
   }
+
   function buildOccupantCard(occupant, stages, config, listRef, archivioRef){
     ensureOccupantStageData(occupant,stages);
     var isPlant=config.tipoLabel==="Pianta";
@@ -5492,7 +5611,14 @@
     var agendaDet=el("details","entity-section entity-secondary-field"); keepDetailsState(agendaDet,"agenda:"+config.tipoLabel+":"+occupant.id,false); agendaDet.appendChild(el("summary",null,"Agenda crescita OFF")); var agendaRow=el("div","row");
     for(var a=0;a<config.agendaLabels.length;a++){(function(label){var d=el("div");d.appendChild(el("label",null,label));var iAg=buildDateInput(occupant.agenda[label]||"",function(v){occupant.agenda[label]=v;});d.appendChild(iAg);agendaRow.appendChild(d);})(config.agendaLabels[a]);} agendaDet.appendChild(agendaRow); card.appendChild(agendaDet);
 
-    var currentStageIdx=stageIndex(stages,occupant.faseAttuale); if(currentStageIdx>=0){card.appendChild(buildStageDetails(occupant,stages[currentStageIdx],config,false));}
+    card.appendChild(buildPhaseSummaryDetails(occupant,stages,config));
+
+    var currentStageIdx=stageIndex(stages,occupant.faseAttuale);
+    if(currentStageIdx>=0){
+      card.appendChild(buildStageDetails(occupant,stages[currentStageIdx],config,false,false));
+      var historyDet=buildPhaseHistoryDetails(occupant,stages,config,currentStageIdx);
+      if(historyDet){card.appendChild(historyDet);}
+    }
     return card;
   }
   function nextStageLabel(stages, currentLabel){
@@ -5542,10 +5668,14 @@
     var cicliData = occupant.cicli[currentStage.key];
     var completedText = "";
     var phaseReady = false;
-    if(currentStage.type === "gestazione"){
+    if(currentStage.type === "gestazione" || currentStage.type === "passaggio"){
       var doneGest = subEntryFilled(cicliData.evento);
       phaseReady = !!doneGest;
-      completedText = doneGest ? "Gestazione completata." : "Gestazione in corso.";
+      if(currentStage.type === "passaggio"){
+        completedText = doneGest ? "Passaggio alla Germinazione completato." : "Passaggio alla Germinazione in corso.";
+      }else{
+        completedText = doneGest ? "Gestazione/Schiusa completata." : "Gestazione/Schiusa in corso.";
+      }
     } else {
       var res = countCompletedCicli(occupant, currentStage);
       if(currentStage.type === "ripro"){ phaseReady = !!(res && res.total > 0 && res.completed >= res.total && res.reproDone >= 1); }
@@ -5639,19 +5769,24 @@
 
   function subEntryStarted(sub){
     if(!sub){return false;}
+    sub=normalizeSubEntry(sub);
     return !!(
       String(sub.esitoLink||"").trim() ||
       String(sub.esitoText||"").trim() ||
       Math.max(0,num(sub.postRichiesti,0))>0 ||
       String(sub.ottenuti||"").trim() ||
+      String(sub.ottenutiLink||"").trim() ||
+      String(sub.ottenutiQuantita||"").trim() ||
       String(sub.iraResult||"").trim()
     );
   }
 
   function cycleStatusInfo(sub, canStart){
-    if(subEntryFilled(sub)){return {key:"done",label:"TERMINATO"};}
-    if(canStart && subEntryStarted(sub)){return {key:"in-progress",label:"IN CORSO"};}
-    return {key:"queued",label:"A TURNO"};
+    var pr=subEntryProgress(sub);
+    var suffix=pr.total>0 ? " · "+pr.filled+"/"+pr.total : "";
+    if(subEntryFilled(sub)){return {key:"done",label:"TERMINATO"+suffix};}
+    if(canStart && subEntryStarted(sub)){return {key:"in-progress",label:"IN CORSO"+suffix};}
+    return {key:"queued",label:"A TURNO"+suffix};
   }
 
   function makeReproductionIcon(config){
@@ -5686,7 +5821,7 @@
     summary.appendChild(summaryLine);
     det.appendChild(summary);
 
-    var subUi=buildSubEntryUI(sub,"<b>"+title+"</b>",ottenutiLabel);
+    var subUi=buildSubEntryUI(sub,"<b>"+title+"</b>",ottenutiLabel,options);
     if(!canStart && !subEntryFilled(sub)){
       lockCycleUi(subUi);
       subUi.appendChild(el("span","cycle-wait-note","Completa prima il Ciclo precedente: questo è ancora a turno."));
@@ -5701,9 +5836,14 @@
     return det;
   }
 
-  function buildStageDetails(occupant, stage, config, defaultOpen){
+  function buildStageDetails(occupant, stage, config, defaultOpen, isHistory){
     var wrap=el("div","cycle-sections");
-    wrap.appendChild(el("p","small-note cycle-context","Fase attuale: <b>"+stage.label+"</b>. I Cicli di Produzione si svolgono uno per volta; Produzione e Riproduzione possono invece procedere contemporaneamente."));
+    wrap.appendChild(el("p","small-note cycle-context",
+      (isHistory?"Storico fase: ":"Fase attuale: ")+"<b>"+stage.label+"</b>. "+
+      ((stage.type==="cicli"||stage.type==="ripro")
+        ? "I Cicli di Produzione si svolgono uno per volta; Produzione e Riproduzione possono invece procedere contemporaneamente."
+        : (stage.type==="passaggio" ? "Qui registri il passaggio dal Seme alla Germinazione." : "Qui registri Gestazione/Schiusa o sviluppo previsto per questa fase."))
+    ));
 
     var cicliData=occupant.cicli[stage.key];
     var isCreatura=config.tipoLabel==="Creatura";
@@ -5744,8 +5884,6 @@
       ripSummary.appendChild(document.createTextNode("Riproduzione"));
       rip.appendChild(ripSummary);
 
-      /* La Riproduzione è indipendente dal turno dei Cicli di Produzione:
-         può essere svolta nello stesso periodo del Ciclo di Produzione attivo. */
       rip.appendChild(buildCycleItemDetails(
         occupant,stage,config,cicliData.evento,
         "Ciclo di Riproduzione 1",
@@ -5757,18 +5895,33 @@
       wrap.appendChild(rip);
     }
 
+    if(stage.type==="passaggio"){
+      var pass=el("details","cycle-group");
+      keepDetailsState(pass,"ciclo:passaggio:"+config.tipoLabel+":"+occupant.id+":"+stage.key,false);
+      pass.appendChild(el("summary",null,"Passaggio alla Germinazione"));
+      pass.appendChild(buildCycleItemDetails(
+        occupant,stage,config,cicliData.evento,
+        "Passaggio alla Germinazione",
+        null,
+        "passaggio-germinazione",
+        false,
+        {canStart:true,isReproduction:false}
+      ));
+      wrap.appendChild(pass);
+    }
+
     if(stage.type==="gestazione"){
       var gest=el("details","cycle-group");
-      keepDetailsState(gest,"ciclo:riproduzione:"+config.tipoLabel+":"+occupant.id+":"+stage.key,false);
+      keepDetailsState(gest,"ciclo:gestazione:"+config.tipoLabel+":"+occupant.id+":"+stage.key,false);
 
       var gestSummary=el("summary");
       gestSummary.appendChild(makeReproductionIcon(config));
-      gestSummary.appendChild(document.createTextNode("Riproduzione / Gestazione"));
+      gestSummary.appendChild(document.createTextNode("Gestazione / Schiusa"));
       gest.appendChild(gestSummary);
 
       gest.appendChild(buildCycleItemDetails(
         occupant,stage,config,cicliData.evento,
-        "Gestazione",
+        "Gestazione / Schiusa",
         null,
         "gestazione",
         false,
@@ -5778,6 +5931,50 @@
     }
     return wrap;
   }
+
+  function buildPhaseSummaryDetails(occupant, stages, config){
+    var det=el("details","phase-summary-details");
+    keepDetailsState(det,"riepilogo-fasi:"+config.tipoLabel+":"+occupant.id,false);
+    det.appendChild(el("summary",null,"Riepilogo Cicli per Fase"));
+    var list=el("ul","phase-summary-list");
+
+    for(var i=0;i<stages.length;i++){
+      var st=stages[i], txt="";
+      if(st.type==="passaggio"){
+        txt=st.label+" — Passaggio alla Germinazione "+(subEntryFilled(occupant.cicli[st.key].evento)?"1/1":"0/1");
+      }else if(st.type==="gestazione"){
+        txt=st.label+" — Gestazione/Schiusa "+(subEntryFilled(occupant.cicli[st.key].evento)?"1/1":"0/1");
+      }else{
+        var res=countCompletedCicli(occupant,st);
+        if(st.type==="cicli"){
+          txt=st.label+" — Produzione "+res.completed+"/"+res.total;
+        }else if(st.type==="ripro"){
+          txt=st.label+" — Produzione "+res.completed+"/"+res.total+" · Riproduzione "+(res.reproDone||0)+"/1";
+        }
+      }
+      var li=document.createElement("li");li.textContent=txt;list.appendChild(li);
+    }
+    det.appendChild(list);
+    return det;
+  }
+
+  function buildPhaseHistoryDetails(occupant, stages, config, currentStageIdx){
+    if(currentStageIdx<=0){return null;}
+    var det=el("details","phase-history-details");
+    keepDetailsState(det,"storico-fasi:"+config.tipoLabel+":"+occupant.id,false);
+    det.appendChild(el("summary",null,"Storico delle altre Fasi"));
+
+    for(var i=0;i<currentStageIdx;i++){
+      var st=stages[i];
+      var histStage=el("details","phase-history-stage");
+      keepDetailsState(histStage,"storico-fase:"+config.tipoLabel+":"+occupant.id+":"+st.key,false);
+      histStage.appendChild(el("summary",null,st.label));
+      histStage.appendChild(buildStageDetails(occupant,st,config,false,true));
+      det.appendChild(histStage);
+    }
+    return det;
+  }
+
   function countCompletedCicli(occupant, stage){
     var cicliData = occupant.cicli[stage.key];
     if(stage.type === "cicli"){
@@ -5793,17 +5990,37 @@
     }
     return null;
   }
-  function buildSubEntryLine(sub, eventoLabel, ottenutiLabel){
-    var out = "<i>" + eventoLabel + "</i> = " + forumBbUrl(sub.esitoLink, (sub.esitoText !== "" ? sub.esitoText : "Esito dado")) + "; " + sub.postRichiesti + " post\n";
-    var slots = [];
-    for(var i=0;i<sub.postRichiesti;i++){
-      var post = getPostByGlobalNo(sub.startIndex + i);
-      slots.push(post ? forumBbUrl(post.link, "Post " + (i+1)) : "Post " + (i+1));
+  function buildSubEntryLine(sub, eventoLabel, ottenutiLabel, options){
+    options=options||{};
+    sub=normalizeSubEntry(sub);
+    var pr=subEntryProgress(sub);
+    var out="<i>"+eventoLabel+"</i> = "+forumBbUrl(sub.esitoLink,(sub.esitoText!==""?sub.esitoText:"Esito dado"))+
+      "; n° post "+pr.filled+"/"+pr.total+"\n";
+
+    if(pr.total>0){
+      out+="<ol>";
+      for(var i=0;i<pr.total;i++){
+        var post=getPostByGlobalNo(sub.startIndex+i);
+        out+="<li>"+(post?forumBbUrl(post.link,"Post "+(i+1)):"Post "+(i+1))+"</li>";
+      }
+      out+="</ol>";
     }
-    out = out + slots.join(" - ");
-    if(ottenutiLabel){ out = out + "\n<u>" + ottenutiLabel + ":</u> " + sub.ottenuti; }
+
+    if(ottenutiLabel){
+      var resultParts=[];
+      if(options.isReproduction && String(sub.ottenutiQuantita||"").trim()!==""){
+        resultParts.push(String(sub.ottenutiQuantita).trim());
+      }
+      if(String(sub.ottenuti||"").trim()!==""){resultParts.push(String(sub.ottenuti).trim());}
+      var resultText=resultParts.join(" · ")||"//";
+      var obtainedLink=forumBbUrlOptional(sub.ottenutiLink,"qui");
+      if(obtainedLink){resultText=obtainedLink+" "+resultText;}
+      out+="\n<u>"+ottenutiLabel+":</u> "+resultText;
+    }
     return out;
   }
+
+
   function buildOccupantOutputLines(occupant, stages, config){
     var lines = [];
     var nomeConStato = occupant.morta ? occupant.nome + " (Deceduta/o)" : occupant.nome;
@@ -5819,7 +6036,7 @@
     lines.push("<b>\u2a2f Numero Cicli di Produzione/Riproduzione completati in ogni fase:</b>");
     for(var s=0;s<stages.length;s++){
       var st = stages[s];
-      if(st.type === "gestazione"){ continue; }
+      if(st.type === "gestazione" || st.type === "passaggio"){ continue; }
       var res = countCompletedCicli(occupant, st);
       if(st.type === "cicli"){ lines.push("- " + st.label + " " + res.completed + "/" + res.total + " Cicli di Produzione completati"); }
       if(st.type === "ripro"){ lines.push("- " + st.label + " " + res.completed + "/" + res.total + " Cicli di Produzione completati | " + res.reproDone + "/1 Riproduzione completata"); }
@@ -5835,13 +6052,14 @@
       var stage = stages[s2];
       var cicliData = occupant.cicli[stage.key];
       lines.push("<details><summary><u><b>\u2a2f " + stage.label + "</b></u></summary>");
-      if(stage.type === "gestazione"){ lines.push(buildSubEntryLine(cicliData.evento, "Gestazione", null)); }
+      if(stage.type === "passaggio"){ lines.push(buildSubEntryLine(cicliData.evento, "Passaggio alla Germinazione", null, {isReproduction:false})); }
+      if(stage.type === "gestazione"){ lines.push(buildSubEntryLine(cicliData.evento, "Gestazione / Schiusa", null, {isReproduction:true})); }
       if(stage.type === "cicli"){
-        for(var i=0;i<cicliData.list.length;i++){ lines.push(buildSubEntryLine(cicliData.list[i], "Ciclo di Produzione " + (i+1), "Ingredienti ottenuti")); lines.push(""); }
+        for(var i=0;i<cicliData.list.length;i++){ lines.push(buildSubEntryLine(cicliData.list[i], "Ciclo di Produzione " + (i+1), "Ingredienti ottenuti", {isReproduction:false})); lines.push(""); }
       }
       if(stage.type === "ripro"){
-        lines.push(buildSubEntryLine(cicliData.evento, "Riproduzione", stage.ottenuti)); lines.push("");
-        for(var j=0;j<cicliData.list.length;j++){ lines.push(buildSubEntryLine(cicliData.list[j], "Ciclo di Produzione " + (j+1), "Ingredienti ottenuti")); lines.push(""); }
+        lines.push(buildSubEntryLine(cicliData.evento, "Riproduzione", stage.ottenuti, {isReproduction:true})); lines.push("");
+        for(var j=0;j<cicliData.list.length;j++){ lines.push(buildSubEntryLine(cicliData.list[j], "Ciclo di Produzione " + (j+1), "Ingredienti ottenuti", {isReproduction:false})); lines.push(""); }
       }
       lines.push("</details>");
     }
