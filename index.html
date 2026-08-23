@@ -259,6 +259,15 @@
     font-size:.76rem;
     font-style:italic;
   }
+
+  /* Il reset globale del Tool forza system-ui con !important.
+     Ripristiniamo esplicitamente il font Font Awesome sulle icone. */
+  .fa-solid,
+  .fas{
+    font-family:"Font Awesome 6 Free" !important;
+    font-style:normal !important;
+    font-weight:900 !important;
+  }
   .structure-ui .repro-icon{
     display:inline-block;
     margin-right:6px;
@@ -270,6 +279,45 @@
     text-shadow:0 0 5px rgba(181,106,39,.24);
   }
   .structure-ui details.cycle-item + details.cycle-item{ margin-top:11px; }
+
+  /* Frecce delle tendine sempre sulla stessa riga, a sinistra del titolo */
+  .structure-ui details.entity-section > summary,
+  .structure-ui details.cycle-group > summary,
+  .structure-ui details.cycle-item > summary,
+  .structure-ui details.structure-archive > summary,
+  .structure-ui details.structure-shell > summary{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    list-style:none;
+  }
+  .structure-ui details.entity-section > summary::-webkit-details-marker,
+  .structure-ui details.cycle-group > summary::-webkit-details-marker,
+  .structure-ui details.cycle-item > summary::-webkit-details-marker,
+  .structure-ui details.structure-archive > summary::-webkit-details-marker,
+  .structure-ui details.structure-shell > summary::-webkit-details-marker{
+    display:none;
+  }
+  .structure-ui details.entity-section > summary::before,
+  .structure-ui details.cycle-group > summary::before,
+  .structure-ui details.cycle-item > summary::before,
+  .structure-ui details.structure-archive > summary::before,
+  .structure-ui details.structure-shell > summary::before{
+    content:"▶";
+    flex:0 0 auto;
+    width:1em;
+    text-align:center;
+    color:var(--green-dark);
+    font-size:.78em;
+    line-height:1;
+  }
+  .structure-ui details.entity-section[open] > summary::before,
+  .structure-ui details.cycle-group[open] > summary::before,
+  .structure-ui details.cycle-item[open] > summary::before,
+  .structure-ui details.structure-archive[open] > summary::before,
+  .structure-ui details.structure-shell[open] > summary::before{
+    content:"▼";
+  }
   .structure-ui .cycle-sections{ margin-top:10px; }
   .structure-ui .cycle-context{ margin:8px 0 10px; }
   .structure-ui .sub-entry{
