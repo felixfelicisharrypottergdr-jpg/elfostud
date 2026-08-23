@@ -8,6 +8,13 @@
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
 <link rel="preload" as="image" href="https://i.postimg.cc/6pKKxhkk/elfo-biblioteca.webp" fetchpriority="high">
 <style>
+  /* v118 - CB: l'aggiornamento/rimozione dei Premi a utilizzi
+     viene mostrato direttamente nella barra DA ACCREDITARE;
+     rimossi i riepiloghi separati dei Bonus a consumo sotto i Totali */
+
+  /* v117 - Utilizzi CB: solo l'ultimo uso è evidenziato come AGGIORNARE
+     oppure TERMINATO; gli utilizzi precedenti mostrano soltanto la progressione */
+
   /* v116 - Camera Blindata: colonna Utilizzi progressivi dopo Totale Bonus;
      stato AGGIORNARE/TERMINATO anche nel riepilogo; nessun flag duplicato nella colonna Utilizzi */
 
@@ -596,6 +603,13 @@
   }
   .cb-usage-line{
     margin:2px 0;
+  }
+  .cb-usage-plain{
+    display:inline-block;
+    padding:3px 6px;
+    font-size:.72rem;
+    font-weight:700;
+    color:var(--ink);
   }
   .cb-usage-badge,
   .cb-summary-usage-badge{
@@ -3561,6 +3575,13 @@
     }
     return {kind:"update",text:"AGGIORNARE — "+current+" utilizzi registrati"};
   }
+  function isLastUsagePostForBonus(b,posts,postIndex){
+    if(!b||b.modalita!=="posts"){return false;}
+    for(var i=postIndex+1;i<posts.length;i++){
+      if(postUsesLimitedBonus(posts[i],b)){return false;}
+    }
+    return postUsesLimitedBonus(posts[postIndex],b);
+  }
   function makeBonusUsageProgressCell(post,mese,posts,postIndex){
     var td=el("td","cb-usage-cell"),bonuses=activeMonthBonuses(mese),shown=0;
     for(var i=0;i<bonuses.length;i++){
@@ -3570,8 +3591,13 @@
       if(!progress){continue;}
       shown++;
       var line=el("div","cb-usage-line");
-      var label=bonusDisplayName(b,i)+": "+progress.label+" — "+(progress.kind==="exhausted"?"TERMINATO":"AGGIORNARE");
-      line.appendChild(el("span","cb-usage-badge "+progress.kind,label));
+      var baseLabel=bonusDisplayName(b,i)+": "+progress.label;
+      if(isLastUsagePostForBonus(b,posts,postIndex)){
+        var label=baseLabel+" — "+(progress.kind==="exhausted"?"TERMINATO":"AGGIORNARE");
+        line.appendChild(el("span","cb-usage-badge "+progress.kind,label));
+      }else{
+        line.appendChild(el("span","cb-usage-plain",baseLabel));
+      }
       td.appendChild(line);
     }
     if(!shown){td.appendChild(el("span","cb-bonus-none","—"));}
@@ -3589,6 +3615,28 @@
         out.push({kind:"remove",text:bonusDisplayName(b,i)+": "+current+"/"+b.maxUtilizzi+" — RIMUOVERE DAL BAGAGLIO IN SCHEDA PG."});
       }else{
         out.push({kind:"update",text:bonusDisplayName(b,i)+": aggiornare gli utilizzi nel Bagaglio da "+b.usatiIniziali+"/"+b.maxUtilizzi+" a "+current+"/"+b.maxUtilizzi+"."});
+      }
+    }
+    return out;
+  }
+  function bonusCreditObjectName(b,idx){
+    var name=String(b&&b.descrizione||"").trim();
+    return name||"Premio FT";
+  }
+  function bonusCreditUsageActions(mese,posts){
+    var bonuses=activeMonthBonuses(mese),out=[];
+    for(var i=0;i<bonuses.length;i++){
+      var b=bonuses[i];
+      if((b.modalita!=="posts"&&b.modalita!=="manual")||!(b.maxUtilizzi>0)){continue;}
+      var used=bonusUsedThisMonth(b,posts);
+      if(used<=0){continue;}
+      var start=Math.max(0,parseInt(b.usatiIniziali,10)||0);
+      var current=bonusCurrentUses(b,posts);
+      var name=bonusCreditObjectName(b,i);
+      if(current>=b.maxUtilizzi){
+        out.push("rimuovere "+name);
+      }else{
+        out.push(name+" "+start+"/"+b.maxUtilizzi+" → "+current+"/"+b.maxUtilizzi);
       }
     }
     return out;
@@ -4113,7 +4161,12 @@
       var socialLosses=currentSocialLossParts(totFilled);
       if(socialLosses.length)creditParts.push("Parametri Sociali: "+socialLosses.join(", "));
 
-      p.appendChild(el("div","cb-credit-alert","<b>DA ACCREDITARE — "+creditLabel+": </b><span class=\"cb-credit-values\">"+creditParts.join(" · ")+"</span>"));
+      var usageCreditActions=bonusCreditUsageActions(meseObj,postiDelMese);
+      var creditHtml="<b>DA ACCREDITARE — "+creditLabel+": </b><span class=\"cb-credit-values\">"+creditParts.join(" · ")+"</span>";
+      if(usageCreditActions.length){
+        creditHtml+=" <b>|</b> "+usageCreditActions.join(" <b>|</b> ");
+      }
+      p.appendChild(el("div","cb-credit-alert",creditHtml));
     }
     var totals = el("div", "totals");
     totals.appendChild(el("div", "box", "Totale Post<br><b>" + totFilled + "</b>"));
@@ -4123,6 +4176,7 @@
     var bonusItems=activeMonthBonuses(meseObj);
     for(var bsi=0;bsi<bonusItems.length;bsi++){
       var bi=bonusItems[bsi],parts=[],modeText="";
+      if(bi.modalita!=="all"){continue;}
       if(bi.modalita==="all"){
         if(bi.pp>0)parts.push("+"+bi.pp+" PP per post");
         if(bi.galeoni>0)parts.push("+"+bi.galeoni+" G per post");
