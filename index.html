@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Il Mio Elfo Domestico — Studente</title>
 <link rel="preconnect" href="https://i.postimg.cc">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
 <link rel="preload" as="image" href="https://i.postimg.cc/6pKKxhkk/elfo-biblioteca.webp" fetchpriority="high">
 <style>
   @font-face {font-family: 'magic';
@@ -244,6 +245,29 @@
     background:#f6d7d4;
     border:1px solid #b95a52;
     box-shadow:0 0 6px rgba(185,90,82,.18);
+  }
+  .structure-ui .cycle-status.queued{
+    color:#665a43;
+    background:#f2ead7;
+    border:1px solid #b7a47b;
+    box-shadow:0 0 5px rgba(128,96,42,.10);
+  }
+  .structure-ui .cycle-wait-note{
+    display:block;
+    margin:7px 0 2px;
+    color:#6d6048;
+    font-size:.76rem;
+    font-style:italic;
+  }
+  .structure-ui .repro-icon{
+    display:inline-block;
+    margin-right:6px;
+    color:#668a42;
+    text-shadow:0 0 5px rgba(102,138,66,.24);
+  }
+  .structure-ui .creature-card .repro-icon{
+    color:#b56a27;
+    text-shadow:0 0 5px rgba(181,106,39,.24);
   }
   .structure-ui details.cycle-item + details.cycle-item{ margin-top:11px; }
   .structure-ui .cycle-sections{ margin-top:10px; }
@@ -4807,10 +4831,12 @@
     var dLink = el("div"); dLink.appendChild(el("label", null, "Link esito dado"));
     var iLink = el("input"); iLink.type="text"; iLink.value = sub.esitoLink;
     iLink.addEventListener("input", function(){ sub.esitoLink = iLink.value; });
+    iLink.addEventListener("change", function(){ sub.esitoLink = iLink.value; renderAll(); });
     dLink.appendChild(iLink); row.appendChild(dLink);
     var dEsito = el("div"); dEsito.appendChild(el("label", null, "Esito (es. 100%)"));
     var iEsito = el("input"); iEsito.type="text"; iEsito.value = sub.esitoText;
     iEsito.addEventListener("input", function(){ sub.esitoText = iEsito.value; });
+    iEsito.addEventListener("change", function(){ sub.esitoText = iEsito.value; renderAll(); });
     dEsito.appendChild(iEsito); row.appendChild(dEsito);
     var dPost = el("div"); dPost.appendChild(el("label", null, "Post necessari"));
     var iPost = el("input"); iPost.type="number"; iPost.min="0"; iPost.value = sub.postRichiesti;
@@ -4831,6 +4857,7 @@
       var dOtt = el("div"); dOtt.appendChild(el("label", null, ottenutiLabel));
       var iOtt = el("input"); iOtt.type="text"; iOtt.value = sub.ottenuti;
       iOtt.addEventListener("input", function(){ sub.ottenuti = iOtt.value; });
+      iOtt.addEventListener("change", function(){ sub.ottenuti = iOtt.value; renderAll(); });
       dOtt.appendChild(iOtt); wrap.appendChild(dOtt);
       if(/Ingredienti/i.test(ottenutiLabel) && STRUTTURE.dispensa){
         if(sub.dispensaTransfer && sub.dispensaTransfer.done){
@@ -5023,36 +5050,144 @@
     return wrap;
   }
 
-  function buildCycleItemDetails(occupant, stage, config, sub, title, ottenutiLabel, keySuffix, showIra){
+  function subEntryStarted(sub){
+    if(!sub){return false;}
+    return !!(
+      String(sub.esitoLink||"").trim() ||
+      String(sub.esitoText||"").trim() ||
+      Math.max(0,num(sub.postRichiesti,0))>0 ||
+      String(sub.ottenuti||"").trim() ||
+      String(sub.iraResult||"").trim()
+    );
+  }
+
+  function cycleStatusInfo(sub, canStart){
+    if(subEntryFilled(sub)){return {key:"done",label:"TERMINATO"};}
+    if(canStart && subEntryStarted(sub)){return {key:"in-progress",label:"IN CORSO"};}
+    return {key:"queued",label:"A TURNO"};
+  }
+
+  function makeReproductionIcon(config){
+    var i=document.createElement("i");
+    i.className="fa-solid "+(config.tipoLabel==="Pianta"?"fa-leaf":"fa-egg")+" repro-icon";
+    i.setAttribute("aria-hidden","true");
+    return i;
+  }
+
+  function lockCycleUi(node){
+    if(!node||!node.querySelectorAll){return;}
+    var controls=node.querySelectorAll("input, select, button, textarea");
+    for(var i=0;i<controls.length;i++){controls[i].disabled=true;}
+  }
+
+  function buildCycleItemDetails(occupant, stage, config, sub, title, ottenutiLabel, keySuffix, showIra, options){
+    options=options||{};
+    var canStart=options.canStart!==false;
+    var isReproduction=!!options.isReproduction;
+
     var det=el("details","cycle-item");
     keepDetailsState(det,"ciclo:item:"+config.tipoLabel+":"+occupant.id+":"+stage.key+":"+keySuffix,false);
 
-    var done=subEntryFilled(sub);
+    var status=cycleStatusInfo(sub,canStart);
     var summary=el("summary");
     var summaryLine=el("span","cycle-summary-line");
-    summaryLine.appendChild(el("span",null,title));
-    summaryLine.appendChild(el("span","cycle-status "+(done?"done":"in-progress"),done?"TERMINATO":"IN CORSO"));
+    var titleSpan=el("span");
+    if(isReproduction){titleSpan.appendChild(makeReproductionIcon(config));}
+    titleSpan.appendChild(document.createTextNode(title));
+    summaryLine.appendChild(titleSpan);
+    summaryLine.appendChild(el("span","cycle-status "+status.key,status.label));
     summary.appendChild(summaryLine);
     det.appendChild(summary);
 
-    det.appendChild(buildSubEntryUI(sub,"<b>"+title+"</b>",ottenutiLabel));
-    if(showIra){det.appendChild(buildIraCheck(sub,occupant));}
+    var subUi=buildSubEntryUI(sub,"<b>"+title+"</b>",ottenutiLabel);
+    if(!canStart && !subEntryFilled(sub)){
+      lockCycleUi(subUi);
+      subUi.appendChild(el("span","cycle-wait-note","Completa prima il Ciclo precedente: questo è ancora a turno."));
+    }
+    det.appendChild(subUi);
+
+    if(showIra){
+      var iraUi=buildIraCheck(sub,occupant);
+      if(!canStart && !subEntryFilled(sub)){lockCycleUi(iraUi);}
+      det.appendChild(iraUi);
+    }
     return det;
   }
 
   function buildStageDetails(occupant, stage, config, defaultOpen){
-    var wrap=el("div","cycle-sections"); wrap.appendChild(el("p","small-note cycle-context","Fase attuale: <b>"+stage.label+"</b>. Le altre fasi restano salvate e ricompariranno automaticamente quando torneranno attive."));
-    var cicliData=occupant.cicli[stage.key]; var isCreatura=config.tipoLabel==="Creatura"; var altaClasse=occupant.classificazione==="XXXX"||occupant.classificazione==="XXXXX"; var mostraIra=isCreatura&&altaClasse;
+    var wrap=el("div","cycle-sections");
+    wrap.appendChild(el("p","small-note cycle-context","Fase attuale: <b>"+stage.label+"</b>. I Cicli di Produzione si svolgono uno per volta; Produzione e Riproduzione possono invece procedere contemporaneamente."));
+
+    var cicliData=occupant.cicli[stage.key];
+    var isCreatura=config.tipoLabel==="Creatura";
+    var altaClasse=occupant.classificazione==="XXXX"||occupant.classificazione==="XXXXX";
+    var mostraIra=isCreatura&&altaClasse;
+
     if(stage.type==="cicli"||stage.type==="ripro"){
-      var prod=el("details","cycle-group"); keepDetailsState(prod,"ciclo:produzione:"+config.tipoLabel+":"+occupant.id+":"+stage.key,false); prod.appendChild(el("summary",null,"Produzione"));
-      if(!cicliData.list.length){prod.appendChild(el("p","small-note","Nessun Ciclo di Produzione previsto per questa fase."));}
-      for(var i=0;i<cicliData.list.length;i++){prod.appendChild(buildCycleItemDetails(occupant,stage,config,cicliData.list[i],"Ciclo di Produzione "+(i+1),"Ingredienti ottenuti","prod-"+i,mostraIra));} wrap.appendChild(prod);
+      var prod=el("details","cycle-group");
+      keepDetailsState(prod,"ciclo:produzione:"+config.tipoLabel+":"+occupant.id+":"+stage.key,false);
+      prod.appendChild(el("summary",null,"Produzione"));
+
+      if(!cicliData.list.length){
+        prod.appendChild(el("p","small-note","Nessun Ciclo di Produzione previsto per questa fase."));
+      }
+
+      var previousCompleted=true;
+      for(var i=0;i<cicliData.list.length;i++){
+        var currentSub=cicliData.list[i];
+        prod.appendChild(buildCycleItemDetails(
+          occupant,stage,config,currentSub,
+          "Ciclo di Produzione "+(i+1),
+          "Ingredienti ottenuti",
+          "prod-"+i,
+          mostraIra,
+          {canStart:previousCompleted,isReproduction:false}
+        ));
+        if(!subEntryFilled(currentSub)){previousCompleted=false;}
+      }
+      wrap.appendChild(prod);
     }
+
     if(stage.type==="ripro"){
-      var rip=el("details","cycle-group"); keepDetailsState(rip,"ciclo:riproduzione:"+config.tipoLabel+":"+occupant.id+":"+stage.key,false); rip.appendChild(el("summary",null,"Riproduzione")); rip.appendChild(buildCycleItemDetails(occupant,stage,config,cicliData.evento,"Ciclo di Riproduzione 1",stage.ottenuti,"ripro",false)); wrap.appendChild(rip);
+      var rip=el("details","cycle-group");
+      keepDetailsState(rip,"ciclo:riproduzione:"+config.tipoLabel+":"+occupant.id+":"+stage.key,false);
+
+      var ripSummary=el("summary");
+      ripSummary.appendChild(makeReproductionIcon(config));
+      ripSummary.appendChild(document.createTextNode("Riproduzione"));
+      rip.appendChild(ripSummary);
+
+      /* La Riproduzione è indipendente dal turno dei Cicli di Produzione:
+         può essere svolta nello stesso periodo del Ciclo di Produzione attivo. */
+      rip.appendChild(buildCycleItemDetails(
+        occupant,stage,config,cicliData.evento,
+        "Ciclo di Riproduzione 1",
+        stage.ottenuti,
+        "ripro",
+        false,
+        {canStart:true,isReproduction:true}
+      ));
+      wrap.appendChild(rip);
     }
+
     if(stage.type==="gestazione"){
-      var gest=el("details","cycle-group"); keepDetailsState(gest,"ciclo:riproduzione:"+config.tipoLabel+":"+occupant.id+":"+stage.key,false); gest.appendChild(el("summary",null,"Riproduzione / Gestazione")); gest.appendChild(buildCycleItemDetails(occupant,stage,config,cicliData.evento,"Gestazione",null,"gestazione",false)); wrap.appendChild(gest);
+      var gest=el("details","cycle-group");
+      keepDetailsState(gest,"ciclo:riproduzione:"+config.tipoLabel+":"+occupant.id+":"+stage.key,false);
+
+      var gestSummary=el("summary");
+      gestSummary.appendChild(makeReproductionIcon(config));
+      gestSummary.appendChild(document.createTextNode("Riproduzione / Gestazione"));
+      gest.appendChild(gestSummary);
+
+      gest.appendChild(buildCycleItemDetails(
+        occupant,stage,config,cicliData.evento,
+        "Gestazione",
+        null,
+        "gestazione",
+        false,
+        {canStart:true,isReproduction:true}
+      ));
+      wrap.appendChild(gest);
     }
     return wrap;
   }
@@ -5153,7 +5288,8 @@
     if(!isCubicolo){var artiglBox=el("div","guide-text");artiglBox.innerHTML="<b>Rischio Artigliatite</b> — se un tuo PG subisce ONGame una ferita da taglio per via di una Creatura Magica, tira questo dado: la contrae se 1-3.";general.appendChild(artiglBox);}
     var d7=el("div");d7.appendChild(el("label",null,"Link descrizione"));var i7=el("input");i7.type="text";i7.value=FAC.descrizione||"";i7.placeholder="https://...";i7.addEventListener("input",function(){FAC.descrizione=i7.value;});d7.appendChild(i7);general.appendChild(d7);p.appendChild(general);
 
-    p.appendChild(el("h4","structure-section-title",config.tipoLabel==="Pianta"?"Piante presenti":"Creature presenti"));
+    var capienzaStud=ANNO_POSTI[STUDENTE.anno];
+    p.appendChild(el("h4","structure-section-title",(config.tipoLabel==="Pianta"?"Piante presenti":"Creature presenti")+" — "+LIST.length+"/"+capienzaStud));
     for(var i=0;i<LIST.length;i++){p.appendChild(buildOccupantCard(LIST[i],stages,config,LIST,ARCHIVIO));}
     var addBtn=el("button","action","+ Aggiungi "+config.tipoLabel);addBtn.addEventListener(EV,function(){if(LIST.length>=ANNO_POSTI[STUDENTE.anno]){alert("Hai già raggiunto il numero massimo consentito dal tuo Anno Scolastico.");return;}var o=newOccupant(stages);if(isCubicolo){piantaCounter=piantaCounter+1;o.id=piantaCounter;}else{creaturaCounter=creaturaCounter+1;o.id=creaturaCounter;}LIST.push(o);scheduleSave(0);renderAll();});p.appendChild(addBtn);
 
