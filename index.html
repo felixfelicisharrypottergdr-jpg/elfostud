@@ -73,6 +73,7 @@
 
   /* Serra/Cubicolo + Riserva/Recinto: link ottenimenti, quantità Riproduzione, progressi x/y, storico Fasi, riepilogo ed export numerato */
   /* Distillazione: campo «Spazio occupato nel Bagaglio» accanto all'Esito, incluso nell'esportazione */
+  /* Laboratorio: Uso della Bacchetta magica separato in un blocco autonomo tra Produzione e Distillazione */
   /* Laboratorio: Preparazione/Produzione/Distillazione in tendina chiusa; Imbottigliamento/Pulizia separato e aperto */
   /* Mesi archiviati: eliminazione definitiva disponibile al PG con controlli di sicurezza */
   /* I tuoi Post: più spazio attorno alle azioni principali */
@@ -5193,10 +5194,11 @@
 
     var prodBlock=el("div","lab-phase-block");
     prodBlock.appendChild(buildFaseRow(postaz,"prod","Produzione",true));
-    var wandBlock=el("div","lab-production-subblock");
-    wandBlock.appendChild(buildBacchettaRow(postaz));
-    prodBlock.appendChild(wandBlock);
     earlyPhases.appendChild(prodBlock);
+
+    var wandBlock=el("div","lab-phase-block");
+    wandBlock.appendChild(buildBacchettaRow(postaz));
+    earlyPhases.appendChild(wandBlock);
 
     var distBlock=el("div","lab-phase-block");
     distBlock.appendChild(buildDistillRow(postaz));
