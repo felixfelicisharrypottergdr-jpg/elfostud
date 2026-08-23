@@ -78,6 +78,164 @@
   .card{ border: 1px solid var(--gold); border-radius: 8px; padding: 13px 15px; margin-bottom: 15px; background: #fffdf5; }
   .card h3{ margin: 0 0 8px 0; color: var(--green-dark); display:flex; justify-content:space-between; align-items:center; font-size:1rem; }
   .divider{ border-top: 1px dashed var(--gold); margin: 12px 0; }
+  /* ==================================================== */
+  /* SERRA / RISERVA / LABORATORIO — layout strutturato    */
+  /* ==================================================== */
+  .structure-ui h2,
+  .structure-ui h4,
+  .structure-ui details > summary,
+  .structure-ui .structure-block-head{
+    font-variant:small-caps;
+    letter-spacing:.045em;
+  }
+  .structure-ui .structure-shell{
+    margin:20px 0;
+    border-width:2px;
+    border-radius:11px;
+    overflow:visible;
+  }
+  .structure-ui .structure-shell > summary{
+    padding:4px 2px 8px;
+    font-weight:800;
+    font-size:1.02rem;
+  }
+  .structure-ui .structure-general-block{
+    margin:16px 0 22px;
+    padding:15px 17px 18px;
+    border:1px solid var(--gold);
+    border-radius:9px;
+    background:rgba(255,255,255,.34);
+    box-shadow:0 3px 10px rgba(0,0,0,.07);
+  }
+  .structure-ui .structure-block-head{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    flex-wrap:wrap;
+    gap:10px;
+    margin:0 0 13px;
+    padding-bottom:9px;
+    border-bottom:1px solid rgba(128,96,42,.38);
+    color:var(--green-dark);
+    font-size:1rem;
+    font-weight:800;
+  }
+  .structure-ui .structure-block-head button{ margin-top:0; }
+  .structure-ui .structure-section-title{
+    margin:24px 0 12px;
+    padding-bottom:7px;
+    border-bottom:1px solid rgba(128,96,42,.38);
+    color:var(--green-dark);
+    font-weight:800;
+  }
+  .structure-ui .row{
+    display:grid;
+    grid-template-columns:repeat(auto-fit,minmax(205px,1fr));
+    gap:12px 16px;
+    align-items:end;
+  }
+  .structure-ui .row > div{ min-width:0; }
+  .structure-ui .row > div > label{
+    min-height:2.25em;
+    display:flex;
+    align-items:flex-end;
+    line-height:1.15;
+    margin-top:8px;
+  }
+  .structure-ui input[type=text],
+  .structure-ui input[type=number],
+  .structure-ui select{ min-height:36px; }
+  .structure-ui .entity-card{
+    margin:16px 0;
+    padding:16px 18px 18px;
+    border-width:1px;
+    box-shadow:0 4px 12px rgba(0,0,0,.08);
+  }
+  .structure-ui .entity-card h3{
+    gap:10px;
+    margin-bottom:13px;
+    padding-bottom:9px;
+    border-bottom:1px solid rgba(128,96,42,.30);
+  }
+  .structure-ui .entity-title{
+    font-size:1.08rem;
+    font-weight:900;
+    letter-spacing:.02em;
+  }
+  .structure-ui .entity-title.plant-title{
+    color:#2f7b35;
+    text-shadow:0 0 6px rgba(69,150,75,.38),0 0 12px rgba(69,150,75,.18);
+  }
+  .structure-ui .entity-title.creature-title{
+    color:#bd641e;
+    text-shadow:0 0 6px rgba(204,110,36,.38),0 0 12px rgba(204,110,36,.18);
+  }
+  .structure-ui .entity-title.potion-title{
+    color:#7441a4;
+    text-shadow:0 0 6px rgba(116,65,164,.42),0 0 12px rgba(116,65,164,.20);
+  }
+  .structure-ui .entity-title-meta{
+    display:block;
+    margin-top:2px;
+    color:#6b5f4a;
+    font-size:.72rem;
+    font-weight:600;
+    text-shadow:none;
+  }
+  .structure-ui .plant-class-x{background:#f0f8eb;border-color:#a8c89e;}
+  .structure-ui .plant-class-xx{background:#dcefd1;border-color:#7fa66c;}
+  .structure-ui .plant-class-xxx{background:#fff2bd;border-color:#c9a74d;}
+  .structure-ui .plant-class-xxxx{background:#ffe1b9;border-color:#d48b3c;}
+  .structure-ui .plant-class-xxxxx{background:#f6cbc7;border-color:#bb554e;}
+  .structure-ui details.entity-section,
+  .structure-ui details.cycle-group,
+  .structure-ui details.cycle-item,
+  .structure-ui details.structure-archive{
+    margin:12px 0;
+    border:1px solid rgba(128,96,42,.55);
+    border-radius:7px;
+    background:rgba(255,255,255,.32);
+    padding:8px 10px 10px;
+  }
+  .structure-ui details.entity-section > summary,
+  .structure-ui details.cycle-group > summary,
+  .structure-ui details.structure-archive > summary{
+    cursor:pointer;
+    font-weight:800;
+    padding:3px 2px;
+    color:var(--green-dark);
+  }
+  .structure-ui details.cycle-item{
+    margin:9px 0;
+    border-left-width:4px;
+    background:rgba(255,255,255,.48);
+  }
+  .structure-ui details.cycle-item > summary{
+    cursor:pointer;
+    font-weight:700;
+    padding:2px 1px 6px;
+  }
+  .structure-ui details.cycle-item + details.cycle-item{ margin-top:11px; }
+  .structure-ui .cycle-sections{ margin-top:10px; }
+  .structure-ui .cycle-context{ margin:8px 0 10px; }
+  .structure-ui .sub-entry{
+    margin:9px 0 3px;
+    padding:10px 11px;
+    border-top:1px solid rgba(128,96,42,.26);
+    background:rgba(255,255,255,.22);
+  }
+  .structure-ui .sub-entry:first-child{ border-top:0; }
+  .structure-ui .structure-actions{
+    display:flex;
+    flex-wrap:wrap;
+    gap:9px;
+    margin-top:12px;
+  }
+  .structure-ui .structure-actions button{ margin-top:0; }
+  @media(max-width:700px){
+    .structure-ui .row{ grid-template-columns:1fr; }
+    .structure-ui .row > div > label{ min-height:0; }
+  }
   table.posts{ width:100%; border-collapse: collapse; margin-top: 8px; font-size:.8rem; }
   table.posts th, table.posts td{ border:1px solid var(--gold); padding:5px 6px; text-align:left; }
   table.posts th{ background: var(--parch-dark); }
@@ -613,6 +771,7 @@
   /* v71 - Anno Scolastico: modifica sempre disponibile + promemoria confermabile ogni agosto */
   /* v70 - fix Camera Blindata Studente: rimosso riferimento a funzione solo Adulto */
   /* v69 - Da accreditare: riepilogo ultimo Post + evidenza valori */
+  /* Postazione / Cubicolo / Recinto: blocchi, colori entità, tendine Agenda/Cicli/Archivio e griglie allineate */
   /* Camera Blindata: Bonus «Tutti i post» senza checkbox; si applica automaticamente a ogni post valido */
   /* Camera Blindata: post.pp legacy ignorato; PP conteggiati solo dai Bonus correnti */
   /* Cronologia sessione: Annulla / Ripristina disponibile in tutte le interfacce del PG */
@@ -4349,110 +4508,60 @@
   }
 
   function renderPostazioneStep(container){
-    var p = el("div", "panel");
+    var p = el("div", "panel structure-ui");
     if(!STRUTTURE.postazione){
       p.appendChild(el("div", "guide-text", "Non hai attivato la Postazione nella schermata «Dati Personaggio e Strutture»."));
       container.appendChild(p); return;
     }
     p.appendChild(el("h2", null, "Dati della Postazione"));
-    p.appendChild(el("p", null, "<b>Posti disponibili:</b> " + ANNO_POSTI[STUDENTE.anno] + " (Anno " + STUDENTE.anno + ") \u2014 Classificazione sempre fra X e XXX."));
 
-    var d7 = el("div"); d7.appendChild(el("label", null, "Descrizione (facoltativa)"));
-    var ta = el("textarea"); ta.value = POSTAZIONE_FAC.descrizione;
-    ta.addEventListener("input", function(){ POSTAZIONE_FAC.descrizione = ta.value; });
-    d7.appendChild(ta); p.appendChild(d7);
+    var general=el("div","structure-general-block");
+    general.appendChild(el("div","structure-block-head","Dati generali della Postazione"));
+    general.appendChild(el("p", null, "<b>Posti disponibili:</b> " + ANNO_POSTI[STUDENTE.anno] + " (Anno " + STUDENTE.anno + ") — Classificazione sempre fra X e XXX."));
+    var d7=el("div");d7.appendChild(el("label",null,"Link descrizione"));var i7=el("input");i7.type="text";i7.value=POSTAZIONE_FAC.descrizione||"";i7.placeholder="https://...";i7.addEventListener("input",function(){POSTAZIONE_FAC.descrizione=i7.value;});d7.appendChild(i7);general.appendChild(d7);
+    p.appendChild(general);
 
-    p.appendChild(el("div", "divider"));
-    p.appendChild(el("h4", null, "Calderoni in lavorazione"));
+    p.appendChild(el("h4","structure-section-title","Pozioni / lavorazioni presenti"));
     for(var i=0;i<CALDERONI.length;i++){ p.appendChild(buildCalderoneCard(CALDERONI[i])); }
-    var addBtn = el("button", "action", "+ Aggiungi Calderone");
-    addBtn.addEventListener(EV, function(){
-      if(CALDERONI.length >= ANNO_POSTI[STUDENTE.anno]){
-        alert("Hai gi\u00e0 raggiunto il numero massimo di Pozioni contemporanee consentite dal tuo Anno Scolastico.");
-        return;
-      }
-      CALDERONI.push(newCalderone()); scheduleSave(0); renderAll();
+    var addBtn=el("button","action","+ Aggiungi Calderone");
+    addBtn.addEventListener(EV,function(){
+      if(CALDERONI.length>=ANNO_POSTI[STUDENTE.anno]){alert("Hai già raggiunto il numero massimo di Pozioni contemporanee consentite dal tuo Anno Scolastico.");return;}
+      CALDERONI.push(newCalderone());scheduleSave(0);renderAll();
     });
     p.appendChild(addBtn);
 
-    if(ARCHIVIO_CALDERONI.length){
-      var ad=el("details","stage"); keepDetailsState(ad,"postazione:archivio",false);
-      ad.appendChild(el("summary",null,"📦 Pozioni archiviate ("+ARCHIVIO_CALDERONI.length+")"));
-      for(var ap=0;ap<ARCHIVIO_CALDERONI.length;ap++){ (function(pz){
-        var lockedPz=archiveLocked(pz); var row=el("div","card"+(lockedPz?" archive-locked":"")); row.appendChild(el("b",null,(pz.nomePozione||("Postazione n°"+pz.numero))+" — "+(pz.classificazione||"")));
-        if(lockedPz){row.appendChild(el("div","archive-lock-note",archiveLockText(pz)));}
-        var restore=el("button","action small",lockedPz?"🔒 Consolidata":"Ripristina"); restore.disabled=lockedPz; restore.style.marginLeft="10px"; restore.addEventListener(EV,function(){ if(blockIfArchiveLocked(pz))return; ARCHIVIO_CALDERONI=ARCHIVIO_CALDERONI.filter(function(x){return x.id!==pz.id;}); pz._archivedAt=""; CALDERONI.push(pz); scheduleSave(0); renderAll(); }); row.appendChild(restore); ad.appendChild(row);
-      })(ARCHIVIO_CALDERONI[ap]); }
-      p.appendChild(ad);
-    }
-    p.appendChild(el("div", "divider"));
-
+    var ad=el("details","structure-archive");keepDetailsState(ad,"postazione:archivio",false);ad.appendChild(el("summary",null,"📦 Archivio Pozioni ("+ARCHIVIO_CALDERONI.length+")"));
+    if(!ARCHIVIO_CALDERONI.length){ad.appendChild(el("p","small-note","Nessuna Pozione archiviata."));}
+    for(var ap=0;ap<ARCHIVIO_CALDERONI.length;ap++){(function(pz){
+      var lockedPz=archiveLocked(pz);var row=el("div","card entity-card"+(lockedPz?" archive-locked":""));row.appendChild(el("div","entity-title potion-title",pz.nomePozione||("Postazione n°"+pz.numero)));row.appendChild(el("div","small-note","Postazione n°"+pz.numero+" · "+(pz.classificazione||"")));if(lockedPz){row.appendChild(el("div","archive-lock-note",archiveLockText(pz)));}
+      var restore=el("button","action small",lockedPz?"🔒 Consolidata":"Ripristina");restore.disabled=lockedPz;restore.addEventListener(EV,function(){if(blockIfArchiveLocked(pz))return;ARCHIVIO_CALDERONI=ARCHIVIO_CALDERONI.filter(function(x){return x.id!==pz.id;});pz._archivedAt="";CALDERONI.push(pz);scheduleSave(0);renderAll();});row.appendChild(restore);ad.appendChild(row);
+    })(ARCHIVIO_CALDERONI[ap]);}
+    p.appendChild(ad);
     container.appendChild(p);
   }
-
   function buildCalderoneCard(postaz){
-    var card = el("div", "card");
-    var h = el("h3");
-    h.appendChild(el("span", null, "Postazione n\u00b0" + postaz.numero));
-    var archP = el("button", "action small", "Archivia Pozione conclusa");
-    archP.addEventListener(EV, function(){ CALDERONI = CALDERONI.filter(function(x){ return x.id !== postaz.id; }); archiveStamp(postaz); ARCHIVIO_CALDERONI.push(postaz); scheduleSave(0); renderAll(); });
-    h.appendChild(archP);
-    var rm = el("button", "action danger small", "Rimuovi");
-    rm.addEventListener(EV, function(){ CALDERONI = CALDERONI.filter(function(x){ return x.id !== postaz.id; }); scheduleSave(0); renderAll(); });
-    h.appendChild(rm); card.appendChild(h);
+    var card=el("div","card entity-card potion-card");
+    var h=el("h3"); var titleWrap=el("span"); var potionName=postaz.nomePozione!==""?postaz.nomePozione:"Pozione da definire";
+    titleWrap.appendChild(el("span","entity-title potion-title",potionName)); titleWrap.appendChild(el("span","entity-title-meta","Postazione n°"+postaz.numero)); h.appendChild(titleWrap);
+    var actionWrap=el("div","structure-actions");
+    var archP=el("button","action small","Archivia Pozione conclusa"); archP.addEventListener(EV,function(){CALDERONI=CALDERONI.filter(function(x){return x.id!==postaz.id;});archiveStamp(postaz);ARCHIVIO_CALDERONI.push(postaz);scheduleSave(0);renderAll();}); actionWrap.appendChild(archP);
+    var rm=el("button","action danger small","Rimuovi"); rm.addEventListener(EV,function(){CALDERONI=CALDERONI.filter(function(x){return x.id!==postaz.id;});scheduleSave(0);renderAll();}); actionWrap.appendChild(rm); h.appendChild(actionWrap); card.appendChild(h);
 
-    var row0 = el("div", "row");
-    var dNum = el("div"); dNum.appendChild(el("label", null, "Numero Postazione"));
-    var iNum = el("input"); iNum.type="text"; iNum.value = postaz.numero;
-    iNum.addEventListener("change", function(){ postaz.numero = iNum.value; renderAll(); });
-    dNum.appendChild(iNum); row0.appendChild(dNum);
-    var dCol = el("div"); dCol.appendChild(el("label", null, "Colore intestazione"));
-    var iCol = el("input"); iCol.type="text"; iCol.value = postaz.colore;
-    iCol.addEventListener("input", function(){ postaz.colore = iCol.value; });
-    dCol.appendChild(iCol); row0.appendChild(dCol);
-    card.appendChild(row0);
+    var row0=el("div","row"); var dNum=el("div"); dNum.appendChild(el("label",null,"Numero Postazione")); var iNum=el("input"); iNum.type="text"; iNum.value=postaz.numero; iNum.addEventListener("change",function(){postaz.numero=iNum.value;renderAll();}); dNum.appendChild(iNum); row0.appendChild(dNum);
+    var dCol=el("div"); dCol.appendChild(el("label",null,"Colore intestazione nell'esportazione")); var iCol=el("input"); iCol.type="text"; iCol.value=postaz.colore; iCol.addEventListener("input",function(){postaz.colore=iCol.value;}); dCol.appendChild(iCol); row0.appendChild(dCol); card.appendChild(row0);
 
-    var row1 = el("div", "row");
-    var dDataT = el("div"); dDataT.appendChild(el("label", null, "Data di creazione (GG/MM/AAAA)"));
-    var iDataT = buildDateInput(postaz.dataTesto, function(v){ postaz.dataTesto = v; });
-    dDataT.appendChild(iDataT); row1.appendChild(dDataT);
-    var dDataL = el("div"); dDataL.appendChild(el("label", null, "Link della role (facoltativo)"));
-    var iDataL = el("input"); iDataL.type="text"; iDataL.value = postaz.dataLink;
-    iDataL.addEventListener("input", function(){ postaz.dataLink = iDataL.value; });
-    dDataL.appendChild(iDataL); row1.appendChild(dDataL);
-    card.appendChild(row1);
+    var row1=el("div","row"); var dDataT=el("div"); dDataT.appendChild(el("label",null,"Data di creazione (GG/MM/AAAA)")); var iDataT=buildDateInput(postaz.dataTesto,function(v){postaz.dataTesto=v;}); dDataT.appendChild(iDataT); row1.appendChild(dDataT);
+    var dDataL=el("div"); dDataL.appendChild(el("label",null,"Link della role")); var iDataL=el("input"); iDataL.type="text"; iDataL.value=postaz.dataLink; iDataL.addEventListener("input",function(){postaz.dataLink=iDataL.value;}); dDataL.appendChild(iDataL); row1.appendChild(dDataL); card.appendChild(row1);
 
-    var row2 = el("div", "row");
-    var dNome = el("div"); dNome.appendChild(el("label", null, "Nome Pozione"));
-    var iNome = el("input"); iNome.type="text"; iNome.value = postaz.nomePozione;
-    iNome.addEventListener("input", function(){ postaz.nomePozione = iNome.value; });
-    dNome.appendChild(iNome); row2.appendChild(dNome);
-    var dClass = el("div"); dClass.appendChild(el("label", null, "Classificazione"));
-    dClass.appendChild(buildSelect(CLASSI_STUD, postaz.classificazione, function(v){ postaz.classificazione = v; }));
-    row2.appendChild(dClass);
-    var dTipo = el("div"); dTipo.appendChild(el("label", null, "Tipologia"));
-    dTipo.appendChild(buildSelect(TIPOLOGIE, postaz.tipologia, function(v){ postaz.tipologia = v; }));
-    row2.appendChild(dTipo);
-    card.appendChild(row2);
+    var row2=el("div","row"); var dNome=el("div"); dNome.appendChild(el("label",null,"Nome Pozione")); var iNome=el("input"); iNome.type="text"; iNome.value=postaz.nomePozione; iNome.addEventListener("input",function(){postaz.nomePozione=iNome.value;}); iNome.addEventListener("change",function(){renderAll();}); dNome.appendChild(iNome); row2.appendChild(dNome);
+    var dClass=el("div"); dClass.appendChild(el("label",null,"Classificazione")); dClass.appendChild(buildSelect(CLASSI_STUD,postaz.classificazione,function(v){postaz.classificazione=v;})); row2.appendChild(dClass);
+    var dTipo=el("div"); dTipo.appendChild(el("label",null,"Tipologia")); dTipo.appendChild(buildSelect(TIPOLOGIE,postaz.tipologia,function(v){postaz.tipologia=v;})); row2.appendChild(dTipo); card.appendChild(row2);
 
-    var dOgg = el("div"); dOgg.appendChild(el("label", null, "Calderone e/o Oggetti utilizzati"));
-    var iOgg = el("input"); iOgg.type="text"; iOgg.value = postaz.calderoneOggetti;
-    iOgg.addEventListener("input", function(){ postaz.calderoneOggetti = iOgg.value; });
-    dOgg.appendChild(iOgg); card.appendChild(dOgg);
+    var dOgg=el("div"); dOgg.appendChild(el("label",null,"Calderone e/o Oggetti utilizzati")); var iOgg=el("input"); iOgg.type="text"; iOgg.value=postaz.calderoneOggetti; iOgg.addEventListener("input",function(){postaz.calderoneOggetti=iOgg.value;}); dOgg.appendChild(iOgg); card.appendChild(dOgg);
 
-    card.appendChild(el("div", "divider"));
-    card.appendChild(el("p", null, "<b>Fasi di creazione</b>"));
-    card.appendChild(buildFaseRow(postaz, "prep", "Preparazione degli Ingredienti", true));
-    card.appendChild(buildFaseRow(postaz, "prod", "Produzione", true));
-    card.appendChild(buildBacchettaRow(postaz));
-    card.appendChild(buildDistillRow(postaz));
-    card.appendChild(el("div", "divider"));
-    card.appendChild(buildImbottRow(postaz));
-    card.appendChild(el("div", "divider"));
-    card.appendChild(buildPostsFromSharedList(postaz));
+    var phases=el("details","entity-section"); keepDetailsState(phases,"postazione:fasi:"+postaz.id,false); phases.appendChild(el("summary",null,"Fasi di creazione")); phases.appendChild(buildFaseRow(postaz,"prep","Preparazione degli Ingredienti",true)); phases.appendChild(buildFaseRow(postaz,"prod","Produzione",true)); phases.appendChild(buildBacchettaRow(postaz)); phases.appendChild(buildDistillRow(postaz)); phases.appendChild(buildImbottRow(postaz)); phases.appendChild(buildPostsFromSharedList(postaz)); card.appendChild(phases);
     return card;
   }
-
   function buildFaseRow(postaz, prefix, label, hasValore){
     var wrap = el("div");
     wrap.appendChild(el("p", null, "<u>" + label + "</u>"));
@@ -4554,7 +4663,7 @@
   function buildPostazioneFacOutput(){
     var wrap = el("div");
     var lines = [];
-    if(POSTAZIONE_FAC.descrizione !== ""){ lines.push("<b>Descrizione:</b> " + POSTAZIONE_FAC.descrizione); }
+    if(POSTAZIONE_FAC.descrizione !== ""){ var postDesc=forumBbUrlOptional(POSTAZIONE_FAC.descrizione,"descrizione"); lines.push("<b>Link descrizione:</b> " + (postDesc||POSTAZIONE_FAC.descrizione)); }
     lines.push("<b>Numero di Posti disponibili:</b> " + ANNO_POSTI[STUDENTE.anno]);
 
     var listaLines = [];
@@ -4711,109 +4820,37 @@
     return wrap;
   }
   function buildOccupantCard(occupant, stages, config, listRef, archivioRef){
-    ensureOccupantStageData(occupant, stages);
-    var card = el("div", "card");
-    var h = el("h3");
-    var titoloCard = occupant.nome !== "" ? occupant.nome : ("Nuova " + config.tipoLabel);
-    if(occupant.morta){ titoloCard = titoloCard + " \u2020"; }
-    h.appendChild(el("span", null, titoloCard));
-    var rm = el("button", "action danger small", "Rimuovi");
-    rm.addEventListener(EV, function(){
-      var idx = listRef.indexOf(occupant);
-      if(idx > -1){ listRef.splice(idx, 1); }
-      scheduleSave(0); renderAll();
-    });
-    h.appendChild(rm); card.appendChild(h);
+    ensureOccupantStageData(occupant,stages);
+    var isPlant=config.tipoLabel==="Pianta";
+    var card=el("div","card entity-card "+(isPlant?"plant-card":"creature-card"));
+    if(isPlant){var cc=String(occupant.classificazione||"").toLowerCase();if(cc==="x"||cc==="xx"||cc==="xxx"||cc==="xxxx"||cc==="xxxxx"){card.classList.add("plant-class-"+cc);}}
+    var h=el("h3"); var titoloCard=occupant.nome!==""?occupant.nome:("Nuova "+config.tipoLabel); if(occupant.morta){titoloCard+=" †";} h.appendChild(el("span","entity-title "+(isPlant?"plant-title":"creature-title"),titoloCard));
+    var rm=el("button","action danger small","Rimuovi"); rm.addEventListener(EV,function(){var idx=listRef.indexOf(occupant);if(idx>-1){listRef.splice(idx,1);}scheduleSave(0);renderAll();}); h.appendChild(rm); card.appendChild(h);
 
-    var row1 = el("div", "row");
-    var dNome = el("div"); dNome.appendChild(el("label", null, "Nome " + config.tipoLabel));
-    var iNome = el("input"); iNome.type="text"; iNome.value = occupant.nome;
-    iNome.addEventListener("change", function(){ occupant.nome = iNome.value; renderAll(); });
-    dNome.appendChild(iNome); row1.appendChild(dNome);
-    var dData = el("div"); dData.appendChild(el("label", null, "Data ritrovamento/domesticazione (GG/MM/AAAA)"));
-    var iData = buildDateInput(occupant.dataTesto, function(v){ occupant.dataTesto = v; });
-    dData.appendChild(iData); row1.appendChild(dData);
-    var dDataL = el("div"); dDataL.appendChild(el("label", null, "Link del ritrovamento/domesticazione"));
-    var iDataL = el("input"); iDataL.type="text"; iDataL.value = occupant.dataLink || ""; iDataL.placeholder="Incolla qui il link completo della role";
-    function syncDataLink(){ occupant.dataLink = iDataL.value; scheduleSave(); }
-    iDataL.addEventListener("input", syncDataLink);
-    iDataL.addEventListener("change", syncDataLink);
-    iDataL.addEventListener("paste", function(){ setTimeout(syncDataLink, 0); });
-    dDataL.appendChild(iDataL); row1.appendChild(dDataL);
-    card.appendChild(row1);
+    var row1=el("div","row"); var dNome=el("div"); dNome.appendChild(el("label",null,"Nome "+config.tipoLabel)); var iNome=el("input"); iNome.type="text"; iNome.value=occupant.nome; iNome.addEventListener("change",function(){occupant.nome=iNome.value;renderAll();}); dNome.appendChild(iNome); row1.appendChild(dNome);
+    var dData=el("div"); dData.appendChild(el("label",null,"Data ritrovamento/domesticazione (GG/MM/AAAA)")); var iData=buildDateInput(occupant.dataTesto,function(v){occupant.dataTesto=v;}); dData.appendChild(iData); row1.appendChild(dData);
+    var dDataL=el("div"); dDataL.appendChild(el("label",null,"Link del ritrovamento/domesticazione")); var iDataL=el("input"); iDataL.type="text"; iDataL.value=occupant.dataLink||""; iDataL.placeholder="Incolla qui il link completo della role"; function syncDataLink(){occupant.dataLink=iDataL.value;scheduleSave();} iDataL.addEventListener("input",syncDataLink); iDataL.addEventListener("change",syncDataLink); iDataL.addEventListener("paste",function(){setTimeout(syncDataLink,0);}); dDataL.appendChild(iDataL); row1.appendChild(dDataL); card.appendChild(row1);
 
-    var row2 = el("div", "row");
-    var dClass = el("div"); dClass.appendChild(el("label", null, "Classificazione"));
-    dClass.appendChild(buildSelect(CLASSI_STUD, occupant.classificazione, function(v){ occupant.classificazione = v; }));
-    row2.appendChild(dClass);
-    var dClassL = el("div"); dClassL.appendChild(el("label", null, "Link Classificazione (facoltativo)"));
-    var iClassL = el("input"); iClassL.type="text"; iClassL.value = occupant.classificazioneLink;
-    iClassL.addEventListener("input", function(){ occupant.classificazioneLink = iClassL.value; });
-    dClassL.appendChild(iClassL); row2.appendChild(dClassL);
-    var dSpecie = el("div"); dSpecie.appendChild(el("label", null, config.specieLabel));
-    var iSpecie = el("input"); iSpecie.type="text"; iSpecie.value = occupant.specieSesso;
-    iSpecie.addEventListener("input", function(){ occupant.specieSesso = iSpecie.value; });
-    dSpecie.appendChild(iSpecie); row2.appendChild(dSpecie);
-    var dSpecieL = el("div"); dSpecieL.appendChild(el("label", null, "Link Specie (facoltativo)"));
-    var iSpecieL = el("input"); iSpecieL.type="text"; iSpecieL.value = occupant.specieLink;
-    iSpecieL.addEventListener("input", function(){ occupant.specieLink = iSpecieL.value; });
-    dSpecieL.appendChild(iSpecieL); row2.appendChild(dSpecieL);
-    var dParenti = el("div"); dParenti.appendChild(el("label", null, "Parenti"));
-    var iParenti = el("input"); iParenti.type="text"; iParenti.value = occupant.parenti;
-    iParenti.addEventListener("input", function(){ occupant.parenti = iParenti.value; });
-    dParenti.appendChild(iParenti); row2.appendChild(dParenti);
-    card.appendChild(row2);
+    var row2=el("div","row"); var dClass=el("div"); dClass.appendChild(el("label",null,"Classificazione")); dClass.appendChild(buildSelect(CLASSI_STUD,occupant.classificazione,function(v){occupant.classificazione=v;renderAll();})); row2.appendChild(dClass);
+    var dClassL=el("div"); dClassL.appendChild(el("label",null,"Link Classificazione")); var iClassL=el("input"); iClassL.type="text"; iClassL.value=occupant.classificazioneLink; iClassL.addEventListener("input",function(){occupant.classificazioneLink=iClassL.value;}); dClassL.appendChild(iClassL); row2.appendChild(dClassL);
+    var dSpecie=el("div"); dSpecie.appendChild(el("label",null,config.specieLabel)); var iSpecie=el("input"); iSpecie.type="text"; iSpecie.value=occupant.specieSesso; iSpecie.addEventListener("input",function(){occupant.specieSesso=iSpecie.value;}); dSpecie.appendChild(iSpecie); row2.appendChild(dSpecie);
+    var dSpecieL=el("div"); dSpecieL.appendChild(el("label",null,"Link Specie")); var iSpecieL=el("input"); iSpecieL.type="text"; iSpecieL.value=occupant.specieLink; iSpecieL.addEventListener("input",function(){occupant.specieLink=iSpecieL.value;}); dSpecieL.appendChild(iSpecieL); row2.appendChild(dSpecieL);
+    if(!isPlant){var dParenti=el("div"); dParenti.appendChild(el("label",null,"Parenti")); var iParenti=el("input"); iParenti.type="text"; iParenti.value=occupant.parenti; iParenti.addEventListener("input",function(){occupant.parenti=iParenti.value;}); dParenti.appendChild(iParenti); row2.appendChild(dParenti);} card.appendChild(row2);
 
-    var row3 = el("div", "row");
-    var dFase = el("div"); dFase.appendChild(el("label", null, "Fase vitale attuale"));
-    var stageLabels = [];
-    for(var si=0; si<stages.length; si++){ stageLabels.push(stages[si].label); }
-    dFase.appendChild(buildSelect(stageLabels, occupant.faseAttuale, function(v){
-      occupant.faseAttuale = canonicalStageLabel(stages, v);
-      occupant.faseHistory = [];
-      openStageDetails(occupant, stages, config, occupant.faseAttuale);
-      renderAll();
-    }));
-    row3.appendChild(dFase);
-    var dFaseL = el("div"); dFaseL.appendChild(el("label", null, "Link Fase vitale (facoltativo)"));
-    var iFaseL = el("input"); iFaseL.type="text"; iFaseL.value = occupant.faseLink;
-    iFaseL.addEventListener("input", function(){ occupant.faseLink = iFaseL.value; });
-    dFaseL.appendChild(iFaseL); row3.appendChild(dFaseL);
-    var dFaseData = el("div"); dFaseData.appendChild(el("label", null, "Data inizio fase attuale (GG/MM/AAAA)"));
-    var iFaseData = buildDateInput(occupant.faseDataInizio, function(v){ occupant.faseDataInizio = v; });
-    dFaseData.appendChild(iFaseData); row3.appendChild(dFaseData);
-    card.appendChild(row3);
+    var row3=el("div","row"); var dFase=el("div"); dFase.appendChild(el("label",null,"Fase vitale attuale")); var stageLabels=[]; for(var si=0;si<stages.length;si++){stageLabels.push(stages[si].label);} dFase.appendChild(buildSelect(stageLabels,occupant.faseAttuale,function(v){occupant.faseAttuale=canonicalStageLabel(stages,v);occupant.faseHistory=[];openStageDetails(occupant,stages,config,occupant.faseAttuale);renderAll();})); row3.appendChild(dFase);
+    var dFaseL=el("div"); dFaseL.appendChild(el("label",null,"Link Fase vitale")); var iFaseL=el("input"); iFaseL.type="text"; iFaseL.value=occupant.faseLink; iFaseL.addEventListener("input",function(){occupant.faseLink=iFaseL.value;}); dFaseL.appendChild(iFaseL); row3.appendChild(dFaseL);
+    var dFaseData=el("div"); dFaseData.appendChild(el("label",null,"Data inizio fase attuale (GG/MM/AAAA)")); var iFaseData=buildDateInput(occupant.faseDataInizio,function(v){occupant.faseDataInizio=v;}); dFaseData.appendChild(iFaseData); row3.appendChild(dFaseData); card.appendChild(row3);
 
-    var dNote = el("div"); dNote.appendChild(el("label", null, "Note"));
-    var iNote = el("input"); iNote.type="text"; iNote.value = occupant.note;
-    iNote.addEventListener("input", function(){ occupant.note = iNote.value; });
-    dNote.appendChild(iNote); card.appendChild(dNote);
+    var dNote=el("div"); dNote.appendChild(el("label",null,"Note")); var iNote=el("input"); iNote.type="text"; iNote.value=occupant.note; iNote.addEventListener("input",function(){occupant.note=iNote.value;}); dNote.appendChild(iNote); card.appendChild(dNote);
 
-    card.appendChild(el("div", "divider"));
-    card.appendChild(el("p", null, "<b>Agenda crescita OFF</b>"));
-    var agendaRow = el("div", "row");
-    for(var a=0;a<config.agendaLabels.length;a++){
-      (function(label){
-        var d = el("div"); d.appendChild(el("label", null, label));
-        var iAg = buildDateInput(occupant.agenda[label] || "", function(v){ occupant.agenda[label] = v; });
-        d.appendChild(iAg); agendaRow.appendChild(d);
-      })(config.agendaLabels[a]);
-    }
-    card.appendChild(agendaRow);
+    card.appendChild(buildAdvancementPanel(occupant,stages,listRef,archivioRef));
 
-    card.appendChild(el("div", "divider"));
-    card.appendChild(buildAdvancementPanel(occupant, stages, listRef, archivioRef));
+    var agendaDet=el("details","entity-section"); keepDetailsState(agendaDet,"agenda:"+config.tipoLabel+":"+occupant.id,false); agendaDet.appendChild(el("summary",null,"Agenda crescita OFF")); var agendaRow=el("div","row");
+    for(var a=0;a<config.agendaLabels.length;a++){(function(label){var d=el("div");d.appendChild(el("label",null,label));var iAg=buildDateInput(occupant.agenda[label]||"",function(v){occupant.agenda[label]=v;});d.appendChild(iAg);agendaRow.appendChild(d);})(config.agendaLabels[a]);} agendaDet.appendChild(agendaRow); card.appendChild(agendaDet);
 
-    card.appendChild(el("div", "divider"));
-    card.appendChild(el("p", null, "<b>Cicli di Produzione/Riproduzione</b>"));
-    card.appendChild(el("p", "small-note", "La tabella qui sotto viene scelta automaticamente dalla Fase vitale attuale. Quando cambi fase, la tabella precedente viene nascosta e compare soltanto quella della nuova fase: i dati già inseriti restano comunque salvati."));
-    var currentStageIdx = stageIndex(stages, occupant.faseAttuale);
-    if(currentStageIdx >= 0){
-      card.appendChild(buildStageDetails(occupant, stages[currentStageIdx], config, true));
-    }
+    var currentStageIdx=stageIndex(stages,occupant.faseAttuale); if(currentStageIdx>=0){card.appendChild(buildStageDetails(occupant,stages[currentStageIdx],config,false));}
     return card;
   }
-
   function nextStageLabel(stages, currentLabel){
     for(var i=0;i<stages.length;i++){
       if(stages[i].label === currentLabel){
@@ -4956,34 +4993,25 @@
     return wrap;
   }
 
-  function buildStageDetails(occupant, stage, config, defaultOpen){
-    var det = el("details", "stage");
-    keepDetailsState(det, "ciclo:" + config.tipoLabel + ":" + occupant.id + ":" + stage.key, !!defaultOpen);
-    det.appendChild(el("summary", null, "\u2a2f " + stage.label));
-    var cicliData = occupant.cicli[stage.key];
-    var isCreatura = config.tipoLabel === "Creatura";
-    var altaClasse = occupant.classificazione === "XXXX";
-    if(occupant.classificazione === "XXXXX"){ altaClasse = true; }
-    var mostraIra = false;
-    if(isCreatura){ if(altaClasse){ mostraIra = true; } }
+  function buildCycleItemDetails(occupant, stage, config, sub, title, ottenutiLabel, keySuffix, showIra){
+    var det=el("details","cycle-item"); keepDetailsState(det,"ciclo:item:"+config.tipoLabel+":"+occupant.id+":"+stage.key+":"+keySuffix,false); det.appendChild(el("summary",null,title)); det.appendChild(buildSubEntryUI(sub,"<b>"+title+"</b>",ottenutiLabel)); if(showIra){det.appendChild(buildIraCheck(sub,occupant));} return det;
+  }
 
-    if(stage.type === "gestazione"){
-      det.appendChild(buildSubEntryUI(cicliData.evento, "<i>Gestazione</i> \u2014 post necessari alla nascita", null));
+  function buildStageDetails(occupant, stage, config, defaultOpen){
+    var wrap=el("div","cycle-sections"); wrap.appendChild(el("p","small-note cycle-context","Fase attuale: <b>"+stage.label+"</b>. Le altre fasi restano salvate e ricompariranno automaticamente quando torneranno attive."));
+    var cicliData=occupant.cicli[stage.key]; var isCreatura=config.tipoLabel==="Creatura"; var altaClasse=occupant.classificazione==="XXXX"||occupant.classificazione==="XXXXX"; var mostraIra=isCreatura&&altaClasse;
+    if(stage.type==="cicli"||stage.type==="ripro"){
+      var prod=el("details","cycle-group"); keepDetailsState(prod,"ciclo:produzione:"+config.tipoLabel+":"+occupant.id+":"+stage.key,false); prod.appendChild(el("summary",null,"Produzione"));
+      if(!cicliData.list.length){prod.appendChild(el("p","small-note","Nessun Ciclo di Produzione previsto per questa fase."));}
+      for(var i=0;i<cicliData.list.length;i++){prod.appendChild(buildCycleItemDetails(occupant,stage,config,cicliData.list[i],"Ciclo di Produzione "+(i+1),"Ingredienti ottenuti","prod-"+i,mostraIra));} wrap.appendChild(prod);
     }
-    if(stage.type === "cicli"){
-      for(var i=0;i<cicliData.list.length;i++){
-        det.appendChild(buildSubEntryUI(cicliData.list[i], "<i>Ciclo di Produzione " + (i+1) + "</i>", "Ingredienti ottenuti"));
-        if(mostraIra){ det.appendChild(buildIraCheck(cicliData.list[i], occupant)); }
-      }
+    if(stage.type==="ripro"){
+      var rip=el("details","cycle-group"); keepDetailsState(rip,"ciclo:riproduzione:"+config.tipoLabel+":"+occupant.id+":"+stage.key,false); rip.appendChild(el("summary",null,"Riproduzione")); rip.appendChild(buildCycleItemDetails(occupant,stage,config,cicliData.evento,"Riproduzione",stage.ottenuti,"ripro",false)); wrap.appendChild(rip);
     }
-    if(stage.type === "ripro"){
-      det.appendChild(buildSubEntryUI(cicliData.evento, "<i>Riproduzione</i> \u2014 post necessari alla riproduzione", stage.ottenuti));
-      for(var j=0;j<cicliData.list.length;j++){
-        det.appendChild(buildSubEntryUI(cicliData.list[j], "<i>Ciclo di Produzione " + (j+1) + "</i>", "Ingredienti ottenuti"));
-        if(mostraIra){ det.appendChild(buildIraCheck(cicliData.list[j], occupant)); }
-      }
+    if(stage.type==="gestazione"){
+      var gest=el("details","cycle-group"); keepDetailsState(gest,"ciclo:riproduzione:"+config.tipoLabel+":"+occupant.id+":"+stage.key,false); gest.appendChild(el("summary",null,"Riproduzione / Gestazione")); gest.appendChild(buildCycleItemDetails(occupant,stage,config,cicliData.evento,"Gestazione",null,"gestazione",false)); wrap.appendChild(gest);
     }
-    return det;
+    return wrap;
   }
   function countCompletedCicli(occupant, stage){
     var cicliData = occupant.cicli[stage.key];
@@ -5020,7 +5048,7 @@
     lines.push("<b>\u2a2f Classificazione:</b> " + classTxt);
     var specieTxt = forumBbUrl(occupant.specieLink, occupant.specieSesso);
     lines.push("<b>\u2a2f " + config.specieLabel + ":</b> " + specieTxt);
-    lines.push("<b>\u2a2f Parenti:</b> " + occupant.parenti);
+    if(config.tipoLabel!=="Pianta"){ lines.push("<b>\u2a2f Parenti:</b> " + occupant.parenti); }
     var faseTxt = forumBbUrl(occupant.faseLink, occupant.faseAttuale);
     lines.push("<b>\u2a2f Fase vitale attuale e data di inizio:</b> " + faseTxt + ", " + occupant.faseDataInizio);
     lines.push("<b>\u2a2f Numero Cicli di Produzione/Riproduzione completati in ogni fase:</b>");
@@ -5065,121 +5093,39 @@
     var LIST = isCubicolo ? PIANTE : CREATURE;
     var ARCHIVIO = isCubicolo ? ARCHIVIO_PIANTE : ARCHIVIO_CREATURE;
     var stages = isCubicolo ? plantStages() : creatureStages();
-    var config = { tipoLabel: isCubicolo ? "Pianta" : "Creatura", agendaLabels: isCubicolo ? AGENDA_PLANT : AGENDA_CREATURE, specieLabel: isCubicolo ? "Specie, se nota" : "Specie e sesso, se noto" };
+    var config = { tipoLabel: isCubicolo ? "Pianta" : "Creatura", agendaLabels: isCubicolo ? AGENDA_PLANT : AGENDA_CREATURE, specieLabel: isCubicolo ? "Specie, se nota" : "Specie e sesso, se noto", showParenti: !isCubicolo };
     var struttAttiva = isCubicolo ? STRUTTURE.cubicolo : STRUTTURE.recinto;
     var titolo = isCubicolo ? "Cubicolo" : "Recinto";
-    var listaLabel = isCubicolo ? "Lista delle Piante nel Cubicolo" : "Lista delle Creature nel Recinto";
 
-    var p = el("div", "panel");
+    var p = el("div", "panel structure-ui");
     if(!struttAttiva){
       p.appendChild(el("div", "guide-text", "Non hai attivato il " + titolo + " nella schermata «Dati Personaggio e Strutture»."));
       container.appendChild(p); return;
     }
     p.appendChild(el("h2", null, "Dati del " + titolo));
-    p.appendChild(el("p", null, "<b>Posti disponibili:</b> " + ANNO_POSTI[STUDENTE.anno] + " (Anno " + STUDENTE.anno + ") \u2014 Classificazione sempre fra X e XXX."));
 
-    if(!isCubicolo){
-      var artiglBox = el("div", "guide-text");
-      artiglBox.innerHTML = "<b>Rischio Artigliatite</b> \u2014 se un tuo PG subisce ONGame una ferita da taglio per via di una Creatura Magica, tira questo dado: la contrae se 1-3.";
-      p.appendChild(artiglBox);
-      p.appendChild(el("div", "divider"));
-    }
+    var general=el("div","structure-general-block");
+    general.appendChild(el("div","structure-block-head","Dati generali del "+titolo));
+    general.appendChild(el("p",null,"<b>Posti disponibili:</b> "+ANNO_POSTI[STUDENTE.anno]+" (Anno "+STUDENTE.anno+") — Classificazione sempre fra X e XXX."));
+    if(!isCubicolo){var artiglBox=el("div","guide-text");artiglBox.innerHTML="<b>Rischio Artigliatite</b> — se un tuo PG subisce ONGame una ferita da taglio per via di una Creatura Magica, tira questo dado: la contrae se 1-3.";general.appendChild(artiglBox);}
+    var d7=el("div");d7.appendChild(el("label",null,"Link descrizione"));var i7=el("input");i7.type="text";i7.value=FAC.descrizione||"";i7.placeholder="https://...";i7.addEventListener("input",function(){FAC.descrizione=i7.value;});d7.appendChild(i7);general.appendChild(d7);p.appendChild(general);
 
-    var d7 = el("div"); d7.appendChild(el("label", null, "Descrizione (facoltativa)"));
-    var ta = el("textarea"); ta.value = FAC.descrizione;
-    ta.addEventListener("input", function(){ FAC.descrizione = ta.value; });
-    d7.appendChild(ta); p.appendChild(d7);
+    p.appendChild(el("h4","structure-section-title",config.tipoLabel==="Pianta"?"Piante presenti":"Creature presenti"));
+    for(var i=0;i<LIST.length;i++){p.appendChild(buildOccupantCard(LIST[i],stages,config,LIST,ARCHIVIO));}
+    var addBtn=el("button","action","+ Aggiungi "+config.tipoLabel);addBtn.addEventListener(EV,function(){if(LIST.length>=ANNO_POSTI[STUDENTE.anno]){alert("Hai già raggiunto il numero massimo consentito dal tuo Anno Scolastico.");return;}var o=newOccupant(stages);if(isCubicolo){piantaCounter=piantaCounter+1;o.id=piantaCounter;}else{creaturaCounter=creaturaCounter+1;o.id=creaturaCounter;}LIST.push(o);scheduleSave(0);renderAll();});p.appendChild(addBtn);
 
-    p.appendChild(el("div", "divider"));
-    p.appendChild(el("h4", null, config.tipoLabel === "Pianta" ? "Piante presenti" : "Creature presenti"));
-    for(var i=0;i<LIST.length;i++){ p.appendChild(buildOccupantCard(LIST[i], stages, config, LIST, ARCHIVIO)); }
-    var addBtn = el("button", "action", "+ Aggiungi " + config.tipoLabel);
-    addBtn.addEventListener(EV, function(){
-      if(LIST.length >= ANNO_POSTI[STUDENTE.anno]){
-        alert("Hai gi\u00e0 raggiunto il numero massimo consentito dal tuo Anno Scolastico.");
-        return;
-      }
-      var o = newOccupant(stages);
-      if(isCubicolo){ piantaCounter = piantaCounter + 1; o.id = piantaCounter; }
-      else { creaturaCounter = creaturaCounter + 1; o.id = creaturaCounter; }
-      LIST.push(o);
-      scheduleSave(0); renderAll();
-    });
-    p.appendChild(addBtn);
+    if(!isCubicolo){var med=el("details","entity-section");keepDetailsState(med,"recinto:medicheria",false);med.appendChild(el("summary",null,"Medicheria — 1 Creatura di passaggio"));var card=el("div","card entity-card creature-card");var row=el("div","row");var d1=el("div");d1.appendChild(el("label",null,"Nome"));var im1=el("input");im1.type="text";im1.value=MEDICHERIA.nome;im1.addEventListener("input",function(){MEDICHERIA.nome=im1.value;});d1.appendChild(im1);row.appendChild(d1);var d2=el("div");d2.appendChild(el("label",null,"Specie"));var im2=el("input");im2.type="text";im2.value=MEDICHERIA.specie;im2.addEventListener("input",function(){MEDICHERIA.specie=im2.value;});d2.appendChild(im2);row.appendChild(d2);var d3=el("div");d3.appendChild(el("label",null,"Classificazione"));d3.appendChild(buildSelect(CLASSI_STUD,MEDICHERIA.classificazione,function(v){MEDICHERIA.classificazione=v;}));row.appendChild(d3);var d4=el("div");d4.appendChild(el("label",null,"Link abitacolo"));var im4=el("input");im4.type="text";im4.value=MEDICHERIA.link;im4.addEventListener("input",function(){MEDICHERIA.link=im4.value;});d4.appendChild(im4);row.appendChild(d4);card.appendChild(row);med.appendChild(card);p.appendChild(med);}
 
-    if(!isCubicolo){
-      p.appendChild(el("div", "divider"));
-      p.appendChild(el("h4", null, "Medicheria (1 sola Creatura di passaggio)"));
-      var card = el("div", "card");
-      var row = el("div", "row");
-      var d1 = el("div"); d1.appendChild(el("label", null, "Nome"));
-      var i1 = el("input"); i1.type="text"; i1.value = MEDICHERIA.nome;
-      i1.addEventListener("input", function(){ MEDICHERIA.nome = i1.value; });
-      d1.appendChild(i1); row.appendChild(d1);
-      var d2 = el("div"); d2.appendChild(el("label", null, "Specie"));
-      var i2 = el("input"); i2.type="text"; i2.value = MEDICHERIA.specie;
-      i2.addEventListener("input", function(){ MEDICHERIA.specie = i2.value; });
-      d2.appendChild(i2); row.appendChild(d2);
-      var d3 = el("div"); d3.appendChild(el("label", null, "Classificazione"));
-      d3.appendChild(buildSelect(CLASSI_STUD, MEDICHERIA.classificazione, function(v){ MEDICHERIA.classificazione = v; }));
-      row.appendChild(d3);
-      var d4 = el("div"); d4.appendChild(el("label", null, "Link abitacolo"));
-      var i4 = el("input"); i4.type="text"; i4.value = MEDICHERIA.link;
-      i4.addEventListener("input", function(){ MEDICHERIA.link = i4.value; });
-      d4.appendChild(i4); row.appendChild(d4);
-      card.appendChild(row);
-      p.appendChild(card);
-    }
-
-    p.appendChild(el("div", "divider"));
-    p.appendChild(el("h4", null, "Archivio (" + (config.tipoLabel === "Pianta" ? "Piante decedute" : "Creature decedute") + ")"));
-    if(ARCHIVIO.length === 0){
-      p.appendChild(el("p", "small-note", "Nessuna " + (config.tipoLabel === "Pianta" ? "pianta" : "creatura") + " nell'archivio."));
-    }
-    for(var ai=0; ai<ARCHIVIO.length; ai++){
-      (function(occ){
-        var lockedOcc=archiveLocked(occ);
-        var archCard = el("div", "card" + (lockedOcc ? " archive-locked" : ""));
-        var ah = el("h3");
-        ah.appendChild(el("span", null, (occ.nome !== "" ? occ.nome : "(senza nome)") + " †"));
-        var btnGroup = el("div");
-        var btnRestore = el("button", "action small", lockedOcc ? "🔒 Consolidata" : "Ripristina"); btnRestore.disabled=lockedOcc;
-        btnRestore.addEventListener(EV, function(){
-          if(blockIfArchiveLocked(occ)){ return; }
-          occ.morta = false; occ._archivedAt="";
-          var idx = ARCHIVIO.indexOf(occ);
-          if(idx > -1){ ARCHIVIO.splice(idx, 1); }
-          LIST.push(occ);
-          scheduleSave(0); renderAll();
-        });
-        btnGroup.appendChild(btnRestore);
-        var btnDelete = el("button", "action danger small", "Elimina definitivamente"); btnDelete.disabled=lockedOcc;
-        btnDelete.addEventListener(EV, function(){
-          if(blockIfArchiveLocked(occ)){ return; }
-          var nomeOcc=occ.nome!==""?occ.nome:(config.tipoLabel+" senza nome");
-          if(!confirm("Eliminare definitivamente dall’Archivio «"+nomeOcc+"»?\n\nL’operazione verrà comunque protetta da uno snapshot automatico prima del salvataggio.")){ return; }
-          var idx2 = ARCHIVIO.indexOf(occ);
-          if(idx2 > -1){ ARCHIVIO.splice(idx2, 1); }
-          scheduleSave(0); renderAll();
-        });
-        btnGroup.appendChild(btnDelete);
-        ah.appendChild(btnGroup);
-        archCard.appendChild(ah);
-        if(lockedOcc){archCard.appendChild(el("div","archive-lock-note",archiveLockText(occ)));}
-        archCard.appendChild(el("p", "small-note", "Classificazione " + occ.classificazione + " — ultima fase: " + occ.faseAttuale));
-        p.appendChild(archCard);
-      })(ARCHIVIO[ai]);
-    }
-
-    p.appendChild(el("div", "divider"));
-
+    var arch=el("details","structure-archive");keepDetailsState(arch,(isCubicolo?"cubicolo:":"recinto:")+"archivio",false);arch.appendChild(el("summary",null,"📦 Archivio — "+(config.tipoLabel==="Pianta"?"Piante decedute":"Creature decedute")+" ("+ARCHIVIO.length+")"));
+    if(!ARCHIVIO.length){arch.appendChild(el("p","small-note","Nessuna "+(config.tipoLabel==="Pianta"?"pianta":"creatura")+" nell'archivio."));}
+    for(var ai=0;ai<ARCHIVIO.length;ai++){(function(occ){var lockedOcc=archiveLocked(occ);var archCard=el("div","card entity-card"+(lockedOcc?" archive-locked":""));var ah=el("h3");ah.appendChild(el("span","entity-title "+(isCubicolo?"plant-title":"creature-title"),(occ.nome!==""?occ.nome:"(senza nome)")+" †"));var btnGroup=el("div","structure-actions");var btnRestore=el("button","action small",lockedOcc?"🔒 Consolidata":"Ripristina");btnRestore.disabled=lockedOcc;btnRestore.addEventListener(EV,function(){if(blockIfArchiveLocked(occ)){return;}occ.morta=false;occ._archivedAt="";var idx=ARCHIVIO.indexOf(occ);if(idx>-1){ARCHIVIO.splice(idx,1);}LIST.push(occ);scheduleSave(0);renderAll();});btnGroup.appendChild(btnRestore);var btnDelete=el("button","action danger small","Elimina definitivamente");btnDelete.disabled=lockedOcc;btnDelete.addEventListener(EV,function(){if(blockIfArchiveLocked(occ)){return;}var nomeOcc=occ.nome!==""?occ.nome:(config.tipoLabel+" senza nome");if(!confirm("Eliminare definitivamente dall’Archivio «"+nomeOcc+"»?\n\nL’operazione verrà comunque protetta da uno snapshot automatico prima del salvataggio.")){return;}var idx2=ARCHIVIO.indexOf(occ);if(idx2>-1){ARCHIVIO.splice(idx2,1);}scheduleSave(0);renderAll();});btnGroup.appendChild(btnDelete);ah.appendChild(btnGroup);archCard.appendChild(ah);if(lockedOcc){archCard.appendChild(el("div","archive-lock-note",archiveLockText(occ)));}archCard.appendChild(el("p","small-note","Classificazione "+occ.classificazione+" — ultima fase: "+occ.faseAttuale));arch.appendChild(archCard);})(ARCHIVIO[ai]);}
+    p.appendChild(arch);
     container.appendChild(p);
   }
-
   function buildFacilityOutput(FAC, LIST, ARCHIVIO, stages, config, listaLabel, isCubicolo){
     var wrap = el("div");
     var lines = [];
-    if(FAC.descrizione !== ""){ lines.push("<b>Descrizione:</b> " + FAC.descrizione); }
+    if(FAC.descrizione !== ""){ var facDesc=forumBbUrlOptional(FAC.descrizione,"descrizione"); lines.push("<b>Link descrizione:</b> " + (facDesc||FAC.descrizione)); }
     lines.push("<b>Numero di posti disponibili:</b> " + ANNO_POSTI[STUDENTE.anno]);
 
     var listaLines = [];
