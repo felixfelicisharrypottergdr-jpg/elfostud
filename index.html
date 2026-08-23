@@ -1411,39 +1411,6 @@
     return getDoc(doc(fbDb, PERSON_COLLECTION, pgId)).then(function(snap){ return snap.exists() ? snap.data() : null; });
   };
 
-  window.fbDeleteOwnPg = function(pgId, expectedRevision){
-    var ref = doc(fbDb, PERSON_COLLECTION, pgId);
-    var expected = Math.max(0, parseInt(expectedRevision,10) || 0);
-    return runTransaction(fbDb, async function(tx){
-      var snap = await tx.get(ref);
-      if(!snap.exists()){ return {alreadyMissing:true}; }
-      var cur = snap.data() || {};
-      if(cur._deleted){ return {alreadyDeleted:true}; }
-
-      var remoteRevision = Math.max(0, parseInt(cur._dbRevision,10) || 0);
-      if(remoteRevision !== expected){ throw new Error("revision-conflict"); }
-
-      tx.set(ref, {
-        _deleted:true,
-        _archiviato:true,
-        _cleanupPending:true,
-        _pgName:pgId,
-        _schemaVersion:Math.max(25,parseInt(cur._schemaVersion,10)||0),
-        _dbRevision:remoteRevision+1,
-        _deletedAt:serverTimestamp(),
-        _deletedBy:"pg",
-        _lastModifiedAt:serverTimestamp(),
-        _lastModifiedBy:"pg",
-        _lastSessionId:"",
-        _lastAction:"PG eliminato dal proprietario tramite il Tool"
-      });
-      return {deleted:true};
-    }).then(function(){ return {ok:true}; }).catch(function(e){
-      console.error(e);
-      return {ok:false,code:e&&e.message?e.message:(e&&e.code?e.code:"error")};
-    });
-  };
-
   window.fbGetAccrediti = function(pgId){
     var accCollection = PERSON_COLLECTION === "personaggi_adulti" ? "accrediti_adulti" : "accrediti_studenti";
     return getDoc(doc(fbDb, accCollection, pgId)).then(function(snap){ return snap.exists() ? snap.data() : {}; });
@@ -2080,7 +2047,12 @@
     for(var i=nodes.length-1;i>=0;i--){
       var node=nodes[i];
       if(!allowed[node.tagName]){ node.replaceWith(document.createTextNode(node.textContent || "")); continue; }
+      /* Mantieni soltanto le classi interne realmente usate dal Tool.
+         Tutti gli altri attributi e classi inseriti nei dati vengono eliminati. */
+      var safeSpanClasses={"cb-credit-values":1,"dispensa-block-number":1,"dispensa-block-label":1};
+      var safeClass=node.tagName==="SPAN"?String(node.getAttribute("class")||"").split(/\s+/).filter(function(c){return !!safeSpanClasses[c];}).join(" "):"";
       while(node.attributes.length){ node.removeAttribute(node.attributes[0].name); }
+      if(safeClass){ node.setAttribute("class",safeClass); }
     }
     return template.innerHTML;
   }
@@ -2547,7 +2519,7 @@
   function historyUserSnapshot(){
     var st=cloneHistoryState(collectState());
     /* Metadati tecnici Firebase non devono mai tornare indietro. */
-    ["_schemaVersion","_dbRevision","_pgName","_lastModifiedAt","_lastModifiedBy","_lastSessionId","_archiveUnlockUntil","_archiviato"].forEach(function(k){delete st[k];});
+    ["_schemaVersion","_dbRevision","_pgName","_lastModifiedAt","_lastModifiedBy","_lastSessionId","_archiveUnlockUntil","_archiviato","RICHIESTA_ELIMINAZIONE"].forEach(function(k){delete st[k];});
     return st;
   }
 
@@ -2634,6 +2606,7 @@
       lastNarratorAction:LAST_NARRATOR_ACTION,
       archiveUnlockUntil:ARCHIVE_UNLOCK_UNTIL,
       pgArchiviato:PG_ARCHIVIATO,
+      deletionRequested:DELETE_REQUESTED,
       forcePersist:FORCE_PERSIST_SAVE,
       conflictLocked:SAVE_CONFLICT_LOCKED,
       openDetails:cloneHistoryState(OPEN_DETAILS),
@@ -2650,6 +2623,7 @@
     merged._lastSessionId=keep.lastSessionId;
     merged._archiveUnlockUntil=keep.archiveUnlockUntil;
     merged._archiviato=keep.pgArchiviato;
+    merged.RICHIESTA_ELIMINAZIONE=keep.deletionRequested;
 
     HISTORY_RESTORING=true;
     applyState(merged);
@@ -2668,6 +2642,7 @@
     LAST_NARRATOR_ACTION=keep.lastNarratorAction;
     ARCHIVE_UNLOCK_UNTIL=keep.archiveUnlockUntil;
     PG_ARCHIVIATO=keep.pgArchiviato;
+    DELETE_REQUESTED=keep.deletionRequested;
     FORCE_PERSIST_SAVE=keep.forcePersist;
     SAVE_CONFLICT_LOCKED=keep.conflictLocked;
     OPEN_DETAILS=keep.openDetails||{};
@@ -5365,7 +5340,7 @@
     for(var n=0;n<CALDERONI.length;n++){
       var postaz = CALDERONI[n];
       lines.push("");
-      lines.push("[color=#7441a4]<b>Postazione n\\u00b0" + postaz.numero + "</b>[/color]");
+      lines.push("[color=#7441a4]<b>Postazione n°" + postaz.numero + "</b>[/color]");
       lines.push("<b>\u2a2f Data di creazione e link della role, se presente:</b> " + forumBbUrl(postaz.dataLink, postaz.dataTesto));
       lines.push("<b>\u2a2f Nome Pozione e Classificazione:</b> " + postaz.nomePozione + ", " + postaz.classificazione);
       lines.push("<b>\u2a2f Tipologia:</b> " + postaz.tipologia);
@@ -6209,6 +6184,20 @@
     var genBtn = el("button", "action", "Genera pacchetto di trasferimento");
     var outWrap = el("div"); outWrap.id = "esporta-out";
     genBtn.addEventListener(EV, function(){
+      recomputePosts();
+      var duplicateGlobals=duplicateGlobalNumbers();
+      if(duplicateGlobals.length){
+        alert("Non posso generare il trasferimento: sono presenti numeri globali duplicati ("+duplicateGlobals.join(", ")+"). Chiedi al Narratore di verificarli prima di passare il PG al Tool Adulti, così non vengono trasferiti riferimenti ambigui.");
+        return;
+      }
+      var activeRefs=collectActiveGlobalPostReferences(),missingPastRefs=[];
+      Object.keys(activeRefs).forEach(function(k){var n=parseInt(k,10);if(n>0&&n<=globalPostCounter&&!getPostByGlobalNo(n)){missingPastRefs.push(n);}});
+      missingPastRefs.sort(function(a,b){return a-b;});
+      if(missingPastRefs.length){
+        var shown=missingPastRefs.slice(0,12).join(", ")+(missingPastRefs.length>12?" …":"");
+        alert("Non posso generare il trasferimento: alcune lavorazioni fanno ancora riferimento a Post globali non più disponibili ("+shown+"). Prima del passaggio ad Adulto, fai verificare questi riferimenti al Narratore.");
+        return;
+      }
       var payload = { transferVersion:2, sourcePg:STUDENTE.nome, mesi: MESI, globalPostCounter: globalPostCounter };
       if(opts.calderoni){ payload.calderoni = CALDERONI; payload.archivioCalderoni = ARCHIVIO_CALDERONI; }
       if(opts.piante){ payload.piante = PIANTE; payload.archivioPiante = ARCHIVIO_PIANTE; }
