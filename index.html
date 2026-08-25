@@ -551,6 +551,35 @@
     margin-top:12px;
   }
   .structure-ui .structure-actions button{ margin-top:0; }
+
+  /* Importazione rapida Creatura: testo strutturato -> campi Riserva/Recinto */
+  .structure-ui .creature-import-box{
+    margin:16px 0 20px;
+    padding:10px 12px 13px;
+    border:1px solid rgba(194,122,54,.58);
+    border-left:4px solid #c27a36;
+    border-radius:8px;
+    background:rgba(255,248,237,.56);
+  }
+  .structure-ui .creature-import-box > summary{
+    cursor:pointer;
+    font-weight:900;
+    color:var(--green-dark);
+  }
+  .structure-ui .creature-import-box textarea{
+    min-height:145px;
+    margin-top:8px;
+    line-height:1.45;
+    white-space:pre-wrap;
+  }
+  .structure-ui .creature-import-box .creature-import-actions{
+    display:flex;
+    flex-wrap:wrap;
+    gap:9px;
+    align-items:center;
+    margin-top:9px;
+  }
+  .structure-ui .creature-import-box .creature-import-actions button{ margin-top:0; }
   @media(max-width:700px){
     .structure-ui .row{ grid-template-columns:1fr; }
     .structure-ui .row > div > label{ min-height:0; }
@@ -5457,6 +5486,170 @@
     var pr=subEntryProgress(sub);
     return pr.total>0 && pr.filled>=pr.total;
   }
+
+
+  /* Importazione rapida di una o più Creature da testo strutturato. */
+  function cleanCreatureImportValue(value){
+    var s=String(value==null?"":value).trim();
+    if(!s){return "";}
+    var noDashes=s.replace(/[\u2013\u2014-]/g,"").trim().toLowerCase();
+    if(noDashes==="" || noDashes==="da compilare"){return "";}
+    return s;
+  }
+
+  function creatureImportLabelKey(label){
+    var s=String(label||"").toLowerCase().replace(/\s+/g," ").trim();
+    if(s==="destinazione"){return "destinazione";}
+    if(s==="nome"){return "nome";}
+    if(/^data\s*\/\s*riferimento$/.test(s)){return "dataRiferimento";}
+    if(s==="link principale"){return "linkPrincipale";}
+    if(s==="classificazione"){return "classificazione";}
+    if(s==="link classificazione"){return "classificazioneLink";}
+    if(/^specie\s*\/\s*sesso$/.test(s)){return "specieSesso";}
+    if(s==="link specie"){return "specieLink";}
+    if(s==="parenti"){return "parenti";}
+    if(s==="fase attuale"){return "faseAttuale";}
+    if(s==="link fase"){return "faseLink";}
+    if(s==="note"){return "note";}
+    return "";
+  }
+
+  function parseCreatureImportText(raw){
+    var text=String(raw||"").trim();
+    var fields={}, count=0;
+    if(!text){return {ok:false,error:"Il testo da importare è vuoto.",fields:fields};}
+    var re=/(DESTINAZIONE|Data\s*\/\s*riferimento|Link\s+principale|Link\s+Classificazione|Specie\s*\/\s*Sesso|Link\s+Specie|Fase\s+attuale|Link\s+Fase|Classificazione|Parenti|Nome|Note)\s*:\s*/gi;
+    var matches=[], m;
+    while((m=re.exec(text))!==null){matches.push({label:m[1],start:m.index,valueStart:re.lastIndex});}
+    if(!matches.length){return {ok:false,error:"Formato non riconosciuto: non trovo le etichette Nome, Classificazione, Fase attuale, ecc.",fields:fields};}
+    for(var i=0;i<matches.length;i++){
+      var key=creatureImportLabelKey(matches[i].label);
+      if(!key){continue;}
+      var end=(i+1<matches.length)?matches[i+1].start:text.length;
+      fields[key]=cleanCreatureImportValue(text.slice(matches[i].valueStart,end));
+      count++;
+    }
+    return {ok:count>0,fields:fields,error:count>0?"":"Nessun campo riconosciuto."};
+  }
+
+  function splitCreatureImportBlocks(raw){
+    var text=String(raw||"").trim();
+    if(!text){return [];}
+    var re=/DESTINAZIONE\s*:/gi, starts=[], m;
+    while((m=re.exec(text))!==null){starts.push(m.index);}
+    if(starts.length<=1){return [text];}
+    var out=[];
+    if(starts[0]>0 && text.slice(0,starts[0]).trim()){out.push(text.slice(0,starts[0]).trim());}
+    for(var i=0;i<starts.length;i++){
+      var end=(i+1<starts.length)?starts[i+1]:text.length;
+      var block=text.slice(starts[i],end).trim();
+      if(block){out.push(block);}
+    }
+    return out;
+  }
+
+  function appendCreatureImportNote(current, extra){
+    var a=String(current||"").trim(), b=String(extra||"").trim();
+    if(!b){return a;}
+    return a ? (a+" · "+b) : b;
+  }
+
+  function creatureFromImportText(raw, stages, allowedClasses, expectedDestination){
+    var parsed=parseCreatureImportText(raw);
+    if(!parsed.ok){return {ok:false,error:parsed.error};}
+    var f=parsed.fields||{};
+    var dest=String(f.destinazione||"").toLowerCase();
+    if(dest && expectedDestination && dest.indexOf(expectedDestination)<0){
+      return {ok:false,error:"La DESTINAZIONE indicata («"+f.destinazione+"») non corrisponde a questo "+(expectedDestination==="recinto"?"Recinto":"Riserva")+"."};
+    }
+
+    var o=newOccupant(stages);
+    o.nome=cleanCreatureImportValue(f.nome);
+    o.dataLink=cleanCreatureImportValue(f.linkPrincipale);
+    o.classificazioneLink=cleanCreatureImportValue(f.classificazioneLink);
+    o.specieSesso=cleanCreatureImportValue(f.specieSesso);
+    o.specieLink=cleanCreatureImportValue(f.specieLink);
+    o.parenti=cleanCreatureImportValue(f.parenti) || "//";
+    o.faseLink=cleanCreatureImportValue(f.faseLink);
+    o.note=cleanCreatureImportValue(f.note);
+
+    var cls=cleanCreatureImportValue(f.classificazione).toUpperCase().replace(/\s+/g,"");
+    if(cls){
+      if(allowedClasses.indexOf(cls)<0){return {ok:false,error:"Classificazione «"+cls+"» non ammessa in questa struttura."};}
+      o.classificazione=cls;
+    }
+
+    var fase=cleanCreatureImportValue(f.faseAttuale);
+    if(fase){
+      var rawFase=fase.toLowerCase(), acceptedStage=false;
+      var stageAliases={"infante":1,"adolescente":1,"adulta":1,"anziana":1,"cucciolo":1,"uovo":1};
+      for(var si=0;si<stages.length;si++){
+        if(String(stages[si].label||"").toLowerCase()===rawFase){acceptedStage=true;break;}
+      }
+      if(stageAliases[rawFase]){acceptedStage=true;}
+      if(!acceptedStage){return {ok:false,error:"Fase attuale «"+fase+"» non riconosciuta."};}
+      o.faseAttuale=canonicalStageLabel(stages,fase);
+    }
+
+    var dataRef=cleanCreatureImportValue(f.dataRiferimento);
+    if(dataRef){
+      var dm=dataRef.match(/\b(\d{1,2}[\/.\-]\d{1,2}[\/.\-]\d{4}|\d{4}-\d{1,2}-\d{1,2}|\d{1,2}\s+(?:gennaio|febbraio|marzo|aprile|maggio|giugno|luglio|agosto|settembre|ottobre|novembre|dicembre)\s+\d{4})\b/i);
+      if(dm){
+        o.dataTesto=normalizeDateText(dm[1]);
+        var resto=(dataRef.slice(0,dm.index)+" "+dataRef.slice(dm.index+dm[1].length)).replace(/^[\s\-\u2013\u2014|·:;,]+|[\s\-\u2013\u2014|·:;,]+$/g,"").trim();
+        if(resto){o.note=appendCreatureImportNote(o.note,"Riferimento: "+resto);}
+      }else{
+        o.note=appendCreatureImportNote(o.note,"Riferimento: "+dataRef);
+      }
+    }
+
+    ensureOccupantStageData(o,stages);
+    return {ok:true,occupant:o,destination:f.destinazione||""};
+  }
+
+  function buildCreatureImportBox(options){
+    options=options||{};
+    var det=el("details","creature-import-box");
+    keepDetailsState(det,options.detailsKey||("creature:import:"+String(options.expectedDestination||"")),false);
+    det.appendChild(el("summary",null,"Importa Creatura da testo compilato"));
+    det.appendChild(el("p","small-note","Incolla il blocco completo anche se è tutto su una sola riga. Il Tool riconosce le etichette e distribuisce automaticamente i dati nei campi della Creatura. Puoi incollare anche più blocchi consecutivi, purché ciascuno inizi con DESTINAZIONE:."));
+    var ta=el("textarea");
+    ta.placeholder="DESTINAZIONE: "+(options.expectedDestination==="recinto"?"Recinto dello Studente":"Riserva dell’Adulto")+" Nome: — da compilare — Data / riferimento: — Link principale: — Classificazione: XXX Link Classificazione: — Specie / Sesso: — Link Specie: — Parenti: // Fase attuale: Adulta Link Fase: — Note: Ostilità: Normale · Fiducia: in attesa · Domesticazione: in attesa";
+    det.appendChild(ta);
+    var actions=el("div","creature-import-actions");
+    var btn=el("button","action","Importa e compila automaticamente");
+    btn.type="button";
+    btn.addEventListener(EV,function(){
+      var blocks=splitCreatureImportBlocks(ta.value), imported=0, errors=[];
+      if(!blocks.length){alert("Incolla prima il testo della Creatura da importare.");return;}
+      for(var bi=0;bi<blocks.length;bi++){
+        if(typeof options.canAdd==="function" && !options.canAdd(imported)){
+          errors.push("Blocco "+(bi+1)+": capienza massima del Recinto raggiunta.");
+          break;
+        }
+        var res=creatureFromImportText(blocks[bi],options.stages,options.allowedClasses,options.expectedDestination);
+        if(!res.ok){errors.push("Blocco "+(bi+1)+": "+res.error);continue;}
+        var occ=res.occupant;
+        if(typeof options.assignId==="function"){options.assignId(occ);}
+        options.list.push(occ);
+        openStageDetails(occ,options.stages,options.config,occ.faseAttuale);
+        imported++;
+      }
+      if(imported>0){
+        scheduleSave(0);
+        var msg="Importazione completata: "+imported+(imported===1?" Creatura aggiunta.":" Creature aggiunte.");
+        if(errors.length){msg+="\n\nDa controllare:\n- "+errors.join("\n- ");}
+        alert(msg);
+        renderAll();
+      }else{
+        alert("Importazione non eseguita.\n\n- "+errors.join("\n- "));
+      }
+    });
+    actions.appendChild(btn);
+    actions.appendChild(el("span","small-note","I valori «—» e «— da compilare —» restano vuoti; «Adulta» viene convertita automaticamente in «Adultità»."));
+    det.appendChild(actions);
+    return det;
+  }
   function buildSubEntryUI(sub, labelHtml, ottenutiLabel, options){
     options=options||{};
     sub=normalizeSubEntry(sub);
@@ -6089,6 +6282,14 @@
     var d7=el("div");d7.appendChild(el("label",null,"Link descrizione"));var i7=el("input");i7.type="text";i7.value=FAC.descrizione||"";i7.placeholder="https://...";i7.addEventListener("input",function(){FAC.descrizione=i7.value;});d7.appendChild(i7);general.appendChild(d7);p.appendChild(general);
 
     var capienzaStud=ANNO_POSTI[STUDENTE.anno];
+    if(!isCubicolo){
+      p.appendChild(buildCreatureImportBox({
+        detailsKey:"recinto:import", expectedDestination:"recinto", stages:stages, allowedClasses:CLASSI_STUD,
+        config:config, list:LIST,
+        canAdd:function(){return LIST.length<ANNO_POSTI[STUDENTE.anno];},
+        assignId:function(o){creaturaCounter=creaturaCounter+1;o.id=creaturaCounter;}
+      }));
+    }
     p.appendChild(el("h4","structure-section-title",(config.tipoLabel==="Pianta"?"Piante presenti":"Creature presenti")+" — "+LIST.length+"/"+capienzaStud));
     for(var i=0;i<LIST.length;i++){p.appendChild(buildOccupantCard(LIST[i],stages,config,LIST,ARCHIVIO));}
     var addBtn=el("button","action","+ Aggiungi "+config.tipoLabel);addBtn.addEventListener(EV,function(){if(LIST.length>=ANNO_POSTI[STUDENTE.anno]){alert("Hai già raggiunto il numero massimo consentito dal tuo Anno Scolastico.");return;}var o=newOccupant(stages);if(isCubicolo){piantaCounter=piantaCounter+1;o.id=piantaCounter;}else{creaturaCounter=creaturaCounter+1;o.id=creaturaCounter;}LIST.push(o);scheduleSave(0);renderAll();});p.appendChild(addBtn);
