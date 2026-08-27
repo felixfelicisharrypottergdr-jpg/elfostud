@@ -2,6 +2,7 @@
 <!DOCTYPE html>
 <html lang="it">
 <head>
+<!-- v76: import Magizoologia esteso a tipo ciclo, esito e post richiesti -->
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Il Mio Elfo Domestico — Studente</title>
@@ -5631,6 +5632,9 @@
     if(s==="parenti"){return "parenti";}
     if(s==="fase attuale"){return "faseAttuale";}
     if(s==="link fase"){return "faseLink";}
+    if(s==="tipo ciclo"){return "tipoCiclo";}
+    if(s==="esito allevamento"){return "esitoAllevamento";}
+    if(s==="post richiesti ciclo"){return "postRichiestiCiclo";}
     if(s==="note"){return "note";}
     return "";
   }
@@ -5639,7 +5643,7 @@
     var text=String(raw||"").trim();
     var fields={}, count=0;
     if(!text){return {ok:false,error:"Il testo da importare è vuoto.",fields:fields};}
-    var re=/(DESTINAZIONE|Data\s*\/\s*riferimento|Link\s+principale|Link\s+Classificazione|Specie\s*\/\s*Sesso|Link\s+Specie|Fase\s+attuale|Link\s+Fase|Classificazione|Parenti|Nome|Note)\s*:\s*/gi;
+    var re=/(DESTINAZIONE|Data\s*\/\s*riferimento|Link\s+principale|Link\s+Classificazione|Specie\s*\/\s*Sesso|Link\s+Specie|Fase\s+attuale|Link\s+Fase|Tipo\s+ciclo|Esito\s+Allevamento|Post\s+richiesti\s+ciclo|Classificazione|Parenti|Nome|Note)\s*:\s*/gi;
     var matches=[], m;
     while((m=re.exec(text))!==null){matches.push({label:m[1],start:m.index,valueStart:re.lastIndex});}
     if(!matches.length){return {ok:false,error:"Formato non riconosciuto: non trovo le etichette Nome, Classificazione, Fase attuale, ecc.",fields:fields};}
@@ -5725,6 +5729,35 @@
     }
 
     ensureOccupantStageData(o,stages);
+
+    /* v ciclo: se il Generatore Magizoologia fornisce già il numero di post
+       dell'Allevamento, precompila il primo ciclo pertinente della fase attuale. */
+    var importedPosts=parseInt(cleanCreatureImportValue(f.postRichiestiCiclo),10);
+    var importedOutcome=cleanCreatureImportValue(f.esitoAllevamento);
+    var importedCycle=cleanCreatureImportValue(f.tipoCiclo).toLowerCase();
+    if(Number.isFinite(importedPosts) && importedPosts>=0){
+      var currentStage=null;
+      for(var cs=0;cs<stages.length;cs++){
+        if(String(stages[cs].label||"").toLowerCase()===String(o.faseAttuale||"").toLowerCase()){currentStage=stages[cs];break;}
+      }
+      if(currentStage && o.cicli && o.cicli[currentStage.key]){
+        var bucket=o.cicli[currentStage.key],sub=null;
+        if(currentStage.type==="ripro" && /(riproduzione|accoppiamento)/i.test(importedCycle)){
+          sub=bucket.evento;
+        }else if((currentStage.type==="cicli"||currentStage.type==="ripro") && Array.isArray(bucket.list) && bucket.list.length){
+          sub=bucket.list[0];
+        }else if(bucket.evento){
+          sub=bucket.evento;
+        }
+        if(sub){
+          sub=normalizeSubEntry(sub);
+          sub.postRichiesti=importedPosts;
+          if(importedOutcome)sub.esitoText=importedOutcome.replace(/^Riuscita\s+/i,"");
+          if(o.dataLink)sub.esitoLink=o.dataLink;
+        }
+      }
+    }
+
     return {ok:true,occupant:o,destination:f.destinazione||""};
   }
 
@@ -5767,7 +5800,7 @@
       }
     });
     actions.appendChild(btn);
-    actions.appendChild(el("span","small-note","I valori «—» e «— da compilare —» restano vuoti; «Adulta» viene convertita automaticamente in «Adultità»."));
+    actions.appendChild(el("span","small-note","I valori «—» e «— da compilare —» restano vuoti; «Adulta» viene convertita automaticamente in «Adultità». Se il Generatore include Tipo ciclo, Esito Allevamento e Post richiesti ciclo, il primo ciclo pertinente viene precompilato automaticamente."));
     det.appendChild(actions);
     return det;
   }
