@@ -1,3 +1,4 @@
+<!-- v77: allineamento Erbologia/Magizoologia — import Piante + Cicli falliti espliciti -->
 <!-- v75: importazione Calderoni dal Generatore Pozioni -->
 <!DOCTYPE html>
 <html lang="it">
@@ -413,6 +414,12 @@
     background:#f6d7d4;
     border:1px solid #b95a52;
     box-shadow:0 0 6px rgba(185,90,82,.18);
+  }
+  .structure-ui .cycle-status.failed{
+    color:#7d2622;
+    background:#f4cbc7;
+    border:1px solid #a9443e;
+    box-shadow:0 0 6px rgba(169,68,62,.20);
   }
   .structure-ui .cycle-status.queued{
     color:#665a43;
@@ -5679,6 +5686,169 @@
     return a ? (a+" · "+b) : b;
   }
 
+
+  /* Importazione Piante da Erbologia + gestione esplicita dei Cicli falliti. */
+  function importedCycleFailed(postValue, outcomeValue){
+    var p=cleanCreatureImportValue(postValue).toLowerCase();
+    var o=cleanCreatureImportValue(outcomeValue).toLowerCase();
+    return /ciclo\s+fallito/.test(p) || /riuscita\s*0\s*%/.test(o) || /\bfallit[oa]\b/.test(o) || /\bfallimento\b/.test(o);
+  }
+
+  function importedCycleTarget(occupant, stages, cycleValue){
+    var currentStage=null;
+    for(var cs=0;cs<stages.length;cs++){
+      if(String(stages[cs].label||"").toLowerCase()===String(occupant.faseAttuale||"").toLowerCase()){
+        currentStage=stages[cs];break;
+      }
+    }
+    if(!currentStage || !occupant.cicli || !occupant.cicli[currentStage.key]){return null;}
+    var bucket=occupant.cicli[currentStage.key],sub=null;
+    var importedCycle=cleanCreatureImportValue(cycleValue).toLowerCase();
+    if(currentStage.type==="ripro" && /(riproduzione|accoppiamento|semi)/i.test(importedCycle)){
+      sub=bucket.evento;
+    }else if((currentStage.type==="cicli"||currentStage.type==="ripro") && Array.isArray(bucket.list) && bucket.list.length){
+      sub=bucket.list[0];
+    }else if(bucket.evento){
+      sub=bucket.evento;
+    }
+    return sub ? normalizeSubEntry(sub) : null;
+  }
+
+  function applyImportedCycleResult(occupant, stages, cycleValue, outcomeValue, postsValue, sourceLink){
+    var rawPosts=cleanCreatureImportValue(postsValue);
+    var importedPosts=parseInt(rawPosts,10);
+    var importedOutcome=cleanCreatureImportValue(outcomeValue);
+    var failed=importedCycleFailed(rawPosts,importedOutcome);
+    if(!failed && !(Number.isFinite(importedPosts) && importedPosts>=0)){return false;}
+    var sub=importedCycleTarget(occupant,stages,cycleValue);
+    if(!sub){return false;}
+    if(failed){
+      sub.postRichiesti=0;
+      sub.esitoText="Ciclo fallito";
+    }else{
+      sub.postRichiesti=importedPosts;
+      if(importedOutcome){sub.esitoText=importedOutcome.replace(/^Riuscita\s+/i,"");}
+    }
+    if(sourceLink){sub.esitoLink=sourceLink;}
+    return true;
+  }
+
+  function plantImportLabelKey(label){
+    var s=String(label||"").toLowerCase().replace(/\s+/g," ").trim();
+    if(s==="destinazione"){return "destinazione";}
+    if(s==="nome"){return "nome";}
+    if(/^data\s*\/\s*riferimento$/.test(s)){return "dataRiferimento";}
+    if(s==="link principale"){return "linkPrincipale";}
+    if(s==="classificazione"){return "classificazione";}
+    if(s==="link classificazione"){return "classificazioneLink";}
+    if(s==="specie"){return "specie";}
+    if(s==="link specie"){return "specieLink";}
+    if(/^parenti\s*\/\s*origine$/.test(s)){return "origine";}
+    if(s==="fase attuale"){return "faseAttuale";}
+    if(s==="link fase"){return "faseLink";}
+    if(s==="tipo ciclo"){return "tipoCiclo";}
+    if(s==="esito coltivazione"){return "esitoColtivazione";}
+    if(s==="post richiesti ciclo"){return "postRichiestiCiclo";}
+    if(s==="note"){return "note";}
+    return "";
+  }
+
+  function parsePlantImportText(raw){
+    var text=String(raw||"").trim(),fields={},count=0;
+    if(!text){return {ok:false,error:"Il testo da importare è vuoto.",fields:fields};}
+    var re=/(DESTINAZIONE|Data\s*\/\s*riferimento|Link\s+principale|Link\s+Classificazione|Link\s+Specie|Parenti\s*\/\s*origine|Fase\s+attuale|Link\s+Fase|Tipo\s+ciclo|Esito\s+Coltivazione|Post\s+richiesti\s+ciclo|Classificazione|Specie|Nome|Note)\s*:\s*/gi;
+    var matches=[],m;
+    while((m=re.exec(text))!==null){matches.push({label:m[1],start:m.index,valueStart:re.lastIndex});}
+    if(!matches.length){return {ok:false,error:"Formato Erbologia non riconosciuto.",fields:fields};}
+    for(var i=0;i<matches.length;i++){
+      var key=plantImportLabelKey(matches[i].label);if(!key){continue;}
+      var end=(i+1<matches.length)?matches[i+1].start:text.length;
+      fields[key]=cleanCreatureImportValue(text.slice(matches[i].valueStart,end));count++;
+    }
+    return {ok:count>0,fields:fields,error:count>0?"":"Nessun campo riconosciuto."};
+  }
+
+  function plantFromImportText(raw, stages, allowedClasses, expectedDestination){
+    var parsed=parsePlantImportText(raw);
+    if(!parsed.ok){return {ok:false,error:parsed.error};}
+    var f=parsed.fields||{},dest=String(f.destinazione||"").toLowerCase();
+    var legacyStudent=(expectedDestination==="cubicolo" && dest.indexOf("serra")>=0);
+    if(dest && expectedDestination && dest.indexOf(expectedDestination)<0 && !legacyStudent){
+      return {ok:false,error:"La DESTINAZIONE indicata («"+f.destinazione+"») non corrisponde a questo "+(expectedDestination==="cubicolo"?"Cubicolo":"Serra")+"."};
+    }
+
+    var o=newOccupant(stages);
+    o.nome=cleanCreatureImportValue(f.nome);
+    o.dataLink=cleanCreatureImportValue(f.linkPrincipale);
+    o.classificazioneLink=cleanCreatureImportValue(f.classificazioneLink);
+    o.specieSesso=cleanCreatureImportValue(f.specie);
+    o.specieLink=cleanCreatureImportValue(f.specieLink);
+    o.faseLink=cleanCreatureImportValue(f.faseLink);
+    o.note=cleanCreatureImportValue(f.note);
+
+    var origine=cleanCreatureImportValue(f.origine);
+    if(origine && origine!=="//"){o.note=appendCreatureImportNote(o.note,"Origine: "+origine);}
+
+    var cls=cleanCreatureImportValue(f.classificazione).toUpperCase().replace(/\s+/g,"");
+    if(cls){
+      if(allowedClasses.indexOf(cls)<0){return {ok:false,error:"Classificazione «"+cls+"» non ammessa in questa struttura."};}
+      o.classificazione=cls;
+    }
+
+    var fase=cleanCreatureImportValue(f.faseAttuale);
+    if(fase){
+      var accepted=false;
+      for(var si=0;si<stages.length;si++){
+        if(String(stages[si].label||"").toLowerCase()===fase.toLowerCase()){accepted=true;break;}
+      }
+      if(!accepted){return {ok:false,error:"Fase attuale «"+fase+"» non riconosciuta per la Pianta."};}
+      o.faseAttuale=canonicalStageLabel(stages,fase);
+    }
+
+    var dataRef=cleanCreatureImportValue(f.dataRiferimento);
+    if(dataRef){
+      var dm=dataRef.match(/\b(\d{1,2}[\/.\-]\d{1,2}[\/.\-]\d{4}|\d{4}-\d{1,2}-\d{1,2}|\d{1,2}\s+(?:gennaio|febbraio|marzo|aprile|maggio|giugno|luglio|agosto|settembre|ottobre|novembre|dicembre)\s+\d{4})\b/i);
+      if(dm){
+        o.dataTesto=normalizeDateText(dm[1]);
+        var resto=(dataRef.slice(0,dm.index)+" "+dataRef.slice(dm.index+dm[1].length)).replace(/^[\s\-\u2013\u2014|·:;,]+|[\s\-\u2013\u2014|·:;,]+$/g,"").trim();
+        if(resto){o.note=appendCreatureImportNote(o.note,"Riferimento: "+resto);}
+      }else{o.note=appendCreatureImportNote(o.note,"Riferimento: "+dataRef);}
+    }
+
+    ensureOccupantStageData(o,stages);
+    applyImportedCycleResult(o,stages,f.tipoCiclo,f.esitoColtivazione,f.postRichiestiCiclo,o.dataLink);
+    return {ok:true,occupant:o,destination:f.destinazione||""};
+  }
+
+  function buildPlantImportBox(options){
+    options=options||{};
+    var det=el("details","creature-import-box plant-import-box");
+    keepDetailsState(det,options.detailsKey||("plant:import:"+String(options.expectedDestination||"")),false);
+    det.appendChild(el("summary",null,"Importa Pianta da Erbologia"));
+    det.appendChild(el("p","small-note","Incolla il blocco «Dati pronti per Il Mio Elfo Domestico» copiato dal Riepilogo di Erbologia. Nome, Classificazione, Specie, Fase vitale e dati dell’ultimo ciclo vengono compilati automaticamente. Un esito 0% viene registrato esplicitamente come «Ciclo fallito»."));
+    var ta=el("textarea");
+    ta.placeholder="DESTINAZIONE: "+(options.expectedDestination==="cubicolo"?"Cubicolo":"Serra")+" Nome: — da compilare — Data / riferimento: — Link principale: — Classificazione: XXX Link Classificazione: — Specie: — Link Specie: — Parenti / origine: // Fase attuale: Vegetazione Link Fase: — Tipo ciclo: Produzione di Ingredienti Esito Coltivazione: Riuscita 100% Post richiesti ciclo: 3 Note: —";
+    det.appendChild(ta);
+    var actions=el("div","creature-import-actions");
+    var btn=el("button","action","Importa e compila automaticamente");btn.type="button";
+    btn.addEventListener(EV,function(){
+      var blocks=splitCreatureImportBlocks(ta.value),imported=0,errors=[];
+      if(!blocks.length){alert("Incolla prima il testo della Pianta da importare.");return;}
+      for(var bi=0;bi<blocks.length;bi++){
+        if(typeof options.canAdd==="function" && !options.canAdd(imported)){errors.push("Blocco "+(bi+1)+": capienza massima raggiunta.");break;}
+        var res=plantFromImportText(blocks[bi],options.stages,options.allowedClasses,options.expectedDestination);
+        if(!res.ok){errors.push("Blocco "+(bi+1)+": "+res.error);continue;}
+        var occ=res.occupant;if(typeof options.assignId==="function"){options.assignId(occ);}options.list.push(occ);
+        openStageDetails(occ,options.stages,options.config,occ.faseAttuale);imported++;
+      }
+      if(imported>0){scheduleSave(0);var msg="Importazione completata: "+imported+(imported===1?" Pianta aggiunta.":" Piante aggiunte.");if(errors.length){msg+="\n\nDa controllare:\n- "+errors.join("\n- ");}alert(msg);renderAll();}
+      else{alert("Importazione non eseguita.\n\n- "+errors.join("\n- "));}
+    });
+    actions.appendChild(btn);
+    actions.appendChild(el("span","small-note","Compatibile anche con i vecchi blocchi Studente che riportano «DESTINAZIONE: Serra»: nell’Elfo Studente vengono interpretati come Cubicolo."));
+    det.appendChild(actions);return det;
+  }
+
   function creatureFromImportText(raw, stages, allowedClasses, expectedDestination){
     var parsed=parseCreatureImportText(raw);
     if(!parsed.ok){return {ok:false,error:parsed.error};}
@@ -5730,33 +5900,8 @@
 
     ensureOccupantStageData(o,stages);
 
-    /* v ciclo: se il Generatore Magizoologia fornisce già il numero di post
-       dell'Allevamento, precompila il primo ciclo pertinente della fase attuale. */
-    var importedPosts=parseInt(cleanCreatureImportValue(f.postRichiestiCiclo),10);
-    var importedOutcome=cleanCreatureImportValue(f.esitoAllevamento);
-    var importedCycle=cleanCreatureImportValue(f.tipoCiclo).toLowerCase();
-    if(Number.isFinite(importedPosts) && importedPosts>=0){
-      var currentStage=null;
-      for(var cs=0;cs<stages.length;cs++){
-        if(String(stages[cs].label||"").toLowerCase()===String(o.faseAttuale||"").toLowerCase()){currentStage=stages[cs];break;}
-      }
-      if(currentStage && o.cicli && o.cicli[currentStage.key]){
-        var bucket=o.cicli[currentStage.key],sub=null;
-        if(currentStage.type==="ripro" && /(riproduzione|accoppiamento)/i.test(importedCycle)){
-          sub=bucket.evento;
-        }else if((currentStage.type==="cicli"||currentStage.type==="ripro") && Array.isArray(bucket.list) && bucket.list.length){
-          sub=bucket.list[0];
-        }else if(bucket.evento){
-          sub=bucket.evento;
-        }
-        if(sub){
-          sub=normalizeSubEntry(sub);
-          sub.postRichiesti=importedPosts;
-          if(importedOutcome)sub.esitoText=importedOutcome.replace(/^Riuscita\s+/i,"");
-          if(o.dataLink)sub.esitoLink=o.dataLink;
-        }
-      }
-    }
+    /* Il ciclo viene importato anche quando Erbologia/Magizoologia lo segnala come fallito. */
+    applyImportedCycleResult(o,stages,f.tipoCiclo,f.esitoAllevamento,f.postRichiestiCiclo,o.dataLink);
 
     return {ok:true,occupant:o,destination:f.destinazione||""};
   }
@@ -5800,7 +5945,7 @@
       }
     });
     actions.appendChild(btn);
-    actions.appendChild(el("span","small-note","I valori «—» e «— da compilare —» restano vuoti; «Adulta» viene convertita automaticamente in «Adultità». Se il Generatore include Tipo ciclo, Esito Allevamento e Post richiesti ciclo, il primo ciclo pertinente viene precompilato automaticamente."));
+    actions.appendChild(el("span","small-note","I valori «—» e «— da compilare —» restano vuoti; «Adulta» viene convertita automaticamente in «Adultità». Se il Generatore include Tipo ciclo, Esito Allevamento e Post richiesti ciclo, il primo ciclo pertinente viene precompilato automaticamente; un esito 0% viene registrato come «Ciclo fallito»."));
     det.appendChild(actions);
     return det;
   }
@@ -6126,6 +6271,7 @@
   function cycleStatusInfo(sub, canStart){
     var pr=subEntryProgress(sub);
     var suffix=pr.total>0 ? " · "+pr.filled+"/"+pr.total : "";
+    if(/ciclo\s+fallito/i.test(String((sub||{}).esitoText||""))){return {key:"failed",label:"FALLITO"};}
     if(subEntryFilled(sub)){return {key:"done",label:"TERMINATO"+suffix};}
     if(canStart && subEntryStarted(sub)){return {key:"in-progress",label:"IN CORSO"+suffix};}
     return {key:"queued",label:"A TURNO"+suffix};
@@ -6436,7 +6582,14 @@
     var d7=el("div");d7.appendChild(el("label",null,"Link descrizione"));var i7=el("input");i7.type="text";i7.value=FAC.descrizione||"";i7.placeholder="https://...";i7.addEventListener("input",function(){FAC.descrizione=i7.value;});d7.appendChild(i7);general.appendChild(d7);p.appendChild(general);
 
     var capienzaStud=ANNO_POSTI[STUDENTE.anno];
-    if(!isCubicolo){
+    if(isCubicolo){
+      p.appendChild(buildPlantImportBox({
+        detailsKey:"cubicolo:import", expectedDestination:"cubicolo", stages:stages, allowedClasses:CLASSI_STUD,
+        config:config, list:LIST,
+        canAdd:function(){return LIST.length<ANNO_POSTI[STUDENTE.anno];},
+        assignId:function(o){piantaCounter=piantaCounter+1;o.id=piantaCounter;}
+      }));
+    }else{
       p.appendChild(buildCreatureImportBox({
         detailsKey:"recinto:import", expectedDestination:"recinto", stages:stages, allowedClasses:CLASSI_STUD,
         config:config, list:LIST,
