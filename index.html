@@ -1,3 +1,4 @@
+<!-- v75: importazione Calderoni dal Generatore Pozioni -->
 <!DOCTYPE html>
 <html lang="it">
 <head>
@@ -1258,6 +1259,46 @@
   body.screen-cb .totals + .guide-text{
     margin-top:14px;
   }
+
+
+
+/* Importazione Pozione dal Generatore Pozioni */
+.structure-ui .potion-generator-import-box{
+  margin:17px 0 21px;
+  padding:11px 13px 14px;
+  border:1px solid rgba(116,65,164,.58);
+  border-left:4px solid #8051ad;
+  border-radius:8px;
+  background:rgba(248,242,253,.62);
+}
+.structure-ui .potion-generator-import-box > summary{
+  cursor:pointer;
+  font-weight:900;
+  color:#5f3688;
+}
+.structure-ui .potion-generator-import-box textarea{
+  min-height:190px;
+  margin-top:9px;
+  line-height:1.45;
+  white-space:pre-wrap;
+}
+.structure-ui .potion-generator-import-actions{
+  display:flex;
+  flex-wrap:wrap;
+  gap:9px;
+  align-items:center;
+  margin-top:9px;
+}
+.structure-ui .potion-generator-import-actions button{margin-top:0;}
+.structure-ui .generator-import-badge{
+  margin:8px 0 12px;
+  padding:8px 10px;
+  border-left:3px solid #8051ad;
+  background:rgba(128,81,173,.10);
+  color:#493456;
+  font-size:.78rem;
+  line-height:1.45;
+}
 
 </style>
 </head>
@@ -5102,6 +5143,80 @@
   /* ==================================================== */
   /* STEP 4 - POSTAZIONE (Calderoni multipli)               */
   /* ==================================================== */
+
+  /* ---------- Importazione Pozione dal Generatore Pozioni ---------- */
+  function cleanPotionGeneratorImportValue(value){
+    var s=String(value==null?'':value).trim();
+    if(!s){return '';}
+    if(/^(—|\/\/|da compilare)$/i.test(s)){return '';}
+    return s;
+  }
+  function parsePotionGeneratorImport(raw){
+    var text=String(raw||'').trim(),fields={};
+    if(!text){return {ok:false,error:'Il testo da importare è vuoto.',fields:fields};}
+    var lines=text.split(/\r?\n/),marker=false;
+    for(var i=0;i<lines.length;i++){
+      var line=String(lines[i]||'').trim();if(!line)continue;
+      if(line==='FELIX_ELFO_POZIONE_V1'){marker=true;continue;}
+      var ix=line.indexOf(':');if(ix<0)continue;
+      var k=line.slice(0,ix).trim(),v=cleanPotionGeneratorImportValue(line.slice(ix+1));fields[k]=v;
+    }
+    if(!marker){return {ok:false,error:'Formato non riconosciuto: manca FELIX_ELFO_POZIONE_V1.',fields:fields};}
+    if(!fields['Nome Pozione']){return {ok:false,error:'Manca il Nome Pozione.',fields:fields};}
+    if(CLASSI_STUD.indexOf(fields['Classificazione'])<0){return {ok:false,error:'Classificazione non consentita nella Postazione dello Studente: '+(fields['Classificazione']||'—')+'.',fields:fields};}
+    return {ok:true,fields:fields};
+  }
+  function potionImportInt(v,def){var n=parseInt(String(v||''),10);return Number.isFinite(n)&&n>=0?n:def;}
+  function potionImportNum(v,def){var n=Number(String(v||'').replace(',','.'));return Number.isFinite(n)?Math.abs(n):def;}
+  function potionImportOutcome(v){return String(v||'').toLowerCase()==='fallita'?'fallita':'riuscita';}
+  function potionFromGeneratorFields(fields){
+    var pz=newCalderone(),main=cleanPotionGeneratorImportValue(fields['Link principale']);
+    pz.nomePozione=fields['Nome Pozione']||'';
+    pz.classificazione=fields['Classificazione']||'X';
+    pz.tipologia=TIPOLOGIE.indexOf(fields['Tipologia'])>=0?fields['Tipologia']:'Generica';
+    pz.dataLink=main;
+    pz.calderoneOggetti=fields['Calderone/Oggetti']||'//';
+    pz.prepLink=fields['Preparazione Link']||main;
+    pz.prepEsito=potionImportOutcome(fields['Preparazione Esito']);
+    pz.prepValore=potionImportNum(fields['Preparazione Forza'],0);
+    pz.prodLink=fields['Produzione Link']||main;
+    pz.prodEsito=potionImportOutcome(fields['Produzione Esito']);
+    pz.prodValore=potionImportNum(fields['Produzione Forza'],0);
+    pz.bacchettaLink=fields['Bacchetta Link']||main;
+    pz.bacchettaEsito=potionImportOutcome(fields['Bacchetta Esito']);
+    pz.dosi=potionImportInt(fields['Bacchetta Dosi'],0);
+    pz.distillSvolta=/^(sì|si|yes|true|1)$/i.test(fields['Distillazione']||'');
+    pz.distillLink=fields['Distillazione Link']||main;
+    pz.distillEsito=fields['Distillazione Esito']||'';
+    pz.distillBagaglio=fields['Distillazione Bagaglio']||'';
+    pz.imbottLink=fields['Imbottigliamento Link']||main;
+    pz.imbottPercent=fields['Imbottigliamento Esito']||'';
+    pz.postRichiesti=potionImportInt(fields['Post richiesti'],0);
+    pz.imbottModificatori=fields['Modificatori']||'';
+    pz._importedFromPotionGenerator=true;
+    pz.generatorCreator=fields['Creatore']||'';
+    pz.generatorFinalStrength=fields['Forza finale Generatore']||'';
+    pz.generatorFinalCategory=fields['Categoria finale Generatore']||'';
+    return pz;
+  }
+  function buildPotionGeneratorImportBoxStudent(){
+    var det=el('details','potion-generator-import-box');
+    keepDetailsState(det,'potion-generator-import:student',false);
+    det.appendChild(el('summary',null,'Importa Pozione dal Generatore'));
+    det.appendChild(el('p','small-note','Nel Riepilogo Finale del Generatore Pozioni premi «Importa a Il Mio Elfo», poi incolla qui il pacchetto copiato. Nome, Classificazione, fasi, dosi, Distillazione, Imbottigliamento e post vengono compilati automaticamente. La Postazione Studente accetta soltanto Classificazioni X–XXX.'));
+    var ta=el('textarea');ta.placeholder='Incolla qui FELIX_ELFO_POZIONE_V1…';det.appendChild(ta);
+    var actions=el('div','potion-generator-import-actions');
+    var btn=el('button','action','Importa e compila Calderone');btn.type='button';
+    btn.addEventListener(EV,function(){
+      var res=parsePotionGeneratorImport(ta.value);if(!res.ok){alert('Importazione non eseguita.\n\n'+res.error);return;}
+      if(CALDERONI.length>=ANNO_POSTI[STUDENTE.anno]){alert('Hai già raggiunto il numero massimo di Pozioni contemporanee consentite dal tuo Anno Scolastico.');return;}
+      var pz=potionFromGeneratorFields(res.fields);
+      CALDERONI.push(pz);scheduleSave(0);alert('Pozione importata nella Postazione. Controlla soltanto Tipologia e gli eventuali dati che il Generatore non può conoscere.');renderAll();
+    });
+    actions.appendChild(btn);actions.appendChild(el('span','small-note','Il conteggio dei post parte dal prossimo N. globale disponibile, come per un nuovo Calderone.'));
+    det.appendChild(actions);return det;
+  }
+
   function newCalderone(){
     calderoneCounter = calderoneCounter + 1;
     return {
@@ -5152,6 +5267,8 @@
     var d7=el("div");d7.appendChild(el("label",null,"Link descrizione"));var i7=el("input");i7.type="text";i7.value=POSTAZIONE_FAC.descrizione||"";i7.placeholder="https://...";i7.addEventListener("input",function(){POSTAZIONE_FAC.descrizione=i7.value;});d7.appendChild(i7);general.appendChild(d7);
     p.appendChild(general);
 
+    p.appendChild(buildPotionGeneratorImportBoxStudent());
+
     p.appendChild(el("h4","structure-section-title","Pozioni / lavorazioni presenti"));
     for(var i=0;i<CALDERONI.length;i++){ p.appendChild(buildCalderoneCard(CALDERONI[i])); }
     var addBtn=el("button","action","+ Aggiungi Calderone");
@@ -5178,6 +5295,10 @@
     var actionWrap=el("div","structure-actions");
     var archP=el("button","action small","Archivia Pozione conclusa"); archP.addEventListener(EV,function(){CALDERONI=CALDERONI.filter(function(x){return x.id!==postaz.id;});archiveStamp(postaz);ARCHIVIO_CALDERONI.push(postaz);scheduleSave(0);renderAll();}); actionWrap.appendChild(archP);
     var rm=el("button","action danger small","Rimuovi"); rm.addEventListener(EV,function(){CALDERONI=CALDERONI.filter(function(x){return x.id!==postaz.id;});scheduleSave(0);renderAll();}); actionWrap.appendChild(rm); h.appendChild(actionWrap); card.appendChild(h);
+    if(postaz._importedFromPotionGenerator){
+      var meta=[];if(postaz.generatorCreator){meta.push("Creatore: "+postaz.generatorCreator);}if(postaz.generatorFinalStrength){meta.push("Forza finale: "+postaz.generatorFinalStrength);}if(postaz.generatorFinalCategory){meta.push("Categoria finale: "+postaz.generatorFinalCategory);}
+      card.appendChild(el("div","generator-import-badge","Importata dal Generatore Pozioni"+(meta.length?" · "+meta.join(" · "):"")));
+    }
 
     var row0=el("div","row"); var dNum=el("div"); dNum.appendChild(el("label",null,"Numero Postazione")); var iNum=el("input"); iNum.type="text"; iNum.value=postaz.numero; iNum.addEventListener("change",function(){postaz.numero=iNum.value;renderAll();}); dNum.appendChild(iNum); row0.appendChild(dNum);
     card.appendChild(row0);
