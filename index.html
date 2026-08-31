@@ -1,9 +1,6 @@
-<!-- v77: allineamento Erbologia/Magizoologia — import Piante + Cicli falliti espliciti -->
-<!-- v75: importazione Calderoni dal Generatore Pozioni -->
 <!DOCTYPE html>
 <html lang="it">
 <head>
-<!-- v76: import Magizoologia esteso a tipo ciclo, esito e post richiesti -->
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Il Mio Elfo Domestico — Studente</title>
@@ -414,12 +411,6 @@
     background:#f6d7d4;
     border:1px solid #b95a52;
     box-shadow:0 0 6px rgba(185,90,82,.18);
-  }
-  .structure-ui .cycle-status.failed{
-    color:#7d2622;
-    background:#f4cbc7;
-    border:1px solid #a9443e;
-    box-shadow:0 0 6px rgba(169,68,62,.20);
   }
   .structure-ui .cycle-status.queued{
     color:#665a43;
@@ -1139,7 +1130,8 @@
      L'immagine viene dimensionata sulla larghezza del tool e NON sulla sua altezza:
      così una tavola lunga continua a crescere normalmente senza ingrandire/allungare lo sfondo. */
   body.screen-home, body.screen-posts, body.screen-cb, body.screen-dispensa,
-  body.screen-lab, body.screen-green, body.screen-creatures, body.screen-import {
+  body.screen-lab, body.screen-green, body.screen-creatures, body.screen-import,
+  body.screen-taccuino {
     background-color:var(--green-dark) !important;
     background-repeat:no-repeat, no-repeat !important;
     background-size:100% 100%, 100% auto !important;
@@ -1270,44 +1262,84 @@
 
 
 
-/* Importazione Pozione dal Generatore Pozioni */
-.structure-ui .potion-generator-import-box{
-  margin:17px 0 21px;
-  padding:11px 13px 14px;
-  border:1px solid rgba(116,65,164,.58);
-  border-left:4px solid #8051ad;
-  border-radius:8px;
-  background:rgba(248,242,253,.62);
-}
-.structure-ui .potion-generator-import-box > summary{
-  cursor:pointer;
-  font-weight:900;
-  color:#5f3688;
-}
-.structure-ui .potion-generator-import-box textarea{
-  min-height:190px;
-  margin-top:9px;
-  line-height:1.45;
-  white-space:pre-wrap;
-}
-.structure-ui .potion-generator-import-actions{
-  display:flex;
-  flex-wrap:wrap;
-  gap:9px;
-  align-items:center;
-  margin-top:9px;
-}
-.structure-ui .potion-generator-import-actions button{margin-top:0;}
-.structure-ui .generator-import-badge{
-  margin:8px 0 12px;
-  padding:8px 10px;
-  border-left:3px solid #8051ad;
-  background:rgba(128,81,173,.10);
-  color:#493456;
-  font-size:.78rem;
-  line-height:1.45;
-}
-
+  /* ==================================================== */
+  /* TACCUINO PERSONALE — solo browser, mai Firebase       */
+  /* ==================================================== */
+  .tacc-evidence{margin-top:10px;padding-top:10px;border-top:1px dashed rgba(58,43,26,.25);}
+  .tacc-evidence-title{font-weight:800;margin-bottom:7px;font-size:.82rem;}
+  .tacc-evidence-row{display:grid;grid-template-columns:95px minmax(150px,1fr) minmax(180px,1.2fr) auto;gap:8px;align-items:end;margin:7px 0;}
+  .tacc-evidence-row input{width:100%;}
+  .tacc-role-badge{display:inline-flex;align-items:center;gap:5px;padding:3px 7px;border-radius:999px;background:rgba(58,43,26,.08);font-size:.72rem;font-weight:800;margin-right:5px;}
+  .tacc-period-group{margin:12px 0 18px;padding-left:10px;border-left:3px solid rgba(169,128,58,.45);}
+  .tacc-period-title{font-weight:900;margin:4px 0 8px;}
+  .tacc-extra-img{display:block;max-width:100%;max-height:220px;object-fit:contain;margin:8px auto;border-radius:8px;}
+  .tacc-color-swatch{display:inline-block;width:18px;height:18px;border-radius:50%;border:1px solid rgba(0,0,0,.25);vertical-align:middle;margin-right:6px;}
+  @media(max-width:760px){.tacc-evidence-row{grid-template-columns:1fr;}.tacc-evidence-row button{width:100%;}}
+  body.screen-taccuino{
+    --parch:#f3ead2; --parch-dark:#e6d8ac; --ink:#332719;
+    --green:#4a3826; --green-dark:#21170f; --gold:#b48a46; --body-bg-top:#4b3828;
+    background-image:linear-gradient(rgba(18,12,8,.52),rgba(18,12,8,.74)),url("https://i.postimg.cc/rpZXfbfg/image.png") !important;
+  }
+  body.screen-taccuino .panel{max-width:1100px;margin-left:auto;margin-right:auto;}
+  .tacc-local-banner{
+    border:1px solid rgba(169,128,58,.65); background:rgba(255,248,226,.82); color:#47331e;
+    border-radius:10px; padding:11px 13px; margin:0 0 14px; line-height:1.45; font-size:.86rem;
+  }
+  .tacc-local-banner strong{color:#5b3c16;}
+  .tacc-tabs{display:flex;flex-wrap:wrap;gap:7px;margin:12px 0 16px;}
+  .tacc-tab{
+    border:1px solid #80653a; border-radius:9px; padding:8px 11px; cursor:pointer;
+    background:#efe3c7; color:#3d2b19; font-weight:700; font-size:.82rem;
+  }
+  .tacc-tab.active{background:#5b4229;color:#fff4dc;border-color:#5b4229;}
+  .tacc-section-head{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin:8px 0 12px;}
+  .tacc-section-head h3{margin:0;}
+  .tacc-card{
+    border:1px solid rgba(93,68,38,.28); background:rgba(255,252,241,.88); border-radius:12px;
+    padding:13px; margin:10px 0; box-shadow:0 2px 7px rgba(34,23,13,.08);
+  }
+  .tacc-card h4{margin:0 0 8px;color:#4b321b;}
+  .tacc-card .small-note{margin-top:6px;}
+  .tacc-form-note{margin-top:14px;}
+  .tacc-form-note label{display:block;margin-bottom:6px;}
+  .tacc-form-note textarea{width:100%;min-height:88px;}
+  .tacc-role-edit{margin-top:10px;padding-top:8px;border-top:1px dashed rgba(75,50,27,.22);}
+  .tacc-role-edit summary{cursor:pointer;font-weight:700;color:#5a4027;}
+  .tacc-role-edit[open] summary{margin-bottom:10px;}
+  .tacc-add-role{margin-top:20px;}
+  .tacc-inline-actions{display:flex;gap:7px;flex-wrap:wrap;align-items:center;margin-top:9px;}
+  .tacc-inline-actions button.action{margin-top:0;}
+  .tacc-grid-2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;}
+  .tacc-grid-3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;}
+  .tacc-mini-row{display:grid;grid-template-columns:minmax(120px,1fr) minmax(160px,1.3fr) auto;gap:8px;align-items:end;margin:7px 0;}
+  .tacc-mini-row .action{margin:0;white-space:nowrap;}
+  .tacc-progress{margin-top:7px;padding:7px 9px;border-radius:8px;background:#ede2ca;color:#4a3622;font-size:.8rem;line-height:1.4;}
+  .tacc-progress.complete{background:#dce8d5;color:#274424;}
+  .tacc-progress.pending{background:#f0e4c8;color:#5a421f;}
+  .tacc-empty{padding:18px 12px;text-align:center;border:1px dashed rgba(82,61,37,.35);border-radius:10px;color:#6b5a45;background:rgba(255,255,255,.35);}
+  .tacc-category-block{margin:12px 0 18px;}
+  .tacc-category-block>h4{border-bottom:1px solid rgba(83,60,33,.25);padding-bottom:7px;margin-bottom:9px;}
+  .tacc-link{word-break:break-all;font-size:.78rem;}
+  .tacc-role-meta{font-size:.78rem;color:#6d5a43;margin:4px 0;}
+  .tacc-mission-title{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;}
+  .tacc-mission-title h4{margin:0;}
+  .tacc-counter{padding:9px 0;border-top:1px dashed rgba(75,50,27,.2);}
+  .tacc-counter:first-of-type{border-top:0;}
+  .tacc-counter-grid{display:grid;grid-template-columns:minmax(160px,1fr) 130px 130px;gap:8px;align-items:end;}
+  .tacc-people-list{margin:8px 0 0;padding:0;list-style:none;}
+  .tacc-people-list li{display:flex;justify-content:space-between;gap:8px;align-items:center;padding:7px 0;border-bottom:1px dashed rgba(75,50,27,.18);}
+  .tacc-people-main{min-width:0;}
+  .tacc-storage-status{font-size:.78rem;margin-top:7px;color:#6b5537;}
+  .tacc-storage-status.error{color:#8a2828;font-weight:700;}
+  .tacc-backup-row{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0;}
+  .tacc-backup-row .action{margin:0;}
+  .tacc-danger-zone{margin-top:18px;padding-top:12px;border-top:1px solid rgba(120,55,45,.3);}
+  .tacc-note-area{min-height:170px;resize:vertical;}
+  @media(max-width:760px){
+    .tacc-grid-2,.tacc-grid-3{grid-template-columns:1fr;}
+    .tacc-mini-row,.tacc-counter-grid{grid-template-columns:1fr;}
+    .tacc-mini-row .action{width:100%;}
+  }
 </style>
 </head>
 <body>
@@ -1678,12 +1710,13 @@
   var STEPS = [
     { key:"pg", label:"1. Dati Personaggio e Strutture" },
     { key:"posts", label:"2. I tuoi Post" },
-    { key:"blindata", label:"3. Camera Blindata" },
-    { key:"dispensa", label:"4. Dispensa" },
-    { key:"postazione", label:"5. Postazione" },
-    { key:"cubicolo", label:"6. Cubicolo" },
-    { key:"recinto", label:"7. Recinto" },
-    { key:"esporta", label:"8. Diventa Adulto \u2192 Esporta" }
+    { key:"taccuino", label:"3. Taccuino" },
+    { key:"blindata", label:"4. Camera Blindata" },
+    { key:"dispensa", label:"5. Dispensa" },
+    { key:"postazione", label:"6. Postazione" },
+    { key:"cubicolo", label:"7. Cubicolo" },
+    { key:"recinto", label:"8. Recinto" },
+    { key:"esporta", label:"9. Diventa Adulto \u2192 Esporta" }
   ];
   var currentStep = "pg";
 
@@ -2532,6 +2565,7 @@
     var themeMap = {
       pg: "screen-home",
       posts: "screen-posts",
+      taccuino: "screen-taccuino",
       blindata: "theme-cb screen-cb",
       dispensa: "screen-dispensa",
       postazione: "theme-pozioni screen-lab",
@@ -3124,6 +3158,571 @@
     container.appendChild(box);
   }
 
+
+  /* ==================================================== */
+  /* TACCUINO PERSONALE — LOCALSTORAGE, NON FIREBASE      */
+  /* ==================================================== */
+  var TACC_MODE = "studente";
+  var TACC_STORAGE_BASE_KEY = "felix_taccuino_personale_v1";
+  var TACC_LAST_PROFILE_KEY = "felix_taccuino_ultimo_pg_v1";
+  function taccProfileStorageKey(pg){ return TACC_STORAGE_BASE_KEY+"::"+encodeURIComponent(String(pg||"").trim().toLowerCase()); }
+  function taccInitialStorageKey(){ try{var pg=localStorage.getItem(TACC_LAST_PROFILE_KEY);return pg?taccProfileStorageKey(pg):TACC_STORAGE_BASE_KEY;}catch(e){return TACC_STORAGE_BASE_KEY;} }
+  var TACC_STORAGE_KEY = taccInitialStorageKey();
+  var TACC_TAB = "role";
+  var TACC_STORAGE_OK = true;
+  var TACC_STATUS = "";
+  var TACC_CLOUD_COLLECTION = "taccuini_personali";
+  var TACC_CLOUD_TIMER = null;
+  var TACC_CLOUD_BUSY = false;
+  var TACC_CLOUD_APPLYING = false;
+  var TACC_CLOUD_TEXT = "Cloud non ancora sincronizzato";
+  var TACC_CLOUD_ERROR = false;
+  var TACC_CLOUD_LOGIN_PG = "";
+  var TACC_CLOUD_MAX_BYTES = 780000;
+
+  function taccId(prefix){ return String(prefix||"x")+"_"+Date.now().toString(36)+"_"+Math.random().toString(36).slice(2,8); }
+  function taccToday(){ var d=new Date(),m=String(d.getMonth()+1).padStart(2,"0"),g=String(d.getDate()).padStart(2,"0"); return d.getFullYear()+"-"+m+"-"+g; }
+  function taccDefault(){
+    return {
+      version:3,
+      roles:[],
+      categories:["V anno","VI anno","VII anno","Vita adulta","Lavoro","Free-role","Altro"],
+      customRoleTypes:[],
+      png:[],
+      missions:{},
+      relations:[],
+      links:[],
+      media:[],
+      notes:"",
+      meta:{createdAt:new Date().toISOString(),updatedAt:null}
+    };
+  }
+  function taccNum(v){ v=Number(v); return Number.isFinite(v)&&v>=0?v:0; }
+  function taccNormalize(raw){
+    var d=taccDefault(); raw=(raw&&typeof raw==="object")?raw:{};
+    d.version=3;
+    d.roles=Array.isArray(raw.roles)?raw.roles:[];
+    d.categories=Array.isArray(raw.categories)?raw.categories.filter(function(x){return String(x||"").trim();}):d.categories;
+    d.customRoleTypes=Array.isArray(raw.customRoleTypes)?raw.customRoleTypes.map(function(x){return String(x||"").trim();}).filter(Boolean):[];
+    d.roles.forEach(function(r){
+      var v=String(r&&r.roleType||"");
+      if(v.indexOf("custom:")===0){var lab=v.slice(7).trim();if(lab&&!d.customRoleTypes.some(function(x){return x.toLowerCase()===lab.toLowerCase();})){d.customRoleTypes.push(lab);}}
+    });
+    if(!d.categories.length){d.categories=["Altro"];}
+    ["V anno","VI anno","VII anno","Vita adulta","Lavoro","Free-role","Altro"].forEach(function(x){if(d.categories.indexOf(x)<0){d.categories.push(x);}});
+    d.png=Array.isArray(raw.png)?raw.png:[];
+    d.missions=(raw.missions&&typeof raw.missions==="object"&&!Array.isArray(raw.missions))?raw.missions:{};
+    d.relations=Array.isArray(raw.relations)?raw.relations:[];
+    d.links=Array.isArray(raw.links)?raw.links:[];
+    d.media=Array.isArray(raw.media)?raw.media:[];
+    d.notes=String(raw.notes||"");
+    d.meta=(raw.meta&&typeof raw.meta==="object")?raw.meta:d.meta;
+    if(!d.meta.createdAt){d.meta.createdAt=new Date().toISOString();}
+    return d;
+  }
+  function taccLoad(){
+    try{
+      var raw=localStorage.getItem(TACC_STORAGE_KEY);
+      TACC_STORAGE_OK=true;
+      return raw?taccNormalize(JSON.parse(raw)):taccDefault();
+    }catch(e){
+      console.warn("Taccuino locale non disponibile",e);
+      TACC_STORAGE_OK=false; TACC_STATUS="Il browser non permette il salvataggio locale in questo contesto.";
+      return taccDefault();
+    }
+  }
+  var TACCUINO=taccLoad();
+  function taccCurrentPgName(){
+    try{ return normalizePgName(STUDENTE.nome||""); }catch(e){ return ""; }
+  }
+  function taccCloudSetStatus(text,isError){
+    TACC_CLOUD_TEXT=String(text||""); TACC_CLOUD_ERROR=!!isError;
+    var node=document.getElementById("tacc-cloud-status-live");
+    if(node){ node.textContent=TACC_CLOUD_TEXT; node.className="tacc-storage-status"+(TACC_CLOUD_ERROR?" error":""); }
+  }
+  function taccCloudIsMeaningful(data){
+    data=data&&typeof data==="object"?data:{};
+    if(Array.isArray(data.roles)&&data.roles.length){return true;}
+    if(Array.isArray(data.customRoleTypes)&&data.customRoleTypes.length){return true;}
+    if(Array.isArray(data.png)&&data.png.length){return true;}
+    if(Array.isArray(data.relations)&&data.relations.length){return true;}
+    if(Array.isArray(data.links)&&data.links.length){return true;}
+    if(Array.isArray(data.media)&&data.media.length){return true;}
+    if(String(data.notes||"").trim()){return true;}
+    var ms=data.missions&&typeof data.missions==="object"?data.missions:{};
+    return Object.keys(ms).some(function(k){
+      var m=ms[k]||{};
+      if(m.active||String(m.notes||"").trim()||String(m.period||"").trim()){return true;}
+      if(Array.isArray(m.people)&&m.people.length){return true;}
+      if(m.counters&&Object.keys(m.counters).some(function(x){return Number(m.counters[x]||0)!==0;})){return true;}
+      if(m.entries&&Object.keys(m.entries).some(function(x){return Array.isArray(m.entries[x])&&m.entries[x].length;})){return true;}
+      return false;
+    });
+  }
+  function taccCloudBytes(data){
+    try{return new Blob([JSON.stringify(data)]).size;}catch(e){return 0;}
+  }
+  function taccSwitchLocalProfile(pg){
+    pg=normalizePgName(pg||""); if(!pg){return;}
+    var nextKey=taccProfileStorageKey(pg);
+    if(TACC_STORAGE_KEY===nextKey){try{localStorage.setItem(TACC_LAST_PROFILE_KEY,pg);}catch(e){} return;}
+    var oldKey=TACC_STORAGE_KEY,oldData=TACCUINO,raw=null;
+    try{raw=localStorage.getItem(nextKey);}catch(e){}
+    if(raw){
+      try{TACCUINO=taccNormalize(JSON.parse(raw));}catch(e){TACCUINO=taccDefault();}
+    }else if(oldKey===TACC_STORAGE_BASE_KEY&&taccCloudIsMeaningful(oldData)){
+      TACCUINO=taccNormalize(oldData);
+      try{localStorage.setItem(nextKey,JSON.stringify(TACCUINO));localStorage.removeItem(TACC_STORAGE_BASE_KEY);}catch(e){}
+    }else{
+      TACCUINO=taccDefault();
+      try{localStorage.setItem(nextKey,JSON.stringify(TACCUINO));}catch(e){}
+    }
+    TACC_STORAGE_KEY=nextKey;
+    try{localStorage.setItem(TACC_LAST_PROFILE_KEY,pg);}catch(e){}
+  }
+  function taccCloudStoreLocal(data){
+    TACCUINO=taccNormalize(data);
+    try{
+      localStorage.setItem(TACC_STORAGE_KEY,JSON.stringify(TACCUINO));
+      TACC_STORAGE_OK=true; TACC_STATUS="Salvato automaticamente in questo browser";
+    }catch(e){
+      console.warn("Salvataggio locale del Taccuino cloud fallito",e);
+      TACC_STORAGE_OK=false; TACC_STATUS="La copia cloud è stata letta, ma il browser non permette di conservarne una copia locale.";
+    }
+  }
+  function taccCloudPush(force){
+    var pg=taccCurrentPgName();
+    if(!pg||!fbConnected||!window.fbReady){
+      if(force){taccCloudSetStatus("Cloud non disponibile finché non carichi il PG nell’Elfo.",true);}
+      return Promise.resolve(false);
+    }
+    if(TACC_CLOUD_BUSY){return Promise.resolve(false);}
+    var bytes=taccCloudBytes(TACCUINO);
+    if(bytes>TACC_CLOUD_MAX_BYTES){
+      taccCloudSetStatus("Taccuino troppo grande per il backup cloud singolo ("+Math.round(bytes/1024)+" KB). Esporta un backup JSON.",true);
+      return Promise.resolve(false);
+    }
+    clearTimeout(TACC_CLOUD_TIMER); TACC_CLOUD_TIMER=null; TACC_CLOUD_BUSY=true;
+    taccCloudSetStatus("Sincronizzazione cloud in corso…",false);
+    var updated=(TACCUINO.meta&&TACCUINO.meta.updatedAt)||new Date().toISOString();
+    var payload={schemaVersion:1,pgId:pg,mode:TACC_MODE,updatedAt:updated,savedAt:serverTimestamp(),data:TACCUINO};
+    return setDoc(doc(fbDb,TACC_CLOUD_COLLECTION,pg),payload).then(function(){
+      TACC_CLOUD_LOGIN_PG=pg; taccCloudSetStatus("Cloud sincronizzato · "+new Date().toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"}),false);
+      return true;
+    }).catch(function(e){
+      console.error("Sincronizzazione Taccuino Firebase fallita",e);
+      taccCloudSetStatus("Cloud non sincronizzato: "+((e&&e.code)?e.code:"controlla le regole Firebase o la connessione"),true);
+      return false;
+    }).finally(function(){TACC_CLOUD_BUSY=false;});
+  }
+  function taccScheduleCloudSync(){
+    if(TACC_CLOUD_APPLYING){return;}
+    var pg=taccCurrentPgName();
+    if(!pg||!fbConnected||!window.fbReady){taccCloudSetStatus("Copia locale aggiornata · cloud in attesa del caricamento PG",false);return;}
+    clearTimeout(TACC_CLOUD_TIMER);
+    taccCloudSetStatus("Modifiche locali in attesa di sincronizzazione…",false);
+    TACC_CLOUD_TIMER=setTimeout(function(){taccCloudPush(false);},1800);
+  }
+  function taccCloudSyncAfterLogin(pgName){
+    var pg=normalizePgName(pgName||"");
+    if(!pg||!window.fbReady){return Promise.resolve(false);}
+    taccSwitchLocalProfile(pg);
+    TACC_CLOUD_LOGIN_PG=pg; clearTimeout(TACC_CLOUD_TIMER); TACC_CLOUD_TIMER=null;
+    taccCloudSetStatus("Controllo della copia cloud…",false);
+    return getDoc(doc(fbDb,TACC_CLOUD_COLLECTION,pg)).then(function(snap){
+      if(!snap.exists()){
+        if(taccCloudIsMeaningful(TACCUINO)){return taccCloudPush(true);}
+        taccCloudSetStatus("Cloud pronto · nessun backup ancora presente",false); return true;
+      }
+      var envelope=snap.data()||{},cloud=taccNormalize(envelope.data||{});
+      var localMeaning=taccCloudIsMeaningful(TACCUINO),cloudMeaning=taccCloudIsMeaningful(cloud);
+      var lt=Date.parse((TACCUINO.meta&&TACCUINO.meta.updatedAt)||"")||0;
+      var ct=Date.parse(envelope.updatedAt||(cloud.meta&&cloud.meta.updatedAt)||"")||0;
+      if(!localMeaning&&cloudMeaning){
+        TACC_CLOUD_APPLYING=true; taccCloudStoreLocal(cloud); TACC_CLOUD_APPLYING=false;
+        taccCloudSetStatus("Copia cloud recuperata su questo dispositivo",false); renderAll(); return true;
+      }
+      if(localMeaning&&!cloudMeaning){return taccCloudPush(true);}
+      if(ct>lt){
+        TACC_CLOUD_APPLYING=true; taccCloudStoreLocal(cloud); TACC_CLOUD_APPLYING=false;
+        taccCloudSetStatus("Copia cloud più recente recuperata",false); renderAll(); return true;
+      }
+      if(lt>ct){return taccCloudPush(true);}
+      taccCloudSetStatus("Locale e cloud sono già allineati",false); return true;
+    }).catch(function(e){
+      console.error("Lettura Taccuino Firebase fallita",e);
+      taccCloudSetStatus("Cloud non disponibile: "+((e&&e.code)?e.code:"controlla le regole Firebase o la connessione"),true);
+      return false;
+    });
+  }
+  function taccSave(){
+    TACCUINO.meta=TACCUINO.meta||{}; TACCUINO.meta.updatedAt=new Date().toISOString();
+    var ok=true;
+    try{
+      localStorage.setItem(TACC_STORAGE_KEY,JSON.stringify(TACCUINO));
+      TACC_STORAGE_OK=true; TACC_STATUS="Salvato automaticamente in questo browser";
+    }catch(e){
+      console.warn("Salvataggio Taccuino fallito",e);
+      TACC_STORAGE_OK=false; TACC_STATUS="Salvataggio locale non riuscito: la copia cloud può comunque funzionare, ma esporta anche un backup JSON."; ok=false;
+    }
+    taccScheduleCloudSync();
+    return ok;
+  }
+  function taccMissionState(id){
+    if(!TACCUINO.missions[id]||typeof TACCUINO.missions[id]!=="object"){
+      TACCUINO.missions[id]={active:false,counters:{},claimed:{},entries:{},people:[],period:"",flags:{},notes:""};
+    }
+    var s=TACCUINO.missions[id];
+    s.counters=s.counters&&typeof s.counters==="object"?s.counters:{};
+    s.claimed=s.claimed&&typeof s.claimed==="object"?s.claimed:{};
+    s.entries=s.entries&&typeof s.entries==="object"?s.entries:{};
+    s.people=Array.isArray(s.people)?s.people:[];
+    s.flags=s.flags&&typeof s.flags==="object"?s.flags:{};
+    s.notes=String(s.notes||""); s.period=String(s.period||"");
+    return s;
+  }
+
+  var TACC_MISSIONS_STUDENTE=[
+    {id:"fh_burlone",name:"Il Burlone — Livello Facile",kind:"counters",note:"Conta solo gli acquisti ruolati in una o più giocate di almeno 5 post ciascuna; gli acquisti esclusivamente OFFGame non valgono.",counters:[{key:"spesa",label:"Galeoni spesi in Scherzi Magici",goal:100,unit:"G"}]},
+    {id:"fh_malvagio",name:"Il Malvagio — Livelli Medio/Difficile",kind:"counters",note:"Acquisti ruolati nei Negozi Sinistri in una o più giocate di almeno 5 post; gli acquisti esclusivamente OFFGame non valgono.",counters:[{key:"legali",label:"Acquisti Legali",goal:300,unit:"G"},{key:"illegali",label:"Acquisti Illegali",goal:500,unit:"G"}]},
+    {id:"fh_amiconi",name:"Gli Amiconi",kind:"relations",note:"Valgono solo le role in cui i due PG ruolano da soli. Il conteggio viene condiviso con «I Compari» quando il PG diventa Adulto.",thresholds:[3,5,10,20],unit:"role"},
+    {id:"fh_attivista",name:"L'Attivista — Livello Difficile",kind:"people",note:"Servono almeno 3 PG che accettino ONGame volantini/depliant, nella stessa role o in più role diverse; nelle role usate il PG Attivista deve aver scritto almeno 3 post.",goal:3,peopleLabel:"PG che hanno accettato"},
+    {id:"fh_estroversi",name:"Gli Estroversi",kind:"people",note:"Servono PG diversi e role diverse nello stesso anno scolastico. Le role estive valgono per l'anno scolastico che deve iniziare; non valgono le role di gruppo.",thresholds:[5,10,15],periodLabel:"Anno scolastico",peopleLabel:"PG diverso + role diversa"},
+    {id:"fh_influencer",name:"L'Influencer — Livello Facile",kind:"counters",note:"La missione è riscattabile ogni 3 post in cui il PG pubblicizza attivamente il/i proprio/i Club; i post possono trovarsi in role diverse.",counters:[{key:"post",label:"Post di pubblicizzazione",repeatEvery:3,unit:"post"}]},
+    {id:"fh_quidditch",name:"Il Quidditch Addicted",kind:"counters",note:"Conta le partite ufficiali e/o amichevoli giocate dal PG.",counters:[{key:"partite",label:"Partite giocate",thresholds:[1,3,5],unit:"partite"}]},
+    {id:"fh_spendaccione",name:"Lo Spendaccione",kind:"counters",note:"Conta solo i Galeoni spesi per role nelle Locande di Hogsmeade. Il premio è riscattabile ogni 50 G; non valgono le Locande di Diagon e Notturn Alley.",counters:[{key:"spesa",label:"Spesa nelle Locande di Hogsmeade",repeatEvery:50,unit:"G"}]},
+    {id:"fh_venditore",name:"Il Venditore (Studente)",kind:"counters",note:"Vendite presso lo Zoppo ruolate in una o più role di almeno 5 post; le vendite fatte esclusivamente OFFGame non valgono.",counters:[{key:"legali",label:"Vendite Legali",goal:100,unit:"G"},{key:"illegali",label:"Vendite Illegali",goal:50,unit:"G"}]},
+    {id:"fh_buono",name:"Il Buono — Livello Medio",kind:"counters",note:"Conta gli acquisti presso i Negozi Virtuosi ruolati in una o più role di almeno 5 post; gli acquisti esclusivamente OFFGame non valgono.",counters:[{key:"spesa",label:"Acquisti nei Negozi Virtuosi",goal:500,unit:"G"}]},
+    {id:"fh_zelante",name:"Lo Zelante — Livelli Medio/Difficile/Estremo",kind:"countersFlags",periodLabel:"Anno scolastico",note:"Medio: premio ogni 3 role di studio da Tutor. Difficile: premio ogni 3 Missioni FH Legali concluse e riscattate in 3 role diverse, escludendo Zelante e missioni a completamento. Estremo: nessuna Azione Caotica per tutto l'anno, con verifica Staff.",counters:[{key:"tutor",label:"Role di studio come Tutor",repeatEvery:3,unit:"role"},{key:"legali",label:"Missioni FH Legali valide",repeatEvery:3,unit:"missioni"}],flags:[{key:"noCaos",label:"Per il Livello Estremo: non ho ruolato alcun tipo di Azione Caotica nell'anno scolastico"}]}
+  ];
+
+  var TACC_MISSIONS_ADULTO=[
+    {id:"fw_cliente_sinistro",name:"Il Cliente Sinistro — Livello Difficile",kind:"counters",note:"Conta le role concluse nelle Locande di Notturn Alley. Il premio è riscattabile ogni 3 role.",counters:[{key:"role",label:"Role nelle Locande di Notturn Alley",repeatEvery:3,unit:"role"}]},
+    {id:"fw_commerciante_sinistro",name:"Il Commerciante Sinistro — Livelli Facile/Medio",kind:"counters",note:"Ogni voce è cumulativa e il premio può essere riscattato più volte. Vendita/acquisto deve essere ruolato in una giocata di almeno 5 post; gli acquisti esclusivamente OFFGame non valgono.",counters:[{key:"acqLegali",label:"Acquisti Legali nei Negozi Sinistri",repeatEvery:500,unit:"G"},{key:"vendLegali",label:"Vendite Legali all'Alchimista",repeatEvery:500,unit:"G"},{key:"acqIllegali",label:"Acquisti Illegali nei Negozi Sinistri",repeatEvery:300,unit:"G"},{key:"vendIllegali",label:"Vendite Illegali all'Alchimista",repeatEvery:300,unit:"G"}]},
+    {id:"fw_randagio",name:"Il Randagio",kind:"counters",note:"Conta i post scritti senza essere scoperto. Il premio è riscattabile ogni 20 post. Il dado per l'Azione Illegale resta da lanciare al primo post di ogni free role/Role Masterata come da regolamento.",counters:[{key:"post",label:"Post senza essere scoperto",repeatEvery:20,unit:"post"}]},
+    {id:"fw_viandante",name:"Il Viandante",kind:"counters",note:"Conta solo le role a Notturn Alley valide per questa missione: sono escluse le Locande di Notturn Alley e le role che ricadono in «L'Alleato Imprevisto». Dopo 10 role, il Livello Estremo si riscatta ogni 5 ulteriori role.",counters:[{key:"role",label:"Role valide a Notturn Alley",thresholds:[5,10],repeatAfter:15,repeatEvery:5,unit:"role"}]},
+    {id:"fw_accumulatore",name:"L'Accumulatore",kind:"counters",note:"I tre conteggi sono indipendenti. Il premio è riscattabile ogni 5 Pozioni create, ogni 5 Creature domesticate e ogni 5 Piante trattate.",counters:[{key:"pozioni",label:"Pozioni create",repeatEvery:5,unit:"pozioni"},{key:"creature",label:"Creature domesticate",repeatEvery:5,unit:"creature"},{key:"piante",label:"Piante trattate",repeatEvery:5,unit:"piante"}]},
+    {id:"fw_avventuriero",name:"L'Avventuriero",kind:"counters",note:"Servono 5 role di almeno 5 post nelle sezioni Giratempo, Trix Tristis e/o Linea dell'Età.",counters:[{key:"role",label:"Role valide",goal:5,unit:"role"}]},
+    {id:"fw_cliente_neutrale",name:"Il Cliente Neutrale — Livello Difficile",kind:"counters",note:"Conta le role concluse nelle Locande di Hogsmeade. Il premio è riscattabile ogni 3 role.",counters:[{key:"role",label:"Role nelle Locande di Hogsmeade",repeatEvery:3,unit:"role"}]},
+    {id:"fw_compari",name:"I Compari",kind:"relations",note:"Valgono solo le role in cui i due PG ruolano da soli. Usa lo stesso conteggio di «Gli Amiconi»: il regolamento stabilisce che il passaggio Studente → Adulto non azzera le role già giocate.",thresholds:[3,5,10,20],unit:"role"},
+    {id:"fw_escursionista",name:"L'Escursionista",kind:"countersFlags",note:"Piante e Creature sono cumulabili all'interno della rispettiva fascia. Ogni conteggio da 10 è ripetibile. Il Bolcino d'Oro è tenuto come promemoria separato senza interpretare qui se sostituisca o si aggiunga all'altro requisito del Livello Estremo.",counters:[{key:"ingredienti",label:"Ingredienti trovati con Ricerca ONGame",repeatEvery:10,unit:"ingredienti"},{key:"basse",label:"Piante/Creature X e XX trovate",repeatEvery:10,unit:"ritrovamenti"},{key:"medie",label:"Piante/Creature XXX trovate",repeatEvery:10,unit:"ritrovamenti"},{key:"alte",label:"Piante/Creature XXXX e XXXXX trovate",repeatEvery:10,unit:"ritrovamenti"}],flags:[{key:"bolcino",label:"Ho trovato il Bolcino d'Oro durante una role"}]},
+    {id:"fw_giornalista",name:"Il Giornalista — Livello Difficile",kind:"counters",note:"Conta gli articoli pubblicati a nome proprio per il Giornale per cui il PG lavora. Il premio è riscattabile ogni 3 articoli.",counters:[{key:"articoli",label:"Articoli pubblicati",repeatEvery:3,unit:"articoli"}]},
+    {id:"fw_negoziante",name:"Il Negoziante",kind:"counters",note:"Il premio base della missione è per singola role; il Taccuino tiene soltanto il conteggio aggiuntivo di Popolarità previsto ogni 3 role nel proprio Negozio.",counters:[{key:"roleNegozio",label:"Role nel proprio Negozio",repeatEvery:3,unit:"role"}]},
+    {id:"fw_politico",name:"Il Politico — Livelli Medio/Estremo",kind:"counters",note:"Il premio dei livelli cumulativi è riscattabile ogni 3 partecipazioni.",counters:[{key:"sedute",label:"Sedute Straordinarie come Onorevole",repeatEvery:3,unit:"sedute"},{key:"processi",label:"Processi del Wizengamot come spettatore",repeatEvery:3,unit:"processi"}]},
+    {id:"fw_popolare",name:"Il Popolare",kind:"people",periodLabel:"Anno solare",note:"Servono PG diversi e role diverse tra il 1° gennaio e il 31 dicembre; non valgono le role di gruppo. Il passaggio dal VII anno segue la specifica transitoria del regolamento.",thresholds:[5,10,15],peopleLabel:"PG diverso + role diversa"},
+    {id:"fw_quidditcher",name:"Il Quidditcher",kind:"counters",note:"Conta le partite di Quidditch a cui il PG partecipa come giocatore.",counters:[{key:"partite",label:"Partite giocate",thresholds:[1,3,5],unit:"partite"}]},
+    {id:"fw_venditore",name:"Il Venditore (Adulto)",kind:"counters",note:"Vendite presso lo Zoppo ruolate in una o più role di almeno 5 post; le vendite fatte esclusivamente OFFGame non valgono.",counters:[{key:"legali",label:"Vendite Legali",goal:300,unit:"G"},{key:"illegali",label:"Vendite Illegali",goal:250,unit:"G"}]},
+    {id:"fw_cliente_virtuoso",name:"Il Cliente Virtuoso — Livello Difficile",kind:"counters",note:"Conta le role concluse nelle Locande di Diagon Alley. Il premio è riscattabile ogni 3 role.",counters:[{key:"role",label:"Role nelle Locande di Diagon Alley",repeatEvery:3,unit:"role"}]},
+    {id:"fw_commerciante_virtuoso",name:"Il Commerciante Virtuoso — Livello Facile",kind:"counters",note:"Il premio può essere riscattato più volte completando una delle due voci. Vendita/acquisto deve essere ruolato in una giocata di almeno 5 post; gli acquisti esclusivamente OFFGame non valgono.",counters:[{key:"acquisti",label:"Acquisti Legali nei Negozi Virtuosi",repeatEvery:500,unit:"G"},{key:"vendite",label:"Vendite Legali al Ricercatore",repeatEvery:500,unit:"G"}]}
+  ];
+  function taccMissionDefs(){ return TACC_MODE==="studente"?TACC_MISSIONS_STUDENTE:TACC_MISSIONS_ADULTO; }
+
+  function taccInput(label,value,type){
+    var w=el("div"); if(label){w.appendChild(el("label",null,label));}
+    var i=el("input"); i.type=type||"text"; i.value=value==null?"":value; w.appendChild(i); return {wrap:w,input:i};
+  }
+  function taccSelect(label,values,current){
+    var w=el("div"); if(label){w.appendChild(el("label",null,label));}
+    var s=document.createElement("select");
+    values.forEach(function(v){var o=document.createElement("option");o.value=v;o.textContent=v;if(v===current){o.selected=true;}s.appendChild(o);});
+    w.appendChild(s); return {wrap:w,select:s};
+  }
+  function taccProgress(value,def,state,key){
+    value=taccNum(value); var unit=def.unit?" "+def.unit:"";
+    if(def.repeatAfter&&def.repeatEvery){
+      var reached=(def.thresholds||[]).filter(function(x){return value>=x;});
+      var msg="Totale: "+value+unit+". ";
+      if(reached.length){msg+="Soglie raggiunte: "+reached.join(", ")+". ";}
+      var nextThreshold=(def.thresholds||[]).find(function(x){return value<x;});
+      if(nextThreshold){msg+="Prossimo traguardo: "+nextThreshold+unit+".";}
+      else if(value<def.repeatAfter){msg+="Prossimo traguardo: "+def.repeatAfter+unit+".";}
+      else{var next=def.repeatAfter+Math.ceil((value-def.repeatAfter+1)/def.repeatEvery)*def.repeatEvery;msg+="Da qui, nuovo riscatto ogni "+def.repeatEvery+unit+"; prossimo a "+next+unit+".";}
+      return {complete:value>=(def.thresholds&&def.thresholds[0]||def.repeatAfter),text:msg};
+    }
+    if(def.repeatEvery){
+      var n=Math.floor(value/def.repeatEvery),claimed=Math.max(0,parseInt((state.claimed||{})[key],10)||0),pending=Math.max(0,n-claimed);
+      var rem=value%def.repeatEvery,need=rem===0?def.repeatEvery:def.repeatEvery-rem;
+      return {complete:n>0,text:"Totale: "+value+unit+" · traguardi maturati: "+n+" · già riscattati: "+claimed+" · da riscattare: "+pending+" · al prossimo: "+need+unit+"."};
+    }
+    if(def.thresholds&&def.thresholds.length){
+      var reached2=def.thresholds.filter(function(x){return value>=x;}),next2=def.thresholds.find(function(x){return value<x;});
+      return {complete:reached2.length===def.thresholds.length,text:"Totale: "+value+unit+" · soglie raggiunte: "+(reached2.length?reached2.join(", "):"nessuna")+(next2?" · prossima: "+next2+unit:" · tutte le soglie raggiunte")+"."};
+    }
+    var goal=taccNum(def.goal),missing=Math.max(0,goal-value);
+    return {complete:goal>0&&value>=goal,text:goal?((value>=goal?"Completato: ":"Progressi: ")+value+" / "+goal+unit+(missing?" · mancano "+missing+unit:"")):"Totale: "+value+unit};
+  }
+  var TACC_ROLE_TYPES=[
+    {value:"free",label:"Free Role",icon:"💬"},
+    {value:"gruppo",label:"Role di gruppo",icon:"👥"},
+    {value:"masterata",label:"Role Masterata",icon:"🎭"},
+    {value:"quest",label:"Quest / Role di Trama",icon:"🎲"},
+    {value:"trama",label:"Trama / Ricerca informazioni",icon:"🔎"},
+    {value:"ripetizioni",label:"Ripetizioni / Studio",icon:"📚"},
+    {value:"indiscrete",label:"Orecchie indiscrete",icon:"👁"},
+    {value:"limitato",label:"Accesso limitato",icon:"🔒"},
+    {value:"evento",label:"Evento",icon:"✨"},
+    {value:"altro",label:"Altro",icon:"•"}
+  ];
+  function taccCleanCustomRoleType(v){return String(v||"").replace(/^custom:/,"").trim();}
+  function taccRememberCustomRoleType(label){
+    label=taccCleanCustomRoleType(label);if(!label){return "";}
+    TACCUINO.customRoleTypes=Array.isArray(TACCUINO.customRoleTypes)?TACCUINO.customRoleTypes:[];
+    var std=TACC_ROLE_TYPES.some(function(t){return t.label.toLowerCase()===label.toLowerCase();});
+    if(!std&&!TACCUINO.customRoleTypes.some(function(x){return String(x).toLowerCase()===label.toLowerCase();})){TACCUINO.customRoleTypes.push(label);}
+    return label;
+  }
+  function taccRoleTypeLabel(v){
+    v=String(v||"free");var x=TACC_ROLE_TYPES.find(function(t){return t.value===v;});
+    if(x){return x.icon+" "+x.label;}
+    if(v.indexOf("custom:")===0){var lab=taccCleanCustomRoleType(v);return lab?"• "+lab:"• Altro";}
+    return v?"• "+v:"• Altro";
+  }
+  function taccRoleTypeSelect(value){
+    var wrap=el("div");wrap.appendChild(el("label",null,"Tipo di Role"));var s=document.createElement("select");
+    TACC_ROLE_TYPES.forEach(function(t){var o=document.createElement("option");o.value=t.value;o.textContent=t.icon+" "+t.label;s.appendChild(o);});
+    (Array.isArray(TACCUINO.customRoleTypes)?TACCUINO.customRoleTypes:[]).forEach(function(label){
+      label=taccCleanCustomRoleType(label);if(!label){return;}var o=document.createElement("option");o.value="custom:"+label;o.textContent="• "+label;s.appendChild(o);
+    });
+    var customOption=document.createElement("option");customOption.value="__custom__";customOption.textContent="＋ Altro / personalizzato";s.appendChild(customOption);
+    wrap.appendChild(s);
+    var custom=document.createElement("input");custom.type="text";custom.placeholder="Scrivi il tipo personalizzato";custom.style.display="none";custom.style.marginTop="8px";wrap.appendChild(custom);
+    var initial=String(value||"free");
+    if(initial.indexOf("custom:")===0&&!Array.from(s.options).some(function(o){return o.value===initial;})){
+      var lab=taccCleanCustomRoleType(initial);if(lab){var io=document.createElement("option");io.value=initial;io.textContent="• "+lab;s.insertBefore(io,customOption);}
+    }
+    s.value=Array.from(s.options).some(function(o){return o.value===initial;})?initial:"free";
+    function toggle(){custom.style.display=s.value==="__custom__"?"block":"none";if(s.value==="__custom__"){setTimeout(function(){try{custom.focus();}catch(e){}},0);}}
+    s.addEventListener("change",toggle);toggle();
+    return {wrap:wrap,select:s,customInput:custom,getValue:function(fallback){
+      if(s.value!=="__custom__"){return s.value||fallback||"free";}
+      var lab=taccCleanCustomRoleType(custom.value);if(!lab){return fallback||"altro";}
+      return "custom:"+lab;
+    },rememberCustom:function(){
+      if(s.value!=="__custom__"){return false;}var lab=taccCleanCustomRoleType(custom.value);if(!lab){return false;}taccRememberCustomRoleType(lab);return true;
+    }};
+  }
+  function taccEntries(state,key){
+    state.entries=state.entries&&typeof state.entries==="object"?state.entries:{};
+    if(!Array.isArray(state.entries[key])){state.entries[key]=[];}
+    return state.entries[key];
+  }
+  function taccCounterTotal(state,key){
+    return taccNum(state.counters[key])+taccEntries(state,key).reduce(function(sum,x){return sum+taccNum(x&&x.value);},0);
+  }
+  function taccRenderEvidence(card,state,def){
+    var entries=taccEntries(state,def.key),box=el("div","tacc-evidence");
+    box.appendChild(el("div","tacc-evidence-title","Registro del progresso"));
+    if(entries.length){
+      entries.forEach(function(e,idx){
+        var row=el("div","tacc-evidence-row"),val=taccInput("Valore",taccNum(e.value),"number"),desc=taccInput("Descrizione / Role",e.label||""),url=taccInput("Link",e.url||"");
+        val.input.type="number";val.input.min="0";val.input.step="any";url.input.type="url";
+        row.appendChild(val.wrap);row.appendChild(desc.wrap);row.appendChild(url.wrap);
+        var rm=el("button","action danger","Rimuovi");rm.type="button";rm.addEventListener(EV,function(){entries.splice(idx,1);taccSave();renderAll();});row.appendChild(rm);
+        [val.input,desc.input,url.input].forEach(function(inp){inp.addEventListener("input",function(){e.value=taccNum(val.input.value);e.label=desc.input.value;e.url=url.input.value;taccSave();});});
+        box.appendChild(row);
+      });
+    }else{box.appendChild(el("div","small-note","Nessuna prova registrata. Puoi lasciare tutto nel totale precedente oppure aggiungere qui le singole role/acquisti/post con il relativo link."));}
+    var add=el("div","tacc-evidence-row"),v=taccInput("Valore",def.unit==="G"?"":1,"number"),d=taccInput("Descrizione / Role",""),u=taccInput("Link","");
+    v.input.type="number";v.input.min="0";v.input.step="any";u.input.type="url";add.appendChild(v.wrap);add.appendChild(d.wrap);add.appendChild(u.wrap);
+    var b=el("button","action","+ Registra");b.type="button";b.addEventListener(EV,function(){var value=taccNum(v.input.value);if(value<=0){alert("Inserisci un valore maggiore di zero.");return;}entries.push({id:taccId("proof"),value:value,label:String(d.input.value||"").trim(),url:String(u.input.value||"").trim()});taccSave();renderAll();});add.appendChild(b);box.appendChild(add);card.appendChild(box);
+  }
+
+  function taccRenderCounter(card,state,def){
+    var row=el("div","tacc-counter");
+    var grid=el("div","tacc-counter-grid");
+    var label=el("div"); label.appendChild(el("label",null,def.label));
+    var counterHint="";
+    if(def.goal){counterHint="Obiettivo: "+def.goal+(def.unit?" "+def.unit:"");}
+    else if(def.repeatEvery){counterHint="Ogni "+def.repeatEvery+(def.unit?" "+def.unit:"");}
+    else if(def.thresholds){counterHint="Soglie: "+def.thresholds.join(" / ");}
+    label.appendChild(el("div","small-note",counterHint));
+    grid.appendChild(label);
+    var val=el("input"); val.type="number"; val.min="0"; val.step="any"; val.value=taccNum(state.counters[def.key]);
+    val.title="Progresso precedente o non dettagliato nel registro";
+    val.addEventListener("input",function(){state.counters[def.key]=taccNum(val.value);taccSave();});
+    val.addEventListener("change",function(){renderAll();}); grid.appendChild(val);
+    var claimWrap=el("div");
+    if(def.repeatEvery){
+      claimWrap.appendChild(el("label",null,"Riscatti già richiesti"));
+      var cl=el("input");cl.type="number";cl.min="0";cl.step="1";cl.value=Math.max(0,parseInt(state.claimed[def.key],10)||0);
+      cl.addEventListener("input",function(){state.claimed[def.key]=Math.max(0,parseInt(cl.value,10)||0);taccSave();});cl.addEventListener("change",function(){renderAll();});claimWrap.appendChild(cl);
+    }
+    grid.appendChild(claimWrap); row.appendChild(grid);
+    var total=taccCounterTotal(state,def.key),pr=taccProgress(total,def,state,def.key);
+    row.appendChild(el("div","tacc-progress "+(pr.complete?"complete":"pending"),"Totale: "+total+(def.unit?" "+def.unit:"")+" · "+pr.text));
+    taccRenderEvidence(row,state,def);
+    card.appendChild(row);
+  }
+  function taccRelationProgress(count,thresholds){
+    var reached=thresholds.filter(function(x){return count>=x;}),next=thresholds.find(function(x){return count<x;});
+    return "Role: "+count+" · soglie: "+(reached.length?reached.join(", "):"nessuna")+(next?" · prossima: "+next:" · tutte raggiunte");
+  }
+
+  function renderTaccRole(container){
+    var head=el("div","tacc-section-head");head.appendChild(el("h3",null,"Role aperte"));container.appendChild(head);
+
+    var open=TACCUINO.roles.filter(function(r){return r&&r.status!=="closed";});
+    if(!open.length){
+      container.appendChild(el("div","tacc-empty","Nessuna Role aperta nel Taccuino."));
+    }else{
+      var periods=[];
+      open.forEach(function(r){var p=String(r.period||"").trim()||"Senza periodo";if(periods.indexOf(p)<0){periods.push(p);}});
+      periods.forEach(function(period){
+        var block=el("div","tacc-period-group");
+        block.appendChild(el("div","tacc-period-title","📅 "+period));
+        open.filter(function(r){return (String(r.period||"").trim()||"Senza periodo")===period;}).forEach(function(r){
+          var card=el("div","tacc-card");card.id="tacc-role-"+r.id;
+          card.appendChild(el("h4",null,r.title||"Role"));
+          var meta=[];
+          meta.push("<span class=\"tacc-role-badge\">"+taccRoleTypeLabel(r.roleType||"free")+"</span>");
+          if(r.location){meta.push("📍 "+r.location);}
+          if(r.withWhom){meta.push("Con: "+r.withWhom);}
+          if(r.category){meta.push("Raccolta: "+r.category);}
+          card.appendChild(el("div","tacc-role-meta",meta.join(" · ")));
+          if(r.url){var link=document.createElement("a");link.href=r.url;link.target="_blank";link.rel="noopener noreferrer";link.className="tacc-link";link.textContent="Apri Role";card.appendChild(link);}
+          if(r.notes){card.appendChild(el("p","small-note",r.notes));}
+
+          var details=document.createElement("details");details.className="tacc-role-edit";
+          var summary=document.createElement("summary");summary.textContent="Modifica o concludi la Role";details.appendChild(summary);
+          var title=taccInput("Titolo",r.title||""),url=taccInput("Link",r.url||""),who=taccInput("Con chi",r.withWhom||""),cat=taccSelect("Archivia nella raccolta",TACCUINO.categories,r.category||"Altro"),date=taccInput("Aperta nel Taccuino il",r.openedAt||"","date"),rt=taccRoleTypeSelect(r.roleType||"free"),per=taccInput("Periodo ONGame",r.period||""),loc=taccInput("Luogo",r.location||"");
+          url.input.type="url";date.input.type="date";
+          var gg=el("div","tacc-grid-2");[title.wrap,url.wrap,who.wrap,cat.wrap,rt.wrap,per.wrap,loc.wrap,date.wrap].forEach(function(x){gg.appendChild(x);});details.appendChild(gg);
+          var noteWrap=el("div","tacc-form-note");noteWrap.appendChild(el("label",null,"Note"));var ta=el("textarea");ta.value=r.notes||"";ta.placeholder="Note / promemoria (facoltativo)";noteWrap.appendChild(ta);details.appendChild(noteWrap);
+          function saveFields(){r.title=title.input.value;r.url=url.input.value;r.withWhom=who.input.value;r.category=cat.select.value;r.roleType=rt.getValue(r.roleType||"free");r.period=per.input.value;r.location=loc.input.value;r.openedAt=date.input.value;r.notes=ta.value;taccSave();}
+          [title.input,url.input,who.input,per.input,loc.input,date.input,ta,rt.customInput].forEach(function(x){x.addEventListener("input",saveFields);});[cat.select,rt.select].forEach(function(x){x.addEventListener("change",saveFields);});
+          rt.customInput.addEventListener("change",function(){if(rt.rememberCustom()){r.roleType=rt.getValue(r.roleType||"free");taccSave();}});
+          var actions=el("div","tacc-inline-actions");var close=el("button","action","✓ Concludi e manda in Cronologia");close.type="button";close.addEventListener(EV,function(){saveFields();r.status="closed";r.closedAt=taccToday();taccSave();renderAll();});actions.appendChild(close);
+          var del=el("button","action danger","Rimuovi");del.type="button";del.addEventListener(EV,function(){if(confirm("Rimuovere questa Role dal Taccuino?")){TACCUINO.roles=TACCUINO.roles.filter(function(x){return x.id!==r.id;});taccSave();renderAll();}});actions.appendChild(del);details.appendChild(actions);card.appendChild(details);block.appendChild(card);
+        });
+        container.appendChild(block);
+      });
+    }
+
+    var form=el("div","tacc-card tacc-add-role");form.appendChild(el("h4",null,"Aggiungi una nuova Role"));
+    var g=el("div","tacc-grid-2"),a=taccInput("Titolo della Role",""),b=taccInput("Link",""),c=taccInput("Con chi",""),d=taccSelect("Raccolta della Cronologia",TACCUINO.categories,"Altro"),rt=taccRoleTypeSelect("free"),per=taccInput("Periodo ONGame",""),loc=taccInput("Luogo","");
+    b.input.type="url";per.input.placeholder="Es. Novembre 2026, 2026.11, Estate…";loc.input.placeholder="Es. Biblioteca, Hogsmeade…";
+    [a.wrap,b.wrap,c.wrap,d.wrap,rt.wrap,per.wrap,loc.wrap].forEach(function(x){g.appendChild(x);});form.appendChild(g);
+    var noteWrap=el("div","tacc-form-note");noteWrap.appendChild(el("label",null,"Note"));var note=el("textarea");note.placeholder="Note / promemoria (facoltativo)";noteWrap.appendChild(note);form.appendChild(noteWrap);
+    var add=el("button","action","+ Aggiungi Role");add.type="button";add.addEventListener(EV,function(){
+      var title=String(a.input.value||"").trim();if(!title){alert("Scrivi il titolo della Role.");return;}
+      if(rt.select.value==="__custom__"&&!String(rt.customInput.value||"").trim()){alert("Scrivi il tipo di Role personalizzato oppure scegli un tipo dal menu.");return;}
+      var roleType=rt.getValue("free");if(roleType.indexOf("custom:")===0){rt.rememberCustom();}
+      var newId=taccId("role");TACCUINO.roles.push({id:newId,title:title,url:String(b.input.value||"").trim(),withWhom:String(c.input.value||"").trim(),category:d.select.value||"Altro",roleType:roleType,period:String(per.input.value||"").trim(),location:String(loc.input.value||"").trim(),notes:String(note.value||"").trim(),openedAt:taccToday(),closedAt:"",status:"open"});
+      taccSave();renderAll();setTimeout(function(){var node=document.getElementById("tacc-role-"+newId);if(node){node.scrollIntoView({behavior:"smooth",block:"center"});}},0);
+    });form.appendChild(add);container.appendChild(form);
+  }
+
+  function renderTaccCronologia(container){
+    var head=el("div","tacc-section-head");head.appendChild(el("h3",null,"Cronologia delle Role"));container.appendChild(head);
+    var catCard=el("div","tacc-card");catCard.appendChild(el("h4",null,"Raccolte della Cronologia"));catCard.appendChild(el("p","small-note","Le raccolte servono a raggruppare le Role concluse, per esempio per anno scolastico, Vita adulta, Lavoro o un'altra divisione personale."));var row=el("div","tacc-mini-row"),inp=taccInput("Nome nuova raccolta","");row.appendChild(inp.wrap);row.appendChild(el("div"));var add=el("button","action","+ Aggiungi raccolta");add.type="button";add.addEventListener(EV,function(){var v=String(inp.input.value||"").trim();if(!v){return;}if(TACCUINO.categories.some(function(x){return x.toLowerCase()===v.toLowerCase();})){alert("Questa raccolta esiste già.");return;}TACCUINO.categories.push(v);taccSave();renderAll();});row.appendChild(add);catCard.appendChild(row);container.appendChild(catCard);
+    var closed=TACCUINO.roles.filter(function(r){return r&&r.status==="closed";});
+    if(!closed.length){container.appendChild(el("div","tacc-empty","La Cronologia è ancora vuota. Concludi una Role aperta per archiviarla qui."));return;}
+    TACCUINO.categories.forEach(function(cat){
+      var items=closed.filter(function(r){return (r.category||"Altro")===cat;});if(!items.length){return;}
+      var block=el("div","tacc-category-block");block.appendChild(el("h4",null,cat));
+      var periods=[];
+      items.forEach(function(r){var p=String(r.period||"").trim()||"Senza periodo";if(periods.indexOf(p)<0){periods.push(p);}});
+      periods.forEach(function(period){
+        var pb=el("div","tacc-period-group");pb.appendChild(el("div","tacc-period-title","📅 "+period));
+        items.filter(function(r){return (String(r.period||"").trim()||"Senza periodo")===period;}).forEach(function(r){
+          var card=el("div","tacc-card");card.appendChild(el("h4",null,r.title||"Role"));
+          card.appendChild(el("div","tacc-role-meta","<span class=\"tacc-role-badge\">"+taccRoleTypeLabel(r.roleType||"free")+"</span>"+(r.withWhom?" Con: "+r.withWhom:"")+(r.location?" · 📍 "+r.location:"")));
+          card.appendChild(el("div","tacc-role-meta","Archiviata: "+(r.closedAt||"—")));
+          if(r.url){var aa=document.createElement("a");aa.href=r.url;aa.target="_blank";aa.rel="noopener noreferrer";aa.className="tacc-link";aa.textContent="Apri Role";card.appendChild(aa);}if(r.notes){card.appendChild(el("p","small-note",r.notes));}
+          var edit=el("div","tacc-grid-2"),sel=taccSelect("Sposta nella raccolta",TACCUINO.categories,r.category||"Altro"),per=taccInput("Periodo ONGame",r.period||""),loc=taccInput("Luogo",r.location||""),rt=taccRoleTypeSelect(r.roleType||"free");
+          [sel.wrap,per.wrap,loc.wrap,rt.wrap].forEach(function(x){edit.appendChild(x);});card.appendChild(edit);
+          sel.select.addEventListener("change",function(){r.category=sel.select.value;taccSave();renderAll();});
+          per.input.addEventListener("change",function(){r.period=per.input.value;taccSave();renderAll();});
+          loc.input.addEventListener("input",function(){r.location=loc.input.value;taccSave();});
+          function saveCronRoleType(){r.roleType=rt.getValue(r.roleType||"free");taccSave();if(rt.select.value!=="__custom__"){renderAll();}}
+          rt.select.addEventListener("change",saveCronRoleType);rt.customInput.addEventListener("change",function(){if(rt.rememberCustom()){r.roleType=rt.getValue(r.roleType||"free");taccSave();renderAll();}});
+          var actions=el("div","tacc-inline-actions");var reopen=el("button","action","↩ Riapri");reopen.type="button";reopen.addEventListener(EV,function(){r.status="open";r.closedAt="";taccSave();renderAll();});actions.appendChild(reopen);var del=el("button","action danger","Rimuovi");del.type="button";del.addEventListener(EV,function(){if(confirm("Rimuovere definitivamente questa Role dalla Cronologia?")){TACCUINO.roles=TACCUINO.roles.filter(function(x){return x.id!==r.id;});taccSave();renderAll();}});actions.appendChild(del);card.appendChild(actions);pb.appendChild(card);
+        });block.appendChild(pb);
+      });container.appendChild(block);
+    });
+  }
+
+  function renderTaccPng(container){
+    container.appendChild(el("h3",null,"Taccuino PNG"));container.appendChild(el("p","small-note","Conserva qui i PNG che possiedono una propria Scheda PNG e le role in cui li hai utilizzati concretamente. Il colore è facoltativo e può servire come riferimento grafico personale."));
+    var addCard=el("div","tacc-card"),g=el("div","tacc-grid-2"),name=taccInput("Nome PNG",""),sheet=taccInput("Link Scheda PNG",""),color=taccInput("Colore / codice","");sheet.input.type="url";color.input.placeholder="Es. #6495ed o darkturquoise";[name.wrap,sheet.wrap,color.wrap].forEach(function(x){g.appendChild(x);});addCard.appendChild(g);var b=el("button","action","+ Aggiungi PNG");b.type="button";b.addEventListener(EV,function(){var n=String(name.input.value||"").trim();if(!n){alert("Scrivi il nome del PNG.");return;}TACCUINO.png.push({id:taccId("png"),name:n,sheetUrl:String(sheet.input.value||"").trim(),color:String(color.input.value||"").trim(),notes:"",roles:[]});taccSave();renderAll();});addCard.appendChild(b);container.appendChild(addCard);
+    if(!TACCUINO.png.length){container.appendChild(el("div","tacc-empty","Nessun PNG aggiunto."));return;}
+    TACCUINO.png.forEach(function(p){p.roles=Array.isArray(p.roles)?p.roles:[];var card=el("div","tacc-card"),g2=el("div","tacc-grid-2"),n=taccInput("Nome PNG",p.name||""),s=taccInput("Link Scheda PNG",p.sheetUrl||""),co=taccInput("Colore / codice",p.color||"");s.input.type="url";[n.wrap,s.wrap,co.wrap].forEach(function(x){g2.appendChild(x);});card.appendChild(g2);
+      if(p.color){var sw=el("div","small-note");var dot=document.createElement("span");dot.className="tacc-color-swatch";try{dot.style.background=p.color;}catch(e){}sw.appendChild(dot);sw.appendChild(document.createTextNode(p.color));card.appendChild(sw);}
+      var notes=el("textarea");notes.placeholder="Note sul PNG";notes.value=p.notes||"";card.appendChild(notes);function save(){p.name=n.input.value;p.sheetUrl=s.input.value;p.color=co.input.value;p.notes=notes.value;taccSave();}[n.input,s.input,co.input,notes].forEach(function(x){x.addEventListener("input",save);});
+      card.appendChild(el("h4",null,"Role del PNG"));p.roles.forEach(function(rr){var line=el("div","tacc-mini-row"),t=taccInput("Titolo",rr.title||""),u=taccInput("Link",rr.url||"");u.input.type="url";line.appendChild(t.wrap);line.appendChild(u.wrap);var del=el("button","action danger","Rimuovi");del.type="button";del.addEventListener(EV,function(){p.roles=p.roles.filter(function(x){return x.id!==rr.id;});taccSave();renderAll();});line.appendChild(del);t.input.addEventListener("input",function(){rr.title=t.input.value;taccSave();});u.input.addEventListener("input",function(){rr.url=u.input.value;taccSave();});card.appendChild(line);});
+      var addLine=el("div","tacc-mini-row"),nt=taccInput("Nuova Role",""),nu=taccInput("Link","");nu.input.type="url";addLine.appendChild(nt.wrap);addLine.appendChild(nu.wrap);var ab=el("button","action","+ Aggiungi Role");ab.type="button";ab.addEventListener(EV,function(){var title=String(nt.input.value||"").trim();if(!title){alert("Scrivi il titolo della Role.");return;}p.roles.push({id:taccId("pngrole"),title:title,url:String(nu.input.value||"").trim()});taccSave();renderAll();});addLine.appendChild(ab);card.appendChild(addLine);
+      var actions=el("div","tacc-inline-actions");var dp=el("button","action danger","Rimuovi PNG");dp.type="button";dp.addEventListener(EV,function(){if(confirm("Rimuovere «"+(p.name||"questo PNG")+"» e le role collegate dal Taccuino?")){TACCUINO.png=TACCUINO.png.filter(function(x){return x.id!==p.id;});taccSave();renderAll();}});actions.appendChild(dp);card.appendChild(actions);container.appendChild(card);});
+  }
+
+  function renderTaccMissionCard(container,def){
+    var state=taccMissionState(def.id),card=el("div","tacc-card");
+    var title=el("div","tacc-mission-title");title.appendChild(el("h4",null,def.name));var hide=el("button","action danger","Nascondi");hide.type="button";hide.addEventListener(EV,function(){state.active=false;taccSave();renderAll();});title.appendChild(hide);card.appendChild(title);
+    if(def.note){card.appendChild(el("p","small-note",def.note));}
+    if(def.periodLabel){var per=taccInput(def.periodLabel,state.period||"");per.input.placeholder=TACC_MODE==="studente"?"Es. 2026/27":"Es. 2026";per.input.addEventListener("input",function(){state.period=per.input.value;taccSave();});card.appendChild(per.wrap);}
+    if(def.kind==="counters"||def.kind==="countersFlags"){
+      (def.counters||[]).forEach(function(c){taccRenderCounter(card,state,c);});
+      (def.flags||[]).forEach(function(f){var lab=el("label","chk-line"),ch=el("input");ch.type="checkbox";ch.checked=!!state.flags[f.key];ch.addEventListener("change",function(){state.flags[f.key]=ch.checked;taccSave();});lab.appendChild(ch);lab.appendChild(el("span",null,f.label));card.appendChild(lab);});
+    }else if(def.kind==="relations"){
+      var addrow=el("div","tacc-mini-row"),nm=taccInput("Nome del PG",""),cnt=taccInput("Role precedenti senza link",0,"number");cnt.input.type="number";cnt.input.min="0";addrow.appendChild(nm.wrap);addrow.appendChild(cnt.wrap);var ab=el("button","action","+ Aggiungi PG");ab.type="button";ab.addEventListener(EV,function(){var name=String(nm.input.value||"").trim();if(!name){alert("Scrivi il nome del PG.");return;}var existing=TACCUINO.relations.find(function(x){return String(x.name||"").trim().toLowerCase()===name.toLowerCase();});if(existing){alert("Questo PG è già presente nel conteggio condiviso Amiconi/Compari.");return;}TACCUINO.relations.push({id:taccId("rel"),name:name,count:taccNum(cnt.input.value),roles:[],notes:""});taccSave();renderAll();});addrow.appendChild(ab);card.appendChild(addrow);
+      if(!TACCUINO.relations.length){card.appendChild(el("div","tacc-empty","Nessun PG ancora registrato nel conteggio condiviso."));}
+      TACCUINO.relations.forEach(function(r){
+        r.roles=Array.isArray(r.roles)?r.roles:[];var item=el("div","tacc-card"),grid=el("div","tacc-grid-2"),ni=taccInput("PG",r.name||""),ci=taccInput("Role precedenti senza link",taccNum(r.count),"number");ci.input.type="number";ci.input.min="0";grid.appendChild(ni.wrap);grid.appendChild(ci.wrap);item.appendChild(grid);
+        var total=taccNum(r.count)+r.roles.length;item.appendChild(el("div","tacc-progress "+(total>=def.thresholds[def.thresholds.length-1]?"complete":"pending"),taccRelationProgress(total,def.thresholds)));
+        ni.input.addEventListener("input",function(){r.name=ni.input.value;taccSave();});ci.input.addEventListener("input",function(){r.count=taccNum(ci.input.value);taccSave();});ci.input.addEventListener("change",function(){renderAll();});
+        if(r.roles.length){var ul=el("ul","tacc-people-list");r.roles.forEach(function(rr){var li=el("li"),main=el("div","tacc-people-main");main.appendChild(el("strong",null,rr.label||"Role"));if(rr.url){main.appendChild(document.createElement("br"));var a=document.createElement("a");a.href=rr.url;a.target="_blank";a.rel="noopener noreferrer";a.className="tacc-link";a.textContent="Apri Role";main.appendChild(a);}li.appendChild(main);var rm=el("button","action danger","Rimuovi");rm.type="button";rm.addEventListener(EV,function(){r.roles=r.roles.filter(function(x){return x.id!==rr.id;});taccSave();renderAll();});li.appendChild(rm);ul.appendChild(li);});item.appendChild(ul);}
+        var lr=el("div","tacc-mini-row"),ll=taccInput("Titolo / riferimento",""),lu=taccInput("Link della Role","");lu.input.type="url";lr.appendChild(ll.wrap);lr.appendChild(lu.wrap);var lb=el("button","action","+ Registra Role");lb.type="button";lb.addEventListener(EV,function(){r.roles.push({id:taccId("relrole"),label:String(ll.input.value||"").trim()||("Role "+(total+1)),url:String(lu.input.value||"").trim()});taccSave();renderAll();});lr.appendChild(lb);item.appendChild(lr);
+        var d=el("button","action danger","Rimuovi PG");d.type="button";d.addEventListener(EV,function(){if(confirm("Rimuovere questo PG dal conteggio condiviso Amiconi/Compari?")){TACCUINO.relations=TACCUINO.relations.filter(function(x){return x.id!==r.id;});taccSave();renderAll();}});item.appendChild(d);card.appendChild(item);
+      });
+    }else if(def.kind==="people"){
+      var addp=el("div","tacc-mini-row"),pn=taccInput("Nome PG","") ,pr=taccInput("Link / riferimento Role","");pr.input.type="url";addp.appendChild(pn.wrap);addp.appendChild(pr.wrap);var pab=el("button","action","+ Aggiungi");pab.type="button";pab.addEventListener(EV,function(){var name=String(pn.input.value||"").trim();if(!name){alert("Scrivi il nome del PG.");return;}if(state.people.some(function(x){return String(x.name||"").trim().toLowerCase()===name.toLowerCase();})){alert("Questo PG è già presente in questo conteggio.");return;}state.people.push({id:taccId("person"),name:name,role:String(pr.input.value||"").trim()});taccSave();renderAll();});addp.appendChild(pab);card.appendChild(addp);
+      var pd={goal:def.goal,thresholds:def.thresholds,unit:"PG"},pp=taccProgress(state.people.length,pd,{claimed:{}},"people");card.appendChild(el("div","tacc-progress "+(pp.complete?"complete":"pending"),pp.text));
+      var list=el("ul","tacc-people-list");state.people.forEach(function(x){var li=el("li"),main=el("div","tacc-people-main");main.appendChild(el("strong",null,x.name||"PG"));if(x.role){var a=document.createElement("a");a.href=x.role;a.target="_blank";a.rel="noopener noreferrer";a.className="tacc-link";a.textContent="Apri Role";main.appendChild(document.createElement("br"));main.appendChild(a);}li.appendChild(main);var rm=el("button","action danger","Rimuovi");rm.type="button";rm.addEventListener(EV,function(){state.people=state.people.filter(function(y){return y.id!==x.id;});taccSave();renderAll();});li.appendChild(rm);list.appendChild(li);});card.appendChild(list);
+    }
+    var nlab=el("label",null,"Role / promemoria collegati");card.appendChild(nlab);var notes=el("textarea");notes.placeholder="Link, titoli delle role, date o altre note utili";notes.value=state.notes||"";notes.addEventListener("input",function(){state.notes=notes.value;taccSave();});card.appendChild(notes);
+    container.appendChild(card);
+  }
+
+  function renderTaccMissioni(container){
+    var title=TACC_MODE==="studente"?"FantaHogwarts — Missioni da tenere d'occhio":"FantaWiz — Missioni da tenere d'occhio";container.appendChild(el("h3",null,title));
+    container.appendChild(el("p","small-note","Qui compaiono soltanto le Missioni che richiedono davvero un conteggio nel tempo. Nascondere una Missione non cancella i suoi dati: se la riaggiungi, ritrovi il progresso precedente."));
+    var defs=taccMissionDefs(),available=defs.filter(function(d){return !taccMissionState(d.id).active;});
+    var addCard=el("div","tacc-card"),row=el("div","tacc-grid-2"),selWrap=el("div");selWrap.appendChild(el("label",null,"Missione da aggiungere"));var sel=document.createElement("select");var blank=document.createElement("option");blank.value="";blank.textContent="Seleziona…";sel.appendChild(blank);available.forEach(function(d){var o=document.createElement("option");o.value=d.id;o.textContent=d.name;sel.appendChild(o);});selWrap.appendChild(sel);row.appendChild(selWrap);var add=el("button","action","+ Aggiungi al Taccuino");add.type="button";add.style.alignSelf="end";add.disabled=!available.length;add.addEventListener(EV,function(){if(!sel.value){return;}taccMissionState(sel.value).active=true;taccSave();renderAll();});row.appendChild(add);addCard.appendChild(row);container.appendChild(addCard);
+    var active=defs.filter(function(d){return taccMissionState(d.id).active;});if(!active.length){container.appendChild(el("div","tacc-empty","Nessuna Missione attualmente tenuta d'occhio."));return;}active.forEach(function(d){renderTaccMissionCard(container,d);});
+  }
+
+  function taccExport(){
+    try{var blob=new Blob([JSON.stringify(TACCUINO,null,2)],{type:"application/json"}),url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download="taccuino-personale-v2-"+taccToday()+".json";document.body.appendChild(a);a.click();a.remove();setTimeout(function(){URL.revokeObjectURL(url);},800);}catch(e){console.error(e);alert("Non sono riuscito a creare il backup del Taccuino.");}
+  }
+  function taccImportFile(file){
+    if(!file){return;}var r=new FileReader();r.onload=function(){try{var data=JSON.parse(String(r.result||""));if(!data||typeof data!=="object"||Array.isArray(data)){throw new Error("Formato non valido");}if(!confirm("Importare questo backup sostituendo il Taccuino attualmente salvato in questo browser?")){return;}TACCUINO=taccNormalize(data);taccSave();renderAll();}catch(e){console.error(e);alert("Il file non contiene un backup valido del Taccuino.");}};r.onerror=function(){alert("Non sono riuscito a leggere il file.");};r.readAsText(file);
+  }
+  function renderTaccExtra(container){
+    container.appendChild(el("h3",null,"Extra personali"));
+    container.appendChild(el("p","small-note","Sezione facoltativa per ciò che nei Taccuini reali viene spesso aggiunto a mano: link «About», collegamenti ad altri PG, banner e medaglie. Vengono salvati soltanto testi e URL, mai le immagini."));
+    var lc=el("div","tacc-card");lc.appendChild(el("h4",null,"Link personali"));
+    TACCUINO.links.forEach(function(x){var row=el("div","tacc-mini-row"),lab=taccInput("Titolo",x.label||""),url=taccInput("URL",x.url||"");url.input.type="url";row.appendChild(lab.wrap);row.appendChild(url.wrap);var rm=el("button","action danger","Rimuovi");rm.type="button";rm.addEventListener(EV,function(){TACCUINO.links=TACCUINO.links.filter(function(y){return y.id!==x.id;});taccSave();renderAll();});row.appendChild(rm);lab.input.addEventListener("input",function(){x.label=lab.input.value;taccSave();});url.input.addEventListener("input",function(){x.url=url.input.value;taccSave();});lc.appendChild(row);});
+    var la=el("div","tacc-mini-row"),ll=taccInput("Titolo",""),lu=taccInput("URL","");lu.input.type="url";la.appendChild(ll.wrap);la.appendChild(lu.wrap);var lb=el("button","action","+ Aggiungi link");lb.type="button";lb.addEventListener(EV,function(){var u=String(lu.input.value||"").trim();if(!u){alert("Inserisci il link.");return;}TACCUINO.links.push({id:taccId("link"),label:String(ll.input.value||"").trim()||"Link",url:u});taccSave();renderAll();});la.appendChild(lb);lc.appendChild(la);container.appendChild(lc);
+    var mc=el("div","tacc-card");mc.appendChild(el("h4",null,"Banner e Medaglie"));
+    TACCUINO.media.forEach(function(x){var card=el("div","tacc-card");card.appendChild(el("strong",null,x.label||"Immagine"));if(x.url){var img=document.createElement("img");img.src=x.url;img.alt=x.label||"Banner o medaglia";img.className="tacc-extra-img";img.loading="lazy";card.appendChild(img);var a=document.createElement("a");a.href=x.url;a.target="_blank";a.rel="noopener noreferrer";a.className="tacc-link";a.textContent="Apri immagine";card.appendChild(a);}var rm=el("button","action danger","Rimuovi");rm.type="button";rm.addEventListener(EV,function(){TACCUINO.media=TACCUINO.media.filter(function(y){return y.id!==x.id;});taccSave();renderAll();});card.appendChild(rm);mc.appendChild(card);});
+    var ma=el("div","tacc-mini-row"),ml=taccInput("Titolo",""),mu=taccInput("URL immagine","");mu.input.type="url";ma.appendChild(ml.wrap);ma.appendChild(mu.wrap);var mb=el("button","action","+ Aggiungi");mb.type="button";mb.addEventListener(EV,function(){var u=String(mu.input.value||"").trim();if(!u){alert("Inserisci l'URL dell'immagine.");return;}TACCUINO.media.push({id:taccId("media"),label:String(ml.input.value||"").trim()||"Banner / Medaglia",url:u});taccSave();renderAll();});ma.appendChild(mb);mc.appendChild(ma);container.appendChild(mc);
+  }
+
+  function renderTaccNoteBackup(container){
+    container.appendChild(el("h3",null,"Appunti e Backup"));var card=el("div","tacc-card");card.appendChild(el("h4",null,"Appunti liberi"));var ta=el("textarea","tacc-note-area");ta.value=TACCUINO.notes||"";ta.placeholder="Tutto ciò che vuoi ricordare e che non rientra nelle altre sezioni…";ta.addEventListener("input",function(){TACCUINO.notes=ta.value;taccSave();});card.appendChild(ta);container.appendChild(card);
+    var bk=el("div","tacc-card");bk.appendChild(el("h4",null,"Backup e sincronizzazione"));bk.appendChild(el("p","small-note","Il Taccuino viene salvato subito in questo browser e, dopo il caricamento del PG, sincronizzato anche in una raccolta Firebase separata dal documento principale dell’Elfo. Se cambi dispositivo, carica lo stesso PG: verrà recuperata la copia cloud più recente."));var row=el("div","tacc-backup-row"),ex=el("button","action","Esporta backup .json");ex.type="button";ex.addEventListener(EV,taccExport);row.appendChild(ex);var im=el("button","action","Importa backup .json");im.type="button";var fi=document.createElement("input");fi.type="file";fi.accept="application/json,.json";fi.style.display="none";fi.addEventListener("change",function(){taccImportFile(fi.files&&fi.files[0]);fi.value="";});im.addEventListener(EV,function(){fi.click();});row.appendChild(im);var sync=el("button","action","Sincronizza ora");sync.type="button";sync.addEventListener(EV,function(){taccCloudPush(true);});row.appendChild(sync);row.appendChild(fi);bk.appendChild(row);
+    var st=el("div","tacc-storage-status"+(TACC_STORAGE_OK?"":" error"),"Locale · "+(TACC_STATUS||(TACC_STORAGE_OK?"disponibile":"non disponibile")));bk.appendChild(st);var cloud=el("div","tacc-storage-status"+(TACC_CLOUD_ERROR?" error":""),TACC_CLOUD_TEXT);cloud.id="tacc-cloud-status-live";bk.appendChild(cloud);var dz=el("div","tacc-danger-zone"),clear=el("button","action danger","Svuota tutto il Taccuino");clear.type="button";clear.addEventListener(EV,function(){if(confirm("Svuotare completamente il Taccuino? La cancellazione verrà sincronizzata anche sul cloud. Questa operazione non può essere annullata senza un backup esportato.")){TACCUINO=taccDefault();taccSave();renderAll();}});dz.appendChild(clear);bk.appendChild(dz);container.appendChild(bk);
+  }
+
+  function renderTaccuinoStep(container){
+    var p=el("div","panel");p.appendChild(el("h2",null,"Taccuino Personale"));
+    var tabs=[{k:"role",l:"Role aperte"},{k:"cronologia",l:"Cronologia"},{k:"png",l:"Taccuino PNG"},{k:"missioni",l:TACC_MODE==="studente"?"FantaHogwarts":"FantaWiz"},{k:"extra",l:"Extra"},{k:"note",l:"Appunti & Backup"}],bar=el("div","tacc-tabs");tabs.forEach(function(t){var b=el("button","tacc-tab"+(TACC_TAB===t.k?" active":""),t.l);b.type="button";b.addEventListener(EV,function(){TACC_TAB=t.k;renderAll();});bar.appendChild(b);});p.appendChild(bar);
+    if(TACC_TAB==="role"){renderTaccRole(p);}else if(TACC_TAB==="cronologia"){renderTaccCronologia(p);}else if(TACC_TAB==="png"){renderTaccPng(p);}else if(TACC_TAB==="missioni"){renderTaccMissioni(p);}else if(TACC_TAB==="extra"){renderTaccExtra(p);}else{renderTaccNoteBackup(p);}container.appendChild(p);
+  }
+  window.addEventListener("storage",function(e){if(e.key===TACC_STORAGE_KEY){TACCUINO=taccLoad();taccScheduleCloudSync();if(currentStep==="taccuino"){renderAll();}}});
+  window.addEventListener("online",function(){if(taccCurrentPgName()){taccCloudSyncAfterLogin(taccCurrentPgName());}});
+  document.addEventListener("visibilitychange",function(){if(document.visibilityState==="hidden"&&TACC_CLOUD_TIMER){clearTimeout(TACC_CLOUD_TIMER);TACC_CLOUD_TIMER=null;taccCloudPush(false);}});
+
+
   function renderAll(){
     recomputePosts();
     applyTheme();
@@ -3133,6 +3732,7 @@
     appendAugustSchoolYearReminder(c);
     if(currentStep === "pg"){ renderPGStep(c); }
     if(currentStep === "posts"){ renderPostsStep(c); }
+    if(currentStep === "taccuino"){ renderTaccuinoStep(c); }
     if(currentStep === "blindata"){ renderBlindataStep(c); }
     if(currentStep === "dispensa"){ renderDispensaStep(c); }
     if(currentStep === "postazione"){ renderPostazioneStep(c); }
@@ -3140,11 +3740,11 @@
     if(currentStep === "recinto"){ renderOccupantFacilityStep(c, "recinto"); }
     if(currentStep === "esporta"){ renderEsportaStep(c); }
     enhanceLinkInputs(c);
-    if(currentStep !== "pg"){ appendUndoRedoControls(c); }
-    if(currentStep !== "pg"){ appendManualSave(c); }
+    if(currentStep !== "pg" && currentStep !== "taccuino"){ appendUndoRedoControls(c); }
+    if(currentStep !== "pg" && currentStep !== "taccuino"){ appendManualSave(c); }
     appendPageNavigation(c);
-    appendAuditFooter(c);
-    scheduleSave(undefined, false);
+    if(currentStep !== "taccuino"){ appendAuditFooter(c); }
+    if(currentStep !== "taccuino"){ scheduleSave(undefined, false); }
     updateFbIndicator();
     setTimeout(notifyParentHeight,0);
   }
@@ -3292,7 +3892,7 @@
           DATA_DIRTY=false; FORCE_PERSIST_SAVE=!!(data&&migrationNeedsSave);
           if(!data || FORCE_PERSIST_SAVE){ scheduleSave(0,false); }
           btn.disabled=false;
-          startAccreditiWatch(nome); renderAll();
+          startAccreditiWatch(nome); taccCloudSyncAfterLogin(nome); renderAll();
         }).catch(function(e){ console.error(e); btn.disabled=false; btn.textContent="Carica i miei dati"; fbConnected=false; fbStatusText=""; alert("Impossibile leggere i dati da Firebase. Non verrà creato né sovrascritto alcun salvataggio. Controlla la connessione o le regole Firebase e riprova."); updateFbIndicator(); });
       });
       i1.addEventListener("keydown", function(e){
@@ -5151,80 +5751,6 @@
   /* ==================================================== */
   /* STEP 4 - POSTAZIONE (Calderoni multipli)               */
   /* ==================================================== */
-
-  /* ---------- Importazione Pozione dal Generatore Pozioni ---------- */
-  function cleanPotionGeneratorImportValue(value){
-    var s=String(value==null?'':value).trim();
-    if(!s){return '';}
-    if(/^(—|\/\/|da compilare)$/i.test(s)){return '';}
-    return s;
-  }
-  function parsePotionGeneratorImport(raw){
-    var text=String(raw||'').trim(),fields={};
-    if(!text){return {ok:false,error:'Il testo da importare è vuoto.',fields:fields};}
-    var lines=text.split(/\r?\n/),marker=false;
-    for(var i=0;i<lines.length;i++){
-      var line=String(lines[i]||'').trim();if(!line)continue;
-      if(line==='FELIX_ELFO_POZIONE_V1'){marker=true;continue;}
-      var ix=line.indexOf(':');if(ix<0)continue;
-      var k=line.slice(0,ix).trim(),v=cleanPotionGeneratorImportValue(line.slice(ix+1));fields[k]=v;
-    }
-    if(!marker){return {ok:false,error:'Formato non riconosciuto: manca FELIX_ELFO_POZIONE_V1.',fields:fields};}
-    if(!fields['Nome Pozione']){return {ok:false,error:'Manca il Nome Pozione.',fields:fields};}
-    if(CLASSI_STUD.indexOf(fields['Classificazione'])<0){return {ok:false,error:'Classificazione non consentita nella Postazione dello Studente: '+(fields['Classificazione']||'—')+'.',fields:fields};}
-    return {ok:true,fields:fields};
-  }
-  function potionImportInt(v,def){var n=parseInt(String(v||''),10);return Number.isFinite(n)&&n>=0?n:def;}
-  function potionImportNum(v,def){var n=Number(String(v||'').replace(',','.'));return Number.isFinite(n)?Math.abs(n):def;}
-  function potionImportOutcome(v){return String(v||'').toLowerCase()==='fallita'?'fallita':'riuscita';}
-  function potionFromGeneratorFields(fields){
-    var pz=newCalderone(),main=cleanPotionGeneratorImportValue(fields['Link principale']);
-    pz.nomePozione=fields['Nome Pozione']||'';
-    pz.classificazione=fields['Classificazione']||'X';
-    pz.tipologia=TIPOLOGIE.indexOf(fields['Tipologia'])>=0?fields['Tipologia']:'Generica';
-    pz.dataLink=main;
-    pz.calderoneOggetti=fields['Calderone/Oggetti']||'//';
-    pz.prepLink=fields['Preparazione Link']||main;
-    pz.prepEsito=potionImportOutcome(fields['Preparazione Esito']);
-    pz.prepValore=potionImportNum(fields['Preparazione Forza'],0);
-    pz.prodLink=fields['Produzione Link']||main;
-    pz.prodEsito=potionImportOutcome(fields['Produzione Esito']);
-    pz.prodValore=potionImportNum(fields['Produzione Forza'],0);
-    pz.bacchettaLink=fields['Bacchetta Link']||main;
-    pz.bacchettaEsito=potionImportOutcome(fields['Bacchetta Esito']);
-    pz.dosi=potionImportInt(fields['Bacchetta Dosi'],0);
-    pz.distillSvolta=/^(sì|si|yes|true|1)$/i.test(fields['Distillazione']||'');
-    pz.distillLink=fields['Distillazione Link']||main;
-    pz.distillEsito=fields['Distillazione Esito']||'';
-    pz.distillBagaglio=fields['Distillazione Bagaglio']||'';
-    pz.imbottLink=fields['Imbottigliamento Link']||main;
-    pz.imbottPercent=fields['Imbottigliamento Esito']||'';
-    pz.postRichiesti=potionImportInt(fields['Post richiesti'],0);
-    pz.imbottModificatori=fields['Modificatori']||'';
-    pz._importedFromPotionGenerator=true;
-    pz.generatorCreator=fields['Creatore']||'';
-    pz.generatorFinalStrength=fields['Forza finale Generatore']||'';
-    pz.generatorFinalCategory=fields['Categoria finale Generatore']||'';
-    return pz;
-  }
-  function buildPotionGeneratorImportBoxStudent(){
-    var det=el('details','potion-generator-import-box');
-    keepDetailsState(det,'potion-generator-import:student',false);
-    det.appendChild(el('summary',null,'Importa Pozione dal Generatore'));
-    det.appendChild(el('p','small-note','Nel Riepilogo Finale del Generatore Pozioni premi «Importa a Il Mio Elfo», poi incolla qui il pacchetto copiato. Nome, Classificazione, fasi, dosi, Distillazione, Imbottigliamento e post vengono compilati automaticamente. La Postazione Studente accetta soltanto Classificazioni X–XXX.'));
-    var ta=el('textarea');ta.placeholder='Incolla qui FELIX_ELFO_POZIONE_V1…';det.appendChild(ta);
-    var actions=el('div','potion-generator-import-actions');
-    var btn=el('button','action','Importa e compila Calderone');btn.type='button';
-    btn.addEventListener(EV,function(){
-      var res=parsePotionGeneratorImport(ta.value);if(!res.ok){alert('Importazione non eseguita.\n\n'+res.error);return;}
-      if(CALDERONI.length>=ANNO_POSTI[STUDENTE.anno]){alert('Hai già raggiunto il numero massimo di Pozioni contemporanee consentite dal tuo Anno Scolastico.');return;}
-      var pz=potionFromGeneratorFields(res.fields);
-      CALDERONI.push(pz);scheduleSave(0);alert('Pozione importata nella Postazione. Controlla soltanto Tipologia e gli eventuali dati che il Generatore non può conoscere.');renderAll();
-    });
-    actions.appendChild(btn);actions.appendChild(el('span','small-note','Il conteggio dei post parte dal prossimo N. globale disponibile, come per un nuovo Calderone.'));
-    det.appendChild(actions);return det;
-  }
-
   function newCalderone(){
     calderoneCounter = calderoneCounter + 1;
     return {
@@ -5275,8 +5801,6 @@
     var d7=el("div");d7.appendChild(el("label",null,"Link descrizione"));var i7=el("input");i7.type="text";i7.value=POSTAZIONE_FAC.descrizione||"";i7.placeholder="https://...";i7.addEventListener("input",function(){POSTAZIONE_FAC.descrizione=i7.value;});d7.appendChild(i7);general.appendChild(d7);
     p.appendChild(general);
 
-    p.appendChild(buildPotionGeneratorImportBoxStudent());
-
     p.appendChild(el("h4","structure-section-title","Pozioni / lavorazioni presenti"));
     for(var i=0;i<CALDERONI.length;i++){ p.appendChild(buildCalderoneCard(CALDERONI[i])); }
     var addBtn=el("button","action","+ Aggiungi Calderone");
@@ -5303,10 +5827,6 @@
     var actionWrap=el("div","structure-actions");
     var archP=el("button","action small","Archivia Pozione conclusa"); archP.addEventListener(EV,function(){CALDERONI=CALDERONI.filter(function(x){return x.id!==postaz.id;});archiveStamp(postaz);ARCHIVIO_CALDERONI.push(postaz);scheduleSave(0);renderAll();}); actionWrap.appendChild(archP);
     var rm=el("button","action danger small","Rimuovi"); rm.addEventListener(EV,function(){CALDERONI=CALDERONI.filter(function(x){return x.id!==postaz.id;});scheduleSave(0);renderAll();}); actionWrap.appendChild(rm); h.appendChild(actionWrap); card.appendChild(h);
-    if(postaz._importedFromPotionGenerator){
-      var meta=[];if(postaz.generatorCreator){meta.push("Creatore: "+postaz.generatorCreator);}if(postaz.generatorFinalStrength){meta.push("Forza finale: "+postaz.generatorFinalStrength);}if(postaz.generatorFinalCategory){meta.push("Categoria finale: "+postaz.generatorFinalCategory);}
-      card.appendChild(el("div","generator-import-badge","Importata dal Generatore Pozioni"+(meta.length?" · "+meta.join(" · "):"")));
-    }
 
     var row0=el("div","row"); var dNum=el("div"); dNum.appendChild(el("label",null,"Numero Postazione")); var iNum=el("input"); iNum.type="text"; iNum.value=postaz.numero; iNum.addEventListener("change",function(){postaz.numero=iNum.value;renderAll();}); dNum.appendChild(iNum); row0.appendChild(dNum);
     card.appendChild(row0);
@@ -5639,9 +6159,6 @@
     if(s==="parenti"){return "parenti";}
     if(s==="fase attuale"){return "faseAttuale";}
     if(s==="link fase"){return "faseLink";}
-    if(s==="tipo ciclo"){return "tipoCiclo";}
-    if(s==="esito allevamento"){return "esitoAllevamento";}
-    if(s==="post richiesti ciclo"){return "postRichiestiCiclo";}
     if(s==="note"){return "note";}
     return "";
   }
@@ -5650,7 +6167,7 @@
     var text=String(raw||"").trim();
     var fields={}, count=0;
     if(!text){return {ok:false,error:"Il testo da importare è vuoto.",fields:fields};}
-    var re=/(DESTINAZIONE|Data\s*\/\s*riferimento|Link\s+principale|Link\s+Classificazione|Specie\s*\/\s*Sesso|Link\s+Specie|Fase\s+attuale|Link\s+Fase|Tipo\s+ciclo|Esito\s+Allevamento|Post\s+richiesti\s+ciclo|Classificazione|Parenti|Nome|Note)\s*:\s*/gi;
+    var re=/(DESTINAZIONE|Data\s*\/\s*riferimento|Link\s+principale|Link\s+Classificazione|Specie\s*\/\s*Sesso|Link\s+Specie|Fase\s+attuale|Link\s+Fase|Classificazione|Parenti|Nome|Note)\s*:\s*/gi;
     var matches=[], m;
     while((m=re.exec(text))!==null){matches.push({label:m[1],start:m.index,valueStart:re.lastIndex});}
     if(!matches.length){return {ok:false,error:"Formato non riconosciuto: non trovo le etichette Nome, Classificazione, Fase attuale, ecc.",fields:fields};}
@@ -5684,169 +6201,6 @@
     var a=String(current||"").trim(), b=String(extra||"").trim();
     if(!b){return a;}
     return a ? (a+" · "+b) : b;
-  }
-
-
-  /* Importazione Piante da Erbologia + gestione esplicita dei Cicli falliti. */
-  function importedCycleFailed(postValue, outcomeValue){
-    var p=cleanCreatureImportValue(postValue).toLowerCase();
-    var o=cleanCreatureImportValue(outcomeValue).toLowerCase();
-    return /ciclo\s+fallito/.test(p) || /riuscita\s*0\s*%/.test(o) || /\bfallit[oa]\b/.test(o) || /\bfallimento\b/.test(o);
-  }
-
-  function importedCycleTarget(occupant, stages, cycleValue){
-    var currentStage=null;
-    for(var cs=0;cs<stages.length;cs++){
-      if(String(stages[cs].label||"").toLowerCase()===String(occupant.faseAttuale||"").toLowerCase()){
-        currentStage=stages[cs];break;
-      }
-    }
-    if(!currentStage || !occupant.cicli || !occupant.cicli[currentStage.key]){return null;}
-    var bucket=occupant.cicli[currentStage.key],sub=null;
-    var importedCycle=cleanCreatureImportValue(cycleValue).toLowerCase();
-    if(currentStage.type==="ripro" && /(riproduzione|accoppiamento|semi)/i.test(importedCycle)){
-      sub=bucket.evento;
-    }else if((currentStage.type==="cicli"||currentStage.type==="ripro") && Array.isArray(bucket.list) && bucket.list.length){
-      sub=bucket.list[0];
-    }else if(bucket.evento){
-      sub=bucket.evento;
-    }
-    return sub ? normalizeSubEntry(sub) : null;
-  }
-
-  function applyImportedCycleResult(occupant, stages, cycleValue, outcomeValue, postsValue, sourceLink){
-    var rawPosts=cleanCreatureImportValue(postsValue);
-    var importedPosts=parseInt(rawPosts,10);
-    var importedOutcome=cleanCreatureImportValue(outcomeValue);
-    var failed=importedCycleFailed(rawPosts,importedOutcome);
-    if(!failed && !(Number.isFinite(importedPosts) && importedPosts>=0)){return false;}
-    var sub=importedCycleTarget(occupant,stages,cycleValue);
-    if(!sub){return false;}
-    if(failed){
-      sub.postRichiesti=0;
-      sub.esitoText="Ciclo fallito";
-    }else{
-      sub.postRichiesti=importedPosts;
-      if(importedOutcome){sub.esitoText=importedOutcome.replace(/^Riuscita\s+/i,"");}
-    }
-    if(sourceLink){sub.esitoLink=sourceLink;}
-    return true;
-  }
-
-  function plantImportLabelKey(label){
-    var s=String(label||"").toLowerCase().replace(/\s+/g," ").trim();
-    if(s==="destinazione"){return "destinazione";}
-    if(s==="nome"){return "nome";}
-    if(/^data\s*\/\s*riferimento$/.test(s)){return "dataRiferimento";}
-    if(s==="link principale"){return "linkPrincipale";}
-    if(s==="classificazione"){return "classificazione";}
-    if(s==="link classificazione"){return "classificazioneLink";}
-    if(s==="specie"){return "specie";}
-    if(s==="link specie"){return "specieLink";}
-    if(/^parenti\s*\/\s*origine$/.test(s)){return "origine";}
-    if(s==="fase attuale"){return "faseAttuale";}
-    if(s==="link fase"){return "faseLink";}
-    if(s==="tipo ciclo"){return "tipoCiclo";}
-    if(s==="esito coltivazione"){return "esitoColtivazione";}
-    if(s==="post richiesti ciclo"){return "postRichiestiCiclo";}
-    if(s==="note"){return "note";}
-    return "";
-  }
-
-  function parsePlantImportText(raw){
-    var text=String(raw||"").trim(),fields={},count=0;
-    if(!text){return {ok:false,error:"Il testo da importare è vuoto.",fields:fields};}
-    var re=/(DESTINAZIONE|Data\s*\/\s*riferimento|Link\s+principale|Link\s+Classificazione|Link\s+Specie|Parenti\s*\/\s*origine|Fase\s+attuale|Link\s+Fase|Tipo\s+ciclo|Esito\s+Coltivazione|Post\s+richiesti\s+ciclo|Classificazione|Specie|Nome|Note)\s*:\s*/gi;
-    var matches=[],m;
-    while((m=re.exec(text))!==null){matches.push({label:m[1],start:m.index,valueStart:re.lastIndex});}
-    if(!matches.length){return {ok:false,error:"Formato Erbologia non riconosciuto.",fields:fields};}
-    for(var i=0;i<matches.length;i++){
-      var key=plantImportLabelKey(matches[i].label);if(!key){continue;}
-      var end=(i+1<matches.length)?matches[i+1].start:text.length;
-      fields[key]=cleanCreatureImportValue(text.slice(matches[i].valueStart,end));count++;
-    }
-    return {ok:count>0,fields:fields,error:count>0?"":"Nessun campo riconosciuto."};
-  }
-
-  function plantFromImportText(raw, stages, allowedClasses, expectedDestination){
-    var parsed=parsePlantImportText(raw);
-    if(!parsed.ok){return {ok:false,error:parsed.error};}
-    var f=parsed.fields||{},dest=String(f.destinazione||"").toLowerCase();
-    var legacyStudent=(expectedDestination==="cubicolo" && dest.indexOf("serra")>=0);
-    if(dest && expectedDestination && dest.indexOf(expectedDestination)<0 && !legacyStudent){
-      return {ok:false,error:"La DESTINAZIONE indicata («"+f.destinazione+"») non corrisponde a questo "+(expectedDestination==="cubicolo"?"Cubicolo":"Serra")+"."};
-    }
-
-    var o=newOccupant(stages);
-    o.nome=cleanCreatureImportValue(f.nome);
-    o.dataLink=cleanCreatureImportValue(f.linkPrincipale);
-    o.classificazioneLink=cleanCreatureImportValue(f.classificazioneLink);
-    o.specieSesso=cleanCreatureImportValue(f.specie);
-    o.specieLink=cleanCreatureImportValue(f.specieLink);
-    o.faseLink=cleanCreatureImportValue(f.faseLink);
-    o.note=cleanCreatureImportValue(f.note);
-
-    var origine=cleanCreatureImportValue(f.origine);
-    if(origine && origine!=="//"){o.note=appendCreatureImportNote(o.note,"Origine: "+origine);}
-
-    var cls=cleanCreatureImportValue(f.classificazione).toUpperCase().replace(/\s+/g,"");
-    if(cls){
-      if(allowedClasses.indexOf(cls)<0){return {ok:false,error:"Classificazione «"+cls+"» non ammessa in questa struttura."};}
-      o.classificazione=cls;
-    }
-
-    var fase=cleanCreatureImportValue(f.faseAttuale);
-    if(fase){
-      var accepted=false;
-      for(var si=0;si<stages.length;si++){
-        if(String(stages[si].label||"").toLowerCase()===fase.toLowerCase()){accepted=true;break;}
-      }
-      if(!accepted){return {ok:false,error:"Fase attuale «"+fase+"» non riconosciuta per la Pianta."};}
-      o.faseAttuale=canonicalStageLabel(stages,fase);
-    }
-
-    var dataRef=cleanCreatureImportValue(f.dataRiferimento);
-    if(dataRef){
-      var dm=dataRef.match(/\b(\d{1,2}[\/.\-]\d{1,2}[\/.\-]\d{4}|\d{4}-\d{1,2}-\d{1,2}|\d{1,2}\s+(?:gennaio|febbraio|marzo|aprile|maggio|giugno|luglio|agosto|settembre|ottobre|novembre|dicembre)\s+\d{4})\b/i);
-      if(dm){
-        o.dataTesto=normalizeDateText(dm[1]);
-        var resto=(dataRef.slice(0,dm.index)+" "+dataRef.slice(dm.index+dm[1].length)).replace(/^[\s\-\u2013\u2014|·:;,]+|[\s\-\u2013\u2014|·:;,]+$/g,"").trim();
-        if(resto){o.note=appendCreatureImportNote(o.note,"Riferimento: "+resto);}
-      }else{o.note=appendCreatureImportNote(o.note,"Riferimento: "+dataRef);}
-    }
-
-    ensureOccupantStageData(o,stages);
-    applyImportedCycleResult(o,stages,f.tipoCiclo,f.esitoColtivazione,f.postRichiestiCiclo,o.dataLink);
-    return {ok:true,occupant:o,destination:f.destinazione||""};
-  }
-
-  function buildPlantImportBox(options){
-    options=options||{};
-    var det=el("details","creature-import-box plant-import-box");
-    keepDetailsState(det,options.detailsKey||("plant:import:"+String(options.expectedDestination||"")),false);
-    det.appendChild(el("summary",null,"Importa Pianta da Erbologia"));
-    det.appendChild(el("p","small-note","Incolla il blocco «Dati pronti per Il Mio Elfo Domestico» copiato dal Riepilogo di Erbologia. Nome, Classificazione, Specie, Fase vitale e dati dell’ultimo ciclo vengono compilati automaticamente. Un esito 0% viene registrato esplicitamente come «Ciclo fallito»."));
-    var ta=el("textarea");
-    ta.placeholder="DESTINAZIONE: "+(options.expectedDestination==="cubicolo"?"Cubicolo":"Serra")+" Nome: — da compilare — Data / riferimento: — Link principale: — Classificazione: XXX Link Classificazione: — Specie: — Link Specie: — Parenti / origine: // Fase attuale: Vegetazione Link Fase: — Tipo ciclo: Produzione di Ingredienti Esito Coltivazione: Riuscita 100% Post richiesti ciclo: 3 Note: —";
-    det.appendChild(ta);
-    var actions=el("div","creature-import-actions");
-    var btn=el("button","action","Importa e compila automaticamente");btn.type="button";
-    btn.addEventListener(EV,function(){
-      var blocks=splitCreatureImportBlocks(ta.value),imported=0,errors=[];
-      if(!blocks.length){alert("Incolla prima il testo della Pianta da importare.");return;}
-      for(var bi=0;bi<blocks.length;bi++){
-        if(typeof options.canAdd==="function" && !options.canAdd(imported)){errors.push("Blocco "+(bi+1)+": capienza massima raggiunta.");break;}
-        var res=plantFromImportText(blocks[bi],options.stages,options.allowedClasses,options.expectedDestination);
-        if(!res.ok){errors.push("Blocco "+(bi+1)+": "+res.error);continue;}
-        var occ=res.occupant;if(typeof options.assignId==="function"){options.assignId(occ);}options.list.push(occ);
-        openStageDetails(occ,options.stages,options.config,occ.faseAttuale);imported++;
-      }
-      if(imported>0){scheduleSave(0);var msg="Importazione completata: "+imported+(imported===1?" Pianta aggiunta.":" Piante aggiunte.");if(errors.length){msg+="\n\nDa controllare:\n- "+errors.join("\n- ");}alert(msg);renderAll();}
-      else{alert("Importazione non eseguita.\n\n- "+errors.join("\n- "));}
-    });
-    actions.appendChild(btn);
-    actions.appendChild(el("span","small-note","Compatibile anche con i vecchi blocchi Studente che riportano «DESTINAZIONE: Serra»: nell’Elfo Studente vengono interpretati come Cubicolo."));
-    det.appendChild(actions);return det;
   }
 
   function creatureFromImportText(raw, stages, allowedClasses, expectedDestination){
@@ -5899,10 +6253,6 @@
     }
 
     ensureOccupantStageData(o,stages);
-
-    /* Il ciclo viene importato anche quando Erbologia/Magizoologia lo segnala come fallito. */
-    applyImportedCycleResult(o,stages,f.tipoCiclo,f.esitoAllevamento,f.postRichiestiCiclo,o.dataLink);
-
     return {ok:true,occupant:o,destination:f.destinazione||""};
   }
 
@@ -5945,7 +6295,7 @@
       }
     });
     actions.appendChild(btn);
-    actions.appendChild(el("span","small-note","I valori «—» e «— da compilare —» restano vuoti; «Adulta» viene convertita automaticamente in «Adultità». Se il Generatore include Tipo ciclo, Esito Allevamento e Post richiesti ciclo, il primo ciclo pertinente viene precompilato automaticamente; un esito 0% viene registrato come «Ciclo fallito»."));
+    actions.appendChild(el("span","small-note","I valori «—» e «— da compilare —» restano vuoti; «Adulta» viene convertita automaticamente in «Adultità»."));
     det.appendChild(actions);
     return det;
   }
@@ -6271,7 +6621,6 @@
   function cycleStatusInfo(sub, canStart){
     var pr=subEntryProgress(sub);
     var suffix=pr.total>0 ? " · "+pr.filled+"/"+pr.total : "";
-    if(/ciclo\s+fallito/i.test(String((sub||{}).esitoText||""))){return {key:"failed",label:"FALLITO"};}
     if(subEntryFilled(sub)){return {key:"done",label:"TERMINATO"+suffix};}
     if(canStart && subEntryStarted(sub)){return {key:"in-progress",label:"IN CORSO"+suffix};}
     return {key:"queued",label:"A TURNO"+suffix};
@@ -6582,14 +6931,7 @@
     var d7=el("div");d7.appendChild(el("label",null,"Link descrizione"));var i7=el("input");i7.type="text";i7.value=FAC.descrizione||"";i7.placeholder="https://...";i7.addEventListener("input",function(){FAC.descrizione=i7.value;});d7.appendChild(i7);general.appendChild(d7);p.appendChild(general);
 
     var capienzaStud=ANNO_POSTI[STUDENTE.anno];
-    if(isCubicolo){
-      p.appendChild(buildPlantImportBox({
-        detailsKey:"cubicolo:import", expectedDestination:"cubicolo", stages:stages, allowedClasses:CLASSI_STUD,
-        config:config, list:LIST,
-        canAdd:function(){return LIST.length<ANNO_POSTI[STUDENTE.anno];},
-        assignId:function(o){piantaCounter=piantaCounter+1;o.id=piantaCounter;}
-      }));
-    }else{
+    if(!isCubicolo){
       p.appendChild(buildCreatureImportBox({
         detailsKey:"recinto:import", expectedDestination:"recinto", stages:stages, allowedClasses:CLASSI_STUD,
         config:config, list:LIST,
