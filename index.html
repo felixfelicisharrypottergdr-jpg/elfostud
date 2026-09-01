@@ -3,7 +3,7 @@
 <!-- Accesso pubblico + password di modifica, sessione browser, 01/09/2026. -->
 <!-- Il Mio Elfo Domestico — Studente: integrazione Azioni Illegali 01/09/2026. I tool specialistici restano autoritativi per i dadi; l'Elfo conserva legalità, protezioni ed esiti senza rilanciare. -->
 <html lang="it">
-<!-- v9: Disconnetti globale, Enter richiede password, Camera Blindata/Taccuino invertiti, bonus primi X post. -->
+<!-- v10: pulsante Disconnetti persistente nella navigazione di tutte le sezioni; v9: Enter richiede password, Camera Blindata/Taccuino invertiti, bonus primi X post. -->
 <!-- v8 password: ritmo verticale uniformato fra selettore, nota e details; v7: font Magic sul summary password -->
 <!-- v3 password: tendina PG chiusa con clic esterno -->
 
@@ -2444,7 +2444,7 @@
     var box=document.createElement("div");box.style.cssText="max-width:620px;width:100%;background:#fff;color:#222;border-radius:12px;padding:22px;box-shadow:0 20px 60px rgba(0,0,0,.35);font-family:inherit;";
     var h=document.createElement("h2");h.textContent=deleted?"⚠ Personaggio eliminato":"⚠ Dati aggiornati in un'altra sessione";box.appendChild(h);
     var p=document.createElement("p");p.textContent=deleted?"Questo Personaggio è stato eliminato definitivamente dal Narratore mentre il Tracker era aperto. Le modifiche locali successive non sono state salvate e il documento non verrà ricreato. Ricarica il Tool per chiudere questa sessione.":"Il salvataggio locale è stato fermato perché Firebase contiene una versione più recente di questo PG. Nessun dato remoto è stato sovrascritto. Per evitare conflitti, il Tool resta bloccato finché non ricarichi la pagina e riapri il Personaggio.";box.appendChild(p);
-    var b=document.createElement("button");b.className="action";b.textContent=deleted?"Ricarica / Disconnettiti":"Ricarica il Tool";b.addEventListener("click",function(){window.location.reload();});box.appendChild(b);overlay.appendChild(box);document.body.appendChild(overlay);
+    var b=document.createElement("button");b.className="action";b.textContent=deleted?"Ricarica / Disconnetti":"Ricarica il Tool";b.addEventListener("click",function(){window.location.reload();});box.appendChild(b);overlay.appendChild(box);document.body.appendChild(overlay);
   }
 
   function saveErrorStatus(){
@@ -2701,6 +2701,13 @@
         }
         nav.appendChild(b);
       })(STEPS[i]);
+    }
+    if(fbConnected && EDIT_UNLOCKED){
+      var disconnectNav = el("button", "step-btn elfo-readonly-safe", "Disconnetti");
+      disconnectNav.type = "button";
+      disconnectNav.title = "Disconnetti";
+      disconnectNav.addEventListener(EV, function(){ lockEditingKeepPg(disconnectNav); });
+      nav.appendChild(disconnectNav);
     }
   }
 
@@ -3922,7 +3929,6 @@
     if(EDIT_UNLOCKED && currentStep !== "pg" && currentStep !== "taccuino"){ appendUndoRedoControls(c); }
     if(EDIT_UNLOCKED && currentStep !== "pg" && currentStep !== "taccuino"){ appendManualSave(c); }
     appendPageNavigation(c);
-    if(EDIT_UNLOCKED && currentStep !== "pg"){ var globalDisconnect=el("button","action archive elfo-readonly-safe","Disconnetti"); globalDisconnect.type="button"; globalDisconnect.style.marginTop="12px"; globalDisconnect.addEventListener(EV,function(){lockEditingKeepPg(globalDisconnect);}); c.appendChild(globalDisconnect); }
     if(EDIT_UNLOCKED && currentStep !== "taccuino"){ appendAuditFooter(c); }
     if(currentStep !== "taccuino"){ scheduleSave(undefined, false); }
     applyReadOnlyMode(c);
