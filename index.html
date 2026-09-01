@@ -3,6 +3,7 @@
 <!-- Accesso pubblico + password di modifica, sessione browser, 01/09/2026. -->
 <!-- Il Mio Elfo Domestico — Studente: integrazione Azioni Illegali 01/09/2026. I tool specialistici restano autoritativi per i dadi; l'Elfo conserva legalità, protezioni ed esiti senza rilanciare. -->
 <html lang="it">
+<!-- v9: Disconnetti globale, Enter richiede password, Camera Blindata/Taccuino invertiti, bonus primi X post. -->
 <!-- v8 password: ritmo verticale uniformato fra selettore, nota e details; v7: font Magic sul summary password -->
 <!-- v3 password: tendina PG chiusa con clic esterno -->
 
@@ -1545,7 +1546,8 @@
     if(isNaN(bonusG)||bonusG<0){bonusG=0;}
     base.eventoBonusGaleoni=bonusG;
     base.eventoBonusAltro=(typeof base.eventoBonusAltro==="string")?base.eventoBonusAltro:"";
-    base.eventoBonusModalita=["all","posts","manual"].indexOf(base.eventoBonusModalita)>=0?base.eventoBonusModalita:"all";
+    base.eventoBonusModalita=["all","posts","first","manual"].indexOf(base.eventoBonusModalita)>=0?base.eventoBonusModalita:"all";
+    base.eventoBonusPrimiPost=Math.max(0,parseInt(base.eventoBonusPrimiPost,10)||0);
     base.eventoBonusValore=["fixed","variable"].indexOf(base.eventoBonusValore)>=0?base.eventoBonusValore:"fixed";
     base.eventoBonusMaxUtilizzi=Math.max(0,parseInt(base.eventoBonusMaxUtilizzi,10)||0);
     base.eventoBonusUsatiIniziali=Math.max(0,parseInt(base.eventoBonusUsatiIniziali,10)||0);
@@ -1561,7 +1563,8 @@
         pp:Math.max(0,parseInt(b.pp,10)||0),
         galeoni:Math.max(0,parseInt(b.galeoni,10)||0),
         altro:String(b.altro||""),
-        modalita:["all","posts","manual"].indexOf(b.modalita)>=0?b.modalita:"all",
+        modalita:["all","posts","first","manual"].indexOf(b.modalita)>=0?b.modalita:"all",
+        primiPost:Math.max(0,parseInt(b.primiPost,10)||0),
         valore:["fixed","variable"].indexOf(b.valore)>=0?b.valore:"fixed",
         maxUtilizzi:Math.max(0,parseInt(b.maxUtilizzi,10)||0),
         usatiIniziali:Math.max(0,parseInt(b.usatiIniziali,10)||0),
@@ -1831,8 +1834,8 @@
   var STEPS = [
     { key:"pg", label:"1. Dati Personaggio e Strutture" },
     { key:"posts", label:"2. I tuoi Post" },
-    { key:"taccuino", label:"3. Taccuino" },
-    { key:"blindata", label:"4. Camera Blindata" },
+    { key:"blindata", label:"3. Camera Blindata" },
+    { key:"taccuino", label:"4. Taccuino" },
     { key:"dispensa", label:"5. Dispensa" },
     { key:"postazione", label:"6. Postazione" },
     { key:"cubicolo", label:"7. Cubicolo" },
@@ -2024,7 +2027,7 @@
 
   function newMese(nome){
     meseCounter = meseCounter + 1;
-    return { id: meseCounter, nome: cleanMonthName(nome || ""), chiuso: false, posts: [], eventoBonusDescrizione:"", eventoBonusPP:0, eventoBonusGaleoni:0, eventoBonusAltro:"", eventoBonusModalita:"all", eventoBonusValore:"fixed", eventoBonusMaxUtilizzi:0, eventoBonusUsatiIniziali:0, eventoBonusUsatiConfermati:false, eventoBonusVariabileSu:"pp", eventoBonusUtilizziManuali:0, bonusAggiuntivi:[] };
+    return { id: meseCounter, nome: cleanMonthName(nome || ""), chiuso: false, posts: [], eventoBonusDescrizione:"", eventoBonusPP:0, eventoBonusGaleoni:0, eventoBonusAltro:"", eventoBonusModalita:"all", eventoBonusPrimiPost:0, eventoBonusValore:"fixed", eventoBonusMaxUtilizzi:0, eventoBonusUsatiIniziali:0, eventoBonusUsatiConfermati:false, eventoBonusVariabileSu:"pp", eventoBonusUtilizziManuali:0, bonusAggiuntivi:[] };
   }
 
   function normalizeMonthName(v){
@@ -3126,7 +3129,8 @@
       var _ebg=parseInt(MESI[nmi].eventoBonusGaleoni,10); if(isNaN(_ebg)||_ebg<0){_ebg=0;}
       if(MESI[nmi].eventoBonusGaleoni!==_ebg){MESI[nmi].eventoBonusGaleoni=_ebg;DATA_DIRTY=true;}
       if(typeof MESI[nmi].eventoBonusAltro!=="string"){MESI[nmi].eventoBonusAltro="";DATA_DIRTY=true;}
-      if(["all","posts","manual"].indexOf(MESI[nmi].eventoBonusModalita)<0){MESI[nmi].eventoBonusModalita="all";DATA_DIRTY=true;}
+      if(["all","posts","first","manual"].indexOf(MESI[nmi].eventoBonusModalita)<0){MESI[nmi].eventoBonusModalita="all";DATA_DIRTY=true;}
+      var _ebp=Math.max(0,parseInt(MESI[nmi].eventoBonusPrimiPost,10)||0); if(MESI[nmi].eventoBonusPrimiPost!==_ebp){MESI[nmi].eventoBonusPrimiPost=_ebp;DATA_DIRTY=true;}
       if(["fixed","variable"].indexOf(MESI[nmi].eventoBonusValore)<0){MESI[nmi].eventoBonusValore="fixed";DATA_DIRTY=true;}
       var _ebu=Math.max(0,parseInt(MESI[nmi].eventoBonusMaxUtilizzi,10)||0); if(MESI[nmi].eventoBonusMaxUtilizzi!==_ebu){MESI[nmi].eventoBonusMaxUtilizzi=_ebu;DATA_DIRTY=true;}
       var _ebi=Math.max(0,parseInt(MESI[nmi].eventoBonusUsatiIniziali,10)||0); if(MESI[nmi].eventoBonusUsatiIniziali!==_ebi){MESI[nmi].eventoBonusUsatiIniziali=_ebi;DATA_DIRTY=true;}
@@ -3136,7 +3140,8 @@
       if(!Array.isArray(MESI[nmi].bonusAggiuntivi)){MESI[nmi].bonusAggiuntivi=[];DATA_DIRTY=true;}
       for(var _bai=0;_bai<MESI[nmi].bonusAggiuntivi.length;_bai++){
         var _ba=MESI[nmi].bonusAggiuntivi[_bai]||{};
-        if(["all","posts","manual"].indexOf(_ba.modalita)<0){_ba.modalita="all";DATA_DIRTY=true;}
+        if(["all","posts","first","manual"].indexOf(_ba.modalita)<0){_ba.modalita="all";DATA_DIRTY=true;}
+        var _bap=Math.max(0,parseInt(_ba.primiPost,10)||0); if(_ba.primiPost!==_bap){_ba.primiPost=_bap;DATA_DIRTY=true;}
         if(["fixed","variable"].indexOf(_ba.valore)<0){_ba.valore="fixed";DATA_DIRTY=true;}
         _ba.maxUtilizzi=Math.max(0,parseInt(_ba.maxUtilizzi,10)||0);
         _ba.usatiIniziali=Math.max(0,parseInt(_ba.usatiIniziali,10)||0);
@@ -3917,6 +3922,7 @@
     if(EDIT_UNLOCKED && currentStep !== "pg" && currentStep !== "taccuino"){ appendUndoRedoControls(c); }
     if(EDIT_UNLOCKED && currentStep !== "pg" && currentStep !== "taccuino"){ appendManualSave(c); }
     appendPageNavigation(c);
+    if(EDIT_UNLOCKED && currentStep !== "pg"){ var globalDisconnect=el("button","action archive elfo-readonly-safe","Disconnetti"); globalDisconnect.type="button"; globalDisconnect.style.marginTop="12px"; globalDisconnect.addEventListener(EV,function(){lockEditingKeepPg(globalDisconnect);}); c.appendChild(globalDisconnect); }
     if(EDIT_UNLOCKED && currentStep !== "taccuino"){ appendAuditFooter(c); }
     if(currentStep !== "taccuino"){ scheduleSave(undefined, false); }
     applyReadOnlyMode(c);
@@ -4111,9 +4117,9 @@
     if(!EDIT_UNLOCKED){return Promise.resolve(true);}
     if(btn){btn.disabled=true;btn.textContent="Salvataggio…";}
     return saveEverythingBeforeLock().then(function(ok){
-      if(!ok){if(btn){btn.disabled=false;btn.textContent="Disconnetti dalla modifica";}alert("Il salvataggio finale non è riuscito: la modifica resta sbloccata. Riprova prima di disconnetterti.");return false;}
+      if(!ok){if(btn){btn.disabled=false;btn.textContent="Disconnetti";}alert("Il salvataggio finale non è riuscito: la modifica resta sbloccata. Riprova prima di disconnetterti.");return false;}
       return Promise.resolve(window.fbEndEditSession?window.fbEndEditSession():true).then(function(){EDIT_UNLOCKED=false;fbStatusText="Sola visualizzazione";renderAll();return true;});
-    }).catch(function(e){console.error(e);if(btn){btn.disabled=false;btn.textContent="Disconnetti dalla modifica";}alert("Il salvataggio finale non è riuscito: la modifica resta sbloccata.");return false;});
+    }).catch(function(e){console.error(e);if(btn){btn.disabled=false;btn.textContent="Disconnetti";}alert("Il salvataggio finale non è riuscito: la modifica resta sbloccata.");return false;});
   }
   function changeCurrentPg(btn){
     if(btn){btn.disabled=true;}
@@ -4188,7 +4194,7 @@
       firstPwRow.appendChild(editBtn);editDetails.appendChild(firstPwRow);
       editDetails.appendChild(el("p","small-note","Se non ricordi la password, dillo allo Staff."));
       p.appendChild(editDetails);
-      i1.addEventListener("keydown",function(e){if(e.key==="Enter"){e.preventDefault();var nome=normalizePgName(STUDENTE.nome);var nameErr=validatePgName(nome);if(nameErr){alert(nameErr);return;}setName(nome);menu.hidden=true;loadPgForAccess(nome,null,false,"");}});
+      i1.addEventListener("keydown",function(e){if(e.key==="Enter"){e.preventDefault();var nome=normalizePgName(STUDENTE.nome);var nameErr=validatePgName(nome);if(nameErr){alert(nameErr);return;}if(!firstPw.value){alert("Inserisci la password di modifica.");firstPw.focus();return;}setName(nome);menu.hidden=true;if(!editBtn.disabled){editBtn.click();}}});
       firstPw.addEventListener("keydown",function(e){if(e.key==="Enter"){e.preventDefault();if(firstPw.value&&!editBtn.disabled){editBtn.click();}}});
 
 
@@ -4235,7 +4241,7 @@
           p.appendChild(pwDetails);
         }
       }else{
-        var lock=el("button","action archive elfo-readonly-safe","Disconnetti dalla modifica");lock.type="button";lock.addEventListener(EV,function(){lockEditingKeepPg(lock);});p.appendChild(lock);
+        var lock=el("button","action archive elfo-readonly-safe","Disconnetti");lock.type="button";lock.addEventListener(EV,function(){lockEditingKeepPg(lock);});p.appendChild(lock);
       }
 
       var currentBytes=stateSizeBytes(collectState());if(currentBytes>700000){p.appendChild(el("p","save-size-warning","⚠ Salvataggio già piuttosto grande: "+sizeLabel(currentBytes)+". Conviene chiedere al Narratore una pulizia periodica dell’archivio."));}
@@ -4512,7 +4518,7 @@
   function meseBonusAltro(mese){ return String(mese && mese.eventoBonusAltro != null ? mese.eventoBonusAltro : "").trim(); }
   function newBonusId(){ return "b_"+Date.now().toString(36)+"_"+Math.random().toString(36).slice(2,8); }
 
-  function normalizeBonusMode(v){return ["all","posts","manual"].indexOf(v)>=0?v:"all";}
+  function normalizeBonusMode(v){return ["all","posts","first","manual"].indexOf(v)>=0?v:"all";}
   function normalizeBonusValueMode(v){return ["fixed","variable"].indexOf(v)>=0?v:"fixed";}
   function normalizeVariableTarget(v){return ["pp","galeoni","altro"].indexOf(v)>=0?v:"pp";}
 
@@ -4527,6 +4533,7 @@
       b.galeoni=Math.max(0,parseInt(b.galeoni,10)||0);
       b.altro=String(b.altro||"");
       b.modalita=normalizeBonusMode(b.modalita);
+      b.primiPost=Math.max(0,parseInt(b.primiPost,10)||0);
       b.valore=normalizeBonusValueMode(b.valore);
       b.maxUtilizzi=Math.max(0,parseInt(b.maxUtilizzi,10)||0);
       b.usatiIniziali=Math.max(0,parseInt(b.usatiIniziali,10)||0);
@@ -4548,6 +4555,7 @@
       galeoni:meseBonusGaleoni(mese),
       altro:meseBonusAltro(mese),
       modalita:normalizeBonusMode(mese&&mese.eventoBonusModalita),
+      primiPost:Math.max(0,parseInt(mese&&mese.eventoBonusPrimiPost,10)||0),
       valore:normalizeBonusValueMode(mese&&mese.eventoBonusValore),
       maxUtilizzi:Math.max(0,parseInt(mese&&mese.eventoBonusMaxUtilizzi,10)||0),
       usatiIniziali:Math.max(0,parseInt(mese&&mese.eventoBonusUsatiIniziali,10)||0),
@@ -4567,6 +4575,7 @@
         galeoni:Math.max(0,parseInt(b.galeoni,10)||0),
         altro:String(b.altro||"").trim(),
         modalita:normalizeBonusMode(b.modalita),
+        primiPost:Math.max(0,parseInt(b.primiPost,10)||0),
         valore:normalizeBonusValueMode(b.valore),
         maxUtilizzi:Math.max(0,parseInt(b.maxUtilizzi,10)||0),
         usatiIniziali:Math.max(0,parseInt(b.usatiIniziali,10)||0),
@@ -4581,7 +4590,7 @@
     return !!(b && (
       String(b.descrizione||"").trim()!=="" ||
       b.pp>0 || b.galeoni>0 || String(b.altro||"").trim()!=="" ||
-      b.modalita!=="all" || b.maxUtilizzi>0
+      b.modalita!=="all" || b.primiPost>0 || b.maxUtilizzi>0
     ));
   }
   function activeMonthBonuses(mese){
@@ -4597,7 +4606,7 @@
   function primaryBonusFieldName(field){
     return {
       descrizione:"eventoBonusDescrizione",pp:"eventoBonusPP",galeoni:"eventoBonusGaleoni",altro:"eventoBonusAltro",
-      modalita:"eventoBonusModalita",valore:"eventoBonusValore",maxUtilizzi:"eventoBonusMaxUtilizzi",
+      modalita:"eventoBonusModalita",primiPost:"eventoBonusPrimiPost",valore:"eventoBonusValore",maxUtilizzi:"eventoBonusMaxUtilizzi",
       usatiIniziali:"eventoBonusUsatiIniziali",usatiConfermati:"eventoBonusUsatiConfermati",variabileSu:"eventoBonusVariabileSu",utilizziManuali:"eventoBonusUtilizziManuali"
     }[field];
   }
@@ -4705,20 +4714,26 @@
     return out;
   }
 
-  function postEligibleForBonus(post,b){
+  function postEligibleForBonus(post,b,posts){
     if(!post||!isValidPostLink(post.link)){return false;}
     if(b.modalita==="all"){return true;}
     if(b.modalita==="posts"){return postUsesLimitedBonus(post,b);}
+    if(b.modalita==="first"){
+      var max=Math.max(0,parseInt(b.primiPost,10)||0);if(max<=0){return false;}
+      posts=Array.isArray(posts)?posts:[];var seen=0;
+      for(var i=0;i<posts.length;i++){if(!posts[i]||!isValidPostLink(posts[i].link)){continue;}seen++;if(posts[i]===post){return seen<=max;}}
+      return false;
+    }
     return false;
   }
   function bonusEligibleCount(b,posts,endExclusive){
     if(b.modalita==="manual"){return Math.max(0,parseInt(b.utilizziManuali,10)||0);}
     var count=0,limit=Math.min(endExclusive,posts.length);
-    for(var i=0;i<limit;i++){if(postEligibleForBonus(posts[i],b))count++;}
+    for(var i=0;i<limit;i++){if(postEligibleForBonus(posts[i],b,posts))count++;}
     return count;
   }
   function bonusPPOnPost(b,post){
-    if(!postEligibleForBonus(post,b)){return 0;}
+    if(!postEligibleForBonus(post,b,window.__ELFO_CURRENT_BONUS_POSTS||[])){return 0;}
     if(b.modalita==="posts"&&b.valore==="variable"){
       var r=getBonusUsageRecord(post,b,false);
       return b.variabileSu==="pp"&&r?Math.max(0,parseInt(r.pp,10)||0):0;
@@ -4726,7 +4741,7 @@
     return Math.max(0,parseInt(b.pp,10)||0);
   }
   function bonusGOnPost(b,post){
-    if(!postEligibleForBonus(post,b)){return 0;}
+    if(!postEligibleForBonus(post,b,window.__ELFO_CURRENT_BONUS_POSTS||[])){return 0;}
     if(b.modalita==="posts"&&b.valore==="variable"){
       var r=getBonusUsageRecord(post,b,false);
       return b.variabileSu==="galeoni"&&r?Math.max(0,parseInt(r.galeoni,10)||0):0;
@@ -4734,7 +4749,7 @@
     return Math.max(0,parseInt(b.galeoni,10)||0);
   }
   function bonusAltroOnPost(b,post){
-    if(!postEligibleForBonus(post,b)){return "";}
+    if(!postEligibleForBonus(post,b,window.__ELFO_CURRENT_BONUS_POSTS||[])){return "";}
     if(b.modalita==="posts"&&b.valore==="variable"){
       var r=getBonusUsageRecord(post,b,false);
       return b.variabileSu==="altro"&&r?String(r.altro||"").trim():"";
@@ -4750,6 +4765,7 @@
     return 0;
   }
   function eventBonusTotal(mese,posts,endExclusive){
+    window.__ELFO_CURRENT_BONUS_POSTS=posts;
     var bonuses=activeMonthBonuses(mese),tot=0,limit=Math.min(endExclusive,posts.length);
     for(var b=0;b<bonuses.length;b++){
       for(var i=0;i<limit;i++)tot+=bonusPPOnPost(bonuses[b],posts[i]);
@@ -4758,6 +4774,7 @@
     return tot;
   }
   function eventBonusGaleoniTotal(mese,posts,endExclusive){
+    window.__ELFO_CURRENT_BONUS_POSTS=posts;
     var bonuses=activeMonthBonuses(mese),tot=0,limit=Math.min(endExclusive,posts.length);
     for(var b=0;b<bonuses.length;b++){
       for(var i=0;i<limit;i++)tot+=bonusGOnPost(bonuses[b],posts[i]);
@@ -4766,16 +4783,19 @@
     return tot;
   }
   function bonusPPForPost(mese,post){
+    window.__ELFO_CURRENT_BONUS_POSTS=Array.isArray(mese&&mese.posts)?mese.posts:[];
     var bonuses=activeMonthBonuses(mese),tot=0;
     for(var i=0;i<bonuses.length;i++)tot+=bonusPPOnPost(bonuses[i],post);
     return tot;
   }
   function bonusGForPost(mese,post){
+    window.__ELFO_CURRENT_BONUS_POSTS=Array.isArray(mese&&mese.posts)?mese.posts:[];
     var bonuses=activeMonthBonuses(mese),tot=0;
     for(var i=0;i<bonuses.length;i++)tot+=bonusGOnPost(bonuses[i],post);
     return tot;
   }
   function bonusAltroForPost(mese,post){
+    window.__ELFO_CURRENT_BONUS_POSTS=Array.isArray(mese&&mese.posts)?mese.posts:[];
     var bonuses=activeMonthBonuses(mese),out=[];
     for(var i=0;i<bonuses.length;i++){var a=bonusAltroOnPost(bonuses[i],post);if(a)out.push(a);}
     return out.join(", ");
@@ -4946,7 +4966,7 @@
 
     var modeCell=el("div");modeCell.appendChild(el("label",null,"Applicazione"));
     var modeSel=el("select");
-    [["all","Tutti i post"],["posts","A utilizzi sui post"]].forEach(function(o){var op=el("option");op.value=o[0];op.textContent=o[1];modeSel.appendChild(op);});
+    [["all","Tutti i post"],["first","Solo per i primi X post"],["posts","A utilizzi sui post"]].forEach(function(o){var op=el("option");op.value=o[0];op.textContent=o[1];modeSel.appendChild(op);});
     if(mode==="manual"){mode="all";setEditableBonusField(mese,bonus,isPrimary,"modalita","all");}
     modeSel.value=mode;modeSel.disabled=locked;
     modeSel.addEventListener("change",function(){
@@ -4956,6 +4976,14 @@
       scheduleSave(0);renderAll();
     });
     modeCell.appendChild(modeSel);row.appendChild(modeCell);
+
+    if(mode==="first"){
+      var firstCell=el("div");firstCell.appendChild(el("label",null,"Primi X post"));
+      var firstInput=el("input");firstInput.type="number";firstInput.min="1";firstInput.step="1";firstInput.placeholder="Es. 5";
+      var firstVal=Math.max(0,parseInt(getEditableBonusField(mese,bonus,isPrimary,"primiPost"),10)||0);firstInput.value=firstVal||"";firstInput.disabled=locked;
+      firstInput.addEventListener("change",function(){if(blockIfMonthReadOnly(mese))return;var v=Math.max(0,parseInt(firstInput.value,10)||0);setEditableBonusField(mese,bonus,isPrimary,"primiPost",v);scheduleSave(0);renderAll();});
+      firstCell.appendChild(firstInput);row.appendChild(firstCell);
+    }
 
     if(mode==="posts"){
       var valCell=el("div");valCell.appendChild(el("label",null,"Valore"));
@@ -5160,7 +5188,7 @@
       var addBonusBtn=el("button","action small","+ Aggiungi Bonus");addBonusBtn.type="button";
       addBonusBtn.addEventListener(EV,function(){
         if(blockIfMonthReadOnly(meseObj))return;
-        ensureBonusExtras(meseObj).push({id:newBonusId(),descrizione:"",pp:0,galeoni:0,altro:"",modalita:"all",valore:"fixed",maxUtilizzi:0,usatiIniziali:0,usatiConfermati:false,variabileSu:"pp",utilizziManuali:0});
+        ensureBonusExtras(meseObj).push({id:newBonusId(),descrizione:"",pp:0,galeoni:0,altro:"",modalita:"all",primiPost:0,valore:"fixed",maxUtilizzi:0,usatiIniziali:0,usatiConfermati:false,variabileSu:"pp",utilizziManuali:0});
         scheduleSave(0);renderAll();
       });
       bonusActions.appendChild(addBonusBtn);
@@ -5177,6 +5205,7 @@
           meseObj.eventoBonusGaleoni=0;
           meseObj.eventoBonusAltro="";
           meseObj.eventoBonusModalita="all";
+          meseObj.eventoBonusPrimiPost=0;
           meseObj.eventoBonusValore="fixed";
           meseObj.eventoBonusMaxUtilizzi=0;
           meseObj.eventoBonusUsatiIniziali=0;
@@ -5256,6 +5285,11 @@
         if(bi.galeoni>0)parts.push("+"+bi.galeoni+" G per post");
         if(bi.altro)parts.push("Altro: "+bi.altro);
         modeText="Post ammessi: "+bonusEligibleCount(bi,postiDelMese,postiDelMese.length)+" su "+totFilled;
+      }else if(bi.modalita==="first"){
+        if(bi.pp>0)parts.push("+"+bi.pp+" PP per post");
+        if(bi.galeoni>0)parts.push("+"+bi.galeoni+" G per post");
+        if(bi.altro)parts.push("Altro: "+bi.altro);
+        modeText="Solo primi "+Math.max(0,parseInt(bi.primiPost,10)||0)+" post · applicati a "+bonusEligibleCount(bi,postiDelMese,postiDelMese.length)+" post validi";
       }else if(bi.modalita==="posts"){
         if(bi.valore==="variable"){
           parts.push("valore variabile in "+(bi.variabileSu==="pp"?"PP":(bi.variabileSu==="galeoni"?"Galeoni":"Altro"))+" per utilizzo");
