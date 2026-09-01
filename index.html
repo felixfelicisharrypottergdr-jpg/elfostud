@@ -3,7 +3,7 @@
 <!-- Accesso pubblico + password di modifica, sessione browser, 01/09/2026. -->
 <!-- Il Mio Elfo Domestico — Studente: integrazione Azioni Illegali 01/09/2026. I tool specialistici restano autoritativi per i dadi; l'Elfo conserva legalità, protezioni ed esiti senza rilanciare. -->
 <html lang="it">
-<!-- v10: pulsante Disconnetti persistente nella navigazione di tutte le sezioni; v9: Enter richiede password, Camera Blindata/Taccuino invertiti, bonus primi X post. -->
+<!-- v11: Disconnetti rosso centrato in fondo a ogni pagina; v10: pulsante persistente nella navigazione; v9: Enter richiede password, Camera Blindata/Taccuino invertiti, bonus primi X post. -->
 <!-- v8 password: ritmo verticale uniformato fra selettore, nota e details; v7: font Magic sul summary password -->
 <!-- v3 password: tendina PG chiusa con clic esterno -->
 
@@ -135,6 +135,9 @@
   .chk-line input{ width:auto; }
   button.action{ background: var(--green); color: var(--parch); border: 1px solid var(--gold); border-radius: 6px; padding: 7px 13px; cursor: pointer; font-family: inherit; font-size: .82rem; margin-top: 10px; }
   button.action:hover{ background: var(--green-dark); }
+  .global-disconnect-footer{ display:flex; justify-content:center; align-items:center; width:100%; margin:26px 0 4px; padding-top:14px; }
+  button.global-disconnect-btn{ background:#8f2525 !important; color:#fff !important; border:1px solid #d8a0a0 !important; min-width:170px; margin:0 !important; font-weight:bold; box-shadow:0 3px 10px rgba(0,0,0,.20); }
+  button.global-disconnect-btn:hover{ background:#681919 !important; }
   button.danger{ background: var(--red); }
   button.small{ font-size:.74rem; padding:4px 9px; margin-top:0; }
   .card{ border: 1px solid var(--gold); border-radius: 8px; padding: 13px 15px; margin-bottom: 15px; background: #fffdf5; }
@@ -2702,13 +2705,6 @@
         nav.appendChild(b);
       })(STEPS[i]);
     }
-    if(fbConnected && EDIT_UNLOCKED){
-      var disconnectNav = el("button", "step-btn elfo-readonly-safe", "Disconnetti");
-      disconnectNav.type = "button";
-      disconnectNav.title = "Disconnetti";
-      disconnectNav.addEventListener(EV, function(){ lockEditingKeepPg(disconnectNav); });
-      nav.appendChild(disconnectNav);
-    }
   }
 
 
@@ -2743,6 +2739,17 @@
     }
     footer.appendChild(prev);
     footer.appendChild(next);
+    container.appendChild(footer);
+  }
+
+  function appendGlobalDisconnect(container){
+    if(!fbConnected || !EDIT_UNLOCKED){ return; }
+    var footer = el("div", "global-disconnect-footer elfo-readonly-safe");
+    var btn = el("button", "action global-disconnect-btn elfo-readonly-safe", "Disconnetti");
+    btn.type = "button";
+    btn.title = "Disconnetti";
+    btn.addEventListener(EV, function(){ lockEditingKeepPg(btn); });
+    footer.appendChild(btn);
     container.appendChild(footer);
   }
 
@@ -3930,6 +3937,7 @@
     if(EDIT_UNLOCKED && currentStep !== "pg" && currentStep !== "taccuino"){ appendManualSave(c); }
     appendPageNavigation(c);
     if(EDIT_UNLOCKED && currentStep !== "taccuino"){ appendAuditFooter(c); }
+    appendGlobalDisconnect(c);
     if(currentStep !== "taccuino"){ scheduleSave(undefined, false); }
     applyReadOnlyMode(c);
     updateFbIndicator();
@@ -4246,8 +4254,6 @@
           pwDetails.appendChild(el("p","small-note","Se non ricordi la password, dillo allo Staff."));
           p.appendChild(pwDetails);
         }
-      }else{
-        var lock=el("button","action archive elfo-readonly-safe","Disconnetti");lock.type="button";lock.addEventListener(EV,function(){lockEditingKeepPg(lock);});p.appendChild(lock);
       }
 
       var currentBytes=stateSizeBytes(collectState());if(currentBytes>700000){p.appendChild(el("p","save-size-warning","⚠ Salvataggio già piuttosto grande: "+sizeLabel(currentBytes)+". Conviene chiedere al Narratore una pulizia periodica dell’archivio."));}
