@@ -1,9 +1,10 @@
 <!DOCTYPE html>
 <!-- Revisione Password UI v2: campo password visibile nella prima interfaccia; visualizzazione pubblica esplicitata. -->
 <!-- Accesso pubblico + password di modifica, sessione browser, 01/09/2026. -->
+<!-- v15: prima schermata semplificata — Apri Elfo esplicito; creazione password mostrata solo per PG realmente nuovo. -->
 <!-- Il Mio Elfo Domestico — Studente: integrazione Azioni Illegali 01/09/2026. I tool specialistici restano autoritativi per i dadi; l'Elfo conserva legalità, protezioni ed esiti senza rilanciare. -->
 <html lang="it">
-<!-- v11: Disconnetti rosso centrato in fondo a ogni pagina; v10: pulsante persistente nella navigazione; v9: Enter richiede password, Camera Blindata/Taccuino invertiti, bonus primi X post. -->
+<!-- v14: audit strutturale — coda sincronizzazione Taccuino + flush cloud prima di Disconnetti/cambio PG; v13: audit regressione — riepilogo mensile Bonus Altro completo + disconnessione reale dopo eliminazione remota; v12: regressione bonus primi X corretta + numero reale ultimo post + terminologia Disconnetti; v11: Disconnetti rosso centrato in fondo a ogni pagina; v10: pulsante persistente nella navigazione; v9: Enter richiede password, Camera Blindata/Taccuino invertiti, bonus primi X post. -->
 <!-- v8 password: ritmo verticale uniformato fra selettore, nota e details; v7: font Magic sul summary password -->
 <!-- v3 password: tendina PG chiusa con clic esterno -->
 
@@ -2447,14 +2448,20 @@
     var box=document.createElement("div");box.style.cssText="max-width:620px;width:100%;background:#fff;color:#222;border-radius:12px;padding:22px;box-shadow:0 20px 60px rgba(0,0,0,.35);font-family:inherit;";
     var h=document.createElement("h2");h.textContent=deleted?"⚠ Personaggio eliminato":"⚠ Dati aggiornati in un'altra sessione";box.appendChild(h);
     var p=document.createElement("p");p.textContent=deleted?"Questo Personaggio è stato eliminato definitivamente dal Narratore mentre il Tracker era aperto. Le modifiche locali successive non sono state salvate e il documento non verrà ricreato. Ricarica il Tool per chiudere questa sessione.":"Il salvataggio locale è stato fermato perché Firebase contiene una versione più recente di questo PG. Nessun dato remoto è stato sovrascritto. Per evitare conflitti, il Tool resta bloccato finché non ricarichi la pagina e riapri il Personaggio.";box.appendChild(p);
-    var b=document.createElement("button");b.className="action";b.textContent=deleted?"Ricarica / Disconnetti":"Ricarica il Tool";b.addEventListener("click",function(){window.location.reload();});box.appendChild(b);overlay.appendChild(box);document.body.appendChild(overlay);
+    var b=document.createElement("button");b.className="action";b.textContent=deleted?"Disconnetti e ricarica":"Ricarica il Tool";
+    b.addEventListener("click",function(){
+      if(!deleted){window.location.reload();return;}
+      b.disabled=true;b.textContent="Disconnessione…";
+      try{rememberBrowserPg("");}catch(e){}
+      Promise.resolve(window.fbEndEditSession?window.fbEndEditSession():true).catch(function(e){console.error(e);}).finally(function(){window.location.reload();});
+    });box.appendChild(b);overlay.appendChild(box);document.body.appendChild(overlay);
   }
 
   function saveErrorStatus(){
     var code=window.fbLastSaveError&&window.fbLastSaveError.code;
     if(code==="deleted-pg"){return "Salvataggio bloccato: questo PG è stato eliminato definitivamente dal Narratore. Le modifiche locali non sono state salvate.";}
     if(code==="not-found"){return "Salvataggio bloccato: questo PG non esiste più su Firebase. Potrebbe essere stato eliminato dal Narratore; le modifiche locali non sono state salvate.";}
-    if(code==="permission-denied"){return "Salvataggio bloccato: il database è cambiato, disconnettiti e ricarica il PG";}
+    if(code==="permission-denied"){return "Salvataggio bloccato: il database è cambiato. Premi Disconnetti e ricarica il PG";}
     if(code==="snapshot-failed"){return "Salvataggio bloccato: non è stato possibile creare il backup di sicurezza prima della rimozione. Riprova senza chiudere la pagina";}
     if(code==="revision-conflict"){return "Salvataggio bloccato: questo PG è stato modificato in un’altra scheda o dispositivo. Le modifiche locali non sono state sovrascritte: ricarica i dati prima di continuare";}
     if(code==="accredited-month-conflict"){return "Salvataggio bloccato: il Narratore ha accreditato una Camera Blindata mentre erano presenti modifiche locali non ancora consolidate. La CB accreditata non è stata alterata: ricarica il Tool prima di continuare";}
@@ -3365,6 +3372,8 @@
   var TACC_CLOUD_COLLECTION = "taccuini_personali";
   var TACC_CLOUD_TIMER = null;
   var TACC_CLOUD_BUSY = false;
+  var TACC_CLOUD_PENDING = false;
+  var TACC_CLOUD_IN_FLIGHT = null;
   var TACC_CLOUD_APPLYING = false;
   var TACC_CLOUD_TEXT = "Cloud non ancora sincronizzato";
   var TACC_CLOUD_ERROR = false;
@@ -3488,24 +3497,40 @@
       if(force){taccCloudSetStatus("Cloud non disponibile finché non carichi il PG nell’Elfo.",true);}
       return Promise.resolve(false);
     }
-    if(TACC_CLOUD_BUSY){return Promise.resolve(false);}
+    /* Se un invio è già in corso, non scartare la nuova richiesta: attendi il primo
+       e rilancia una sola sincronizzazione con lo stato più recente del Taccuino. */
+    if(TACC_CLOUD_BUSY){
+      TACC_CLOUD_PENDING=true;
+      var waitForCurrent=TACC_CLOUD_IN_FLIGHT||Promise.resolve(true);
+      return waitForCurrent.then(function(){
+        if(!TACC_CLOUD_PENDING){return true;}
+        TACC_CLOUD_PENDING=false;
+        return taccCloudPush(force);
+      });
+    }
     var bytes=taccCloudBytes(TACCUINO);
     if(bytes>TACC_CLOUD_MAX_BYTES){
       taccCloudSetStatus("Taccuino troppo grande per il backup cloud singolo ("+Math.round(bytes/1024)+" KB). Esporta un backup JSON.",true);
       return Promise.resolve(false);
     }
-    clearTimeout(TACC_CLOUD_TIMER); TACC_CLOUD_TIMER=null; TACC_CLOUD_BUSY=true;
+    clearTimeout(TACC_CLOUD_TIMER); TACC_CLOUD_TIMER=null; TACC_CLOUD_BUSY=true; TACC_CLOUD_PENDING=false;
     taccCloudSetStatus("Sincronizzazione cloud in corso…",false);
-    var updated=(TACCUINO.meta&&TACCUINO.meta.updatedAt)||new Date().toISOString();
-    var payload={schemaVersion:1,pgId:pg,mode:TACC_MODE,updatedAt:updated,savedAt:serverTimestamp(),data:TACCUINO};
-    return setDoc(doc(fbDb,TACC_CLOUD_COLLECTION,pg),payload).then(function(){
+    /* Congela i dati di questo invio: eventuali modifiche fatte mentre Firebase
+       sta scrivendo verranno spedite dalla richiesta accodata, non mutate per riferimento. */
+    var frozen;
+    try{frozen=taccNormalize(JSON.parse(JSON.stringify(TACCUINO)));}catch(e){frozen=TACCUINO;}
+    var updated=(frozen.meta&&frozen.meta.updatedAt)||new Date().toISOString();
+    var payload={schemaVersion:1,pgId:pg,mode:TACC_MODE,updatedAt:updated,savedAt:serverTimestamp(),data:frozen};
+    var work=setDoc(doc(fbDb,TACC_CLOUD_COLLECTION,pg),payload).then(function(){
       TACC_CLOUD_LOGIN_PG=pg; taccCloudSetStatus("Cloud sincronizzato · "+new Date().toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"}),false);
       return true;
     }).catch(function(e){
       console.error("Sincronizzazione Taccuino Firebase fallita",e);
       taccCloudSetStatus("Cloud non sincronizzato: "+((e&&e.code)?e.code:"controlla le regole Firebase o la connessione"),true);
       return false;
-    }).finally(function(){TACC_CLOUD_BUSY=false;});
+    });
+    TACC_CLOUD_IN_FLIGHT=work.finally(function(){TACC_CLOUD_BUSY=false;TACC_CLOUD_IN_FLIGHT=null;});
+    return TACC_CLOUD_IN_FLIGHT;
   }
   function taccScheduleCloudSync(){
     if(TACC_CLOUD_APPLYING){return;}
@@ -4104,7 +4129,7 @@
     return window.fbCreateNewPgWithPassword(nome,state,password,SESSION_ID).then(function(res){
       if(!res||!res.ok){
         EDIT_PASSWORD_CONFIGURED=false;
-        if(btn){btn.disabled=false;btn.textContent="Crea il mio Elfo";}
+        if(btn){btn.disabled=false;btn.textContent="Crea nuovo Elfo";}
         if(res&&res.code==="already-exists"){alert("Nel frattempo questo Personaggio è già stato creato. Riaprilo dall'elenco.");}
         else{alert("Non è stato possibile creare l'Elfo. Controlla che l'Autenticazione anonima sia attiva e che le Rules aggiornate siano state pubblicate.");}
         NEW_PG_PENDING=false;renderAll();return false;
@@ -4122,16 +4147,26 @@
     stopAccreditiWatch();rememberBrowserPg("");fbConnected=false;EDIT_UNLOCKED=false;EDIT_PASSWORD_CONFIGURED=false;NEW_PG_PENDING=false;NEW_PG_PASSWORD_DRAFT="";LOCKED_MIGRATION_PENDING=false;
     resetDataState();STUDENTE.nome="";fbStatusText="";currentStep="pg";resetUndoRedoHistory();renderAll();
   }
+  function flushTaccuinoCloudBeforeLock(){
+    if(!EDIT_UNLOCKED||!fbConnected||!window.fbReady||!taccCurrentPgName()){return Promise.resolve(true);}
+    if(TACC_CLOUD_TIMER){clearTimeout(TACC_CLOUD_TIMER);TACC_CLOUD_TIMER=null;}
+    /* Il Taccuino ha comunque già una copia locale. Qui attendiamo/forziamo il cloud
+       prima di chiudere la sessione, ma un errore cloud non impedisce la disconnessione. */
+    return Promise.resolve(taccCloudPush(true)).catch(function(e){console.error(e);return false;}).then(function(){return true;});
+  }
   function saveEverythingBeforeLock(){
     if(!EDIT_UNLOCKED){return Promise.resolve(true);}
     if(fbSaveTimer){clearTimeout(fbSaveTimer);fbSaveTimer=null;}
-    return serializedSaveLatest().then(function(ok){if(!ok){return false;}return flushAuditNow().then(function(){return true;});});
+    return serializedSaveLatest().then(function(ok){
+      if(!ok){return false;}
+      return flushTaccuinoCloudBeforeLock().then(function(){return flushAuditNow().then(function(){return true;});});
+    });
   }
   function lockEditingKeepPg(btn){
     if(!EDIT_UNLOCKED){return Promise.resolve(true);}
     if(btn){btn.disabled=true;btn.textContent="Salvataggio…";}
     return saveEverythingBeforeLock().then(function(ok){
-      if(!ok){if(btn){btn.disabled=false;btn.textContent="Disconnetti";}alert("Il salvataggio finale non è riuscito: la modifica resta sbloccata. Riprova prima di disconnetterti.");return false;}
+      if(!ok){if(btn){btn.disabled=false;btn.textContent="Disconnetti";}alert("Il salvataggio finale non è riuscito: la modifica resta sbloccata. Riprova prima di premere Disconnetti.");return false;}
       return Promise.resolve(window.fbEndEditSession?window.fbEndEditSession():true).then(function(){EDIT_UNLOCKED=false;fbStatusText="Sola visualizzazione";renderAll();return true;});
     }).catch(function(e){console.error(e);if(btn){btn.disabled=false;btn.textContent="Disconnetti";}alert("Il salvataggio finale non è riuscito: la modifica resta sbloccata.");return false;});
   }
@@ -4165,60 +4200,58 @@
   }
 
   function renderPGStep(container){
-    var p=el("div","panel");p.appendChild(el("h2",null,"Dati del Personaggio"));
+    var p=el("div","panel");p.appendChild(el("h2",null,fbConnected?"Dati del Personaggio":"Scegli il Personaggio"));
     if(!fbConnected){
 
       ensurePublicDirectory(false);
-      p.appendChild(el("div","guide-text","Puoi <b>visualizzare liberamente</b> qualunque Elfo. Scrivi il nome oppure usa la freccetta per aprire l'elenco; la password serve soltanto per modificare."));
+      p.appendChild(el("div","guide-text","Se il tuo PG è già registrato, <b>selezionalo dall’elenco</b> oppure scrivi il suo nome esatto e premi <b>«Apri Elfo»</b>. Lo aprirai in sola visualizzazione, senza password. Se invece non è ancora registrato, dopo aver premuto «Apri Elfo» comparirà qui la procedura per crearlo e scegliere la sua password di modifica."));
       var d1=el("div");d1.appendChild(el("label",null,"Cerca o scrivi il nome del Personaggio"));
       var picker=el("div","pg-picker"),line=el("div","pg-picker-line"),i1=el("input");
       i1.type="text";i1.value=STUDENTE.nome;i1.placeholder="Come può aiutarti quest'umile elfo, Padroncina... o Padroncino?";
       var arrow=el("button","action pg-picker-arrow elfo-readonly-safe","▾");arrow.type="button";arrow.setAttribute("aria-label","Apri elenco Personaggi");
       var menu=el("div","pg-picker-menu");menu.hidden=true;
       function setName(v){STUDENTE.nome=v;}
+      function clearPendingNewPg(){NEW_PG_PENDING=false;NEW_PG_PASSWORD_DRAFT="";}
       function drawMenu(open){
         menu.innerHTML="";var matches=prefixPgMatches(i1.value);
         if(PUBLIC_DIRECTORY_LOADING){menu.appendChild(el("div","pg-picker-empty","Caricamento elenco…"));}
-        else if(!PUBLIC_DIRECTORY_LOADED){menu.appendChild(el("div","pg-picker-empty","Elenco non disponibile: puoi comunque scrivere il nome esatto."));}
-        else if(!matches.length){menu.appendChild(el("div","pg-picker-empty","Nessun Personaggio che inizi con «"+String(i1.value||"").trim()+"»."));}
+        else if(!PUBLIC_DIRECTORY_LOADED){menu.appendChild(el("div","pg-picker-empty","Elenco non disponibile: puoi comunque scrivere il nome esatto e premere «Apri Elfo»."));}
+        else if(!matches.length){menu.appendChild(el("div","pg-picker-empty","Nessun Personaggio che inizi con «"+String(i1.value||"").trim()+"». Premi «Apri Elfo» per verificare il nome e, se è nuovo, crearlo."));}
         else{
           for(var mi=0;mi<matches.length;mi++){
             (function(entry){
               var ob=el("button","pg-picker-option",entry.id);ob.type="button";
               ob.addEventListener("mousedown",function(e){e.preventDefault();});
-              ob.addEventListener(EV,function(){i1.value=entry.id;setName(entry.id);menu.hidden=true;loadPgForAccess(entry.id,ob,false,"");});
+              ob.addEventListener(EV,function(){clearPendingNewPg();i1.value=entry.id;setName(entry.id);menu.hidden=true;loadPgForAccess(entry.id,ob,false,"");});
               menu.appendChild(ob);
             })(matches[mi]);
           }
         }
         menu.hidden=!open;
       }
-      /* Cliccare nel campo NON apre la tendina: serve solo a posizionare il cursore e scrivere. */
-      i1.addEventListener("input",function(){setName(i1.value);drawMenu(true);});
+      /* Scrivere un nome serve solo a sceglierlo: la password viene chiesta dopo,
+         e solo se il PG esiste già ed entra in modalità modifica. */
+      i1.addEventListener("input",function(){clearPendingNewPg();setName(i1.value);drawMenu(true);});
       arrow.addEventListener(EV,function(e){e.preventDefault();drawMenu(menu.hidden);});
       line.appendChild(i1);line.appendChild(arrow);picker.appendChild(line);picker.appendChild(menu);d1.appendChild(picker);p.appendChild(d1);
-      p.appendChild(el("p","elfo-readonly-note","Puoi visualizzare liberamente qualsiasi Elfo senza password."));
-      var editDetails=el("details","elfo-password-details");
-      var editSummary=el("summary",null,"Inserisci la Password per modificare");editDetails.appendChild(editSummary);
-      var firstPwRow=el("div","elfo-password-row"),firstPwCell=el("div");
-      firstPwCell.appendChild(el("label",null,"Password di modifica"));
-      var firstPw=el("input");firstPw.type="password";firstPw.autocomplete="current-password";firstPwCell.appendChild(firstPw);firstPwRow.appendChild(firstPwCell);
-      var editBtn=el("button","action elfo-readonly-safe","Accedi alla modifica");editBtn.type="button";
-      editBtn.addEventListener(EV,function(){var nome=normalizePgName(STUDENTE.nome);var nameErr=validatePgName(nome);if(nameErr){alert(nameErr);return;}if(!firstPw.value){alert("Inserisci la password di modifica.");return;}setName(nome);loadPgForAccess(nome,editBtn,false,firstPw.value);});
-      firstPwRow.appendChild(editBtn);editDetails.appendChild(firstPwRow);
-      editDetails.appendChild(el("p","small-note","Se non ricordi la password, dillo allo Staff."));
-      p.appendChild(editDetails);
-      i1.addEventListener("keydown",function(e){if(e.key==="Enter"){e.preventDefault();var nome=normalizePgName(STUDENTE.nome);var nameErr=validatePgName(nome);if(nameErr){alert(nameErr);return;}if(!firstPw.value){alert("Inserisci la password di modifica.");firstPw.focus();return;}setName(nome);menu.hidden=true;if(!editBtn.disabled){editBtn.click();}}});
-      firstPw.addEventListener("keydown",function(e){if(e.key==="Enter"){e.preventDefault();if(firstPw.value&&!editBtn.disabled){editBtn.click();}}});
+      var openBtn=el("button","action elfo-readonly-safe","Apri Elfo");openBtn.type="button";
+      openBtn.addEventListener(EV,function(){
+        var nome=normalizePgName(STUDENTE.nome);var nameErr=validatePgName(nome);
+        if(nameErr){alert(nameErr);return;}
+        clearPendingNewPg();setName(nome);i1.value=nome;menu.hidden=true;loadPgForAccess(nome,openBtn,false,"");
+      });
+      p.appendChild(openBtn);
+      p.appendChild(el("p","elfo-readonly-note","La password non serve per aprire un Elfo: viene richiesta soltanto quando scegli di modificarne uno già esistente. Per un PG nuovo, invece, sarai tu a crearla."));
+      i1.addEventListener("keydown",function(e){if(e.key==="Enter"){e.preventDefault();if(!openBtn.disabled){openBtn.click();}}});
 
 
       if(NEW_PG_PENDING){
-        p.appendChild(el("div","guide-text","Il Personaggio <b>"+STUDENTE.nome+"</b> non risulta ancora registrato in questo Elfo. Per crearlo scegli ora la password di modifica: dopo la creazione non potrà essere cambiata dal Player."));
+        p.appendChild(el("div","guide-text","<b>Nuovo Personaggio.</b> Il PG <b>"+STUDENTE.nome+"</b> non risulta ancora registrato. Per creare il suo Elfo, crea adesso una password di modifica e ripetila nel secondo campo. La password protegge le modifiche; l’Elfo resterà consultabile in sola visualizzazione come gli altri."));
         var pr=el("div","row"),pa=el("div"),pb=el("div");
-        pa.appendChild(el("label",null,"Password di modifica"));var p1=el("input");p1.type="password";p1.autocomplete="new-password";p1.value=NEW_PG_PASSWORD_DRAFT;pa.appendChild(p1);
+        pa.appendChild(el("label",null,"Crea una password di modifica"));var p1=el("input");p1.type="password";p1.autocomplete="new-password";p1.value=NEW_PG_PASSWORD_DRAFT;pa.appendChild(p1);
         pb.appendChild(el("label",null,"Ripeti password"));var p2=el("input");p2.type="password";p2.autocomplete="new-password";pb.appendChild(p2);
-        pr.appendChild(pa);pr.appendChild(pb);p.appendChild(pr);p.appendChild(el("p","small-note","Se non ricordi la password, dillo allo Staff."));
-        var create=el("button","action","Crea il mio Elfo");create.type="button";
+        pr.appendChild(pa);pr.appendChild(pb);p.appendChild(pr);p.appendChild(el("p","small-note","Conserva questa password: dopo la creazione non potrai cambiarla direttamente. Se la dimentichi, rivolgiti allo Staff."));
+        var create=el("button","action","Crea nuovo Elfo");create.type="button";
         create.addEventListener(EV,function(){if(!p1.value){alert("Scegli una password.");return;}if(p1.value!==p2.value){alert("Le due password non coincidono.");return;}create.disabled=true;create.textContent="Creazione…";createNewPgAccess(STUDENTE.nome,p1.value,create);});
         p.appendChild(create);
       }
@@ -4838,7 +4871,7 @@
     if(idx<0){return null;}
     var post=posts[idx];
     return {
-      index:idx,localNo:idx+1,linkedPos:linkedPos,
+      index:idx,localNo:linkedPos,linkedPos:linkedPos,
       globalNo:parseInt(post.globalNo,10)>0?parseInt(post.globalNo,10):null,
       galeoni:valoreG(linkedPos)+bonusGForPost(mese,post),
       pp:bonusPPForPost(mese,post),
@@ -4853,6 +4886,27 @@
       if(b.altro)altro.push(bonusDisplayName(b,i)+": "+b.altro);
     }
     return {pp:pp,galeoni:g,altro:altro};
+  }
+  function monthlyBonusAltroParts(mese,posts){
+    posts=Array.isArray(posts)?posts:[];
+    window.__ELFO_CURRENT_BONUS_POSTS=posts;
+    var bonuses=activeMonthBonuses(mese),out=[];
+    for(var i=0;i<bonuses.length;i++){
+      var b=bonuses[i];
+      if(b.modalita==="manual"){continue;}
+      var counts={},order=[];
+      for(var p=0;p<posts.length;p++){
+        var value=String(bonusAltroOnPost(b,posts[p])||"").trim();
+        if(!value){continue;}
+        if(!Object.prototype.hasOwnProperty.call(counts,value)){counts[value]=0;order.push(value);}
+        counts[value]++;
+      }
+      for(var v=0;v<order.length;v++){
+        var label=order[v],count=counts[label];
+        out.push(bonusDisplayName(b,i)+": "+label+(count>1?" ×"+count:""));
+      }
+    }
+    return out;
   }
 
   function monthlySocialDecay(postCount){
@@ -4897,6 +4951,7 @@
     for(var i=0;i<bonuses.length;i++){
       (function(b,idx){
         if(b.modalita==="manual")return;
+        if(b.modalita==="first" && !postEligibleForBonus(post,b,mese.posts))return;
         shown++;
         var line=el("div","cb-bonus-line");
 
@@ -5269,8 +5324,7 @@
       creditParts.push("+"+totG+" G");
       creditParts.push("+"+totPP+" PP");
 
-      var allMonthAltro=[];
-      if(latestCredit && latestCredit.altro){allMonthAltro.push(latestCredit.altro);}
+      var allMonthAltro=monthlyBonusAltroParts(meseObj,postiDelMese);
       if(manualCredit.altro.length){allMonthAltro=allMonthAltro.concat(manualCredit.altro);}
       if(allMonthAltro.length){creditParts.push("Altro: "+allMonthAltro.join(", "));}
 
