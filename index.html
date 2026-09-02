@@ -1534,6 +1534,17 @@
   .plant-harvest-resolution .harvest-summary{margin-top:9px;padding:8px 10px;border:1px solid #b05c62;border-radius:7px;background:#f7e5e6;color:#65272c;}
   .plant-harvest-resolution .harvest-note{font-size:.76rem;line-height:1.45;color:#526b50;margin-top:7px;}
   .plant-harvest-resolution .action{margin-top:6px;}
+
+  /* v49 — rifiniture UI: pulsanti Guarigione distanziati, avviso globale importazioni, password fuori dai details. */
+  .healing-active-card > button.action{margin-top:10px;margin-right:10px}
+  .external-import-alert{margin:0 auto 14px;max-width:1100px;padding:11px 13px;border:1px solid #6f9368;border-left:6px solid #557d4d;border-radius:9px;background:#e9f3e5;color:#29452a;box-shadow:0 2px 6px rgba(0,0,0,.08)}
+  .external-import-alert > strong{display:block;margin-bottom:4px;color:#315c39}
+  .external-import-alert .external-import-message{font-size:.82rem;line-height:1.45}
+  .external-import-alert .external-import-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
+  .external-import-alert .external-import-actions .action{margin:0}
+  .elfo-password-panel{margin-top:12px;padding:12px 13px;border:1px solid rgba(169,128,58,.42);border-left:5px solid var(--gold);border-radius:9px;background:rgba(255,255,255,.34)}
+  .elfo-password-panel h4{margin:0 0 8px;font-family:'magic',Georgia,'Times New Roman',serif}
+  @media(max-width:700px){.external-import-alert .external-import-actions .action{width:100%}}
   .global-activity-alerts{margin:0 auto 14px;max-width:1100px;padding:10px 12px;border:1px solid #b27d2f;border-left:5px solid #b27d2f;border-radius:8px;background:#fff3cf;box-shadow:0 2px 6px rgba(0,0,0,.08);}
   .global-activity-alerts > strong{display:block;margin-bottom:6px;color:#684918;}
   .global-activity-alert-row{display:flex;gap:9px;align-items:center;justify-content:space-between;padding:6px 0;border-top:1px solid rgba(178,125,47,.25);}
@@ -2722,6 +2733,7 @@
 
   /* Mantiene aperte tutte le tendine durante i ridisegni dell'interfaccia. */
   var OPEN_DETAILS = {};
+  var EXTERNAL_IMPORT_NOTICE = null;
   function keepDetailsState(det, key, defaultOpen){
     if(Object.prototype.hasOwnProperty.call(OPEN_DETAILS, key)){
       det.open = !!OPEN_DETAILS[key];
@@ -3557,7 +3569,7 @@
     POSTAZIONE_FAC = { descrizione:"", distillatoriMax:0 }; CALDERONI = []; calderoneCounter = 0; ARCHIVIO_CALDERONI = [];
     CUBICOLO_FAC = { descrizione:"" }; PIANTE = []; piantaCounter = 0; ARCHIVIO_PIANTE = [];
     RECINTO_FAC = { descrizione:"" }; CREATURE = []; creaturaCounter = 0; ARCHIVIO_CREATURE = [];
-    MEDICHERIA = { nome:"", specie:"", classificazione:"X", link:"" };
+    MEDICHERIA = { nome:"", specie:"", classificazione:"X", link:"" }; EXTERNAL_IMPORT_NOTICE = null;
     DISPENSA = { ingredienti:[], movimenti:[], archivioTotali:{ galeoniVendite:0, perCommercianteTipo:{}, conteggiMovimenti:{} } }; ingredienteCounter = 0; movimentoCounter = 0; resetDispensaBatch(); PG_ARCHIVIATO = false; DELETE_REQUESTED = false; PG_DOC_EXISTS = false; DB_REVISION = 0;
     PARAMETRI_SOCIALI = {popolarita:null,stima:null,bonta:null,malvagita:null}; VERIFICHE_PARAMETRI_SOCIALI = {}; SOCIAL_SYNC_META = { lastStaffFingerprint:"" };
     OPEN_DETAILS = {}; stopAccreditiWatch(); accreditiCache = null; ACCREDITI_LOAD_STATE="idle"; ACCREDITI_WATCH_ACTIVE=false; SAVE_CONFLICT_LOCKED=false; var conflictOverlay=document.getElementById("revision-conflict-overlay");if(conflictOverlay){conflictOverlay.remove();} LAST_MODIFIED_AT=null; LAST_MODIFIED_BY=""; LAST_SESSION_ID=""; LAST_NARRATOR_AT=null; LAST_NARRATOR_ACTION=""; DATA_DIRTY=false; FORCE_PERSIST_SAVE=false; ARCHIVE_UNLOCK_UNTIL=null; LAST_PERSISTED_STATE=null; LAST_AUDITED_STATE=null; PENDING_AUDIT_STATE=null; SESSION_SNAPSHOT_DONE=false; LAST_SNAPSHOT_MS=0; SAVE_IN_FLIGHT_PROMISE=null; SAVE_FORCE_AGAIN=false;
@@ -3575,7 +3587,7 @@
       POSTAZIONE_FAC: POSTAZIONE_FAC, CALDERONI: CALDERONI, calderoneCounter: calderoneCounter, ARCHIVIO_CALDERONI: ARCHIVIO_CALDERONI,
       CUBICOLO_FAC: CUBICOLO_FAC, PIANTE: PIANTE, piantaCounter: piantaCounter, ARCHIVIO_PIANTE: ARCHIVIO_PIANTE,
       RECINTO_FAC: RECINTO_FAC, CREATURE: CREATURE, creaturaCounter: creaturaCounter, ARCHIVIO_CREATURE: ARCHIVIO_CREATURE,
-      MEDICHERIA: MEDICHERIA
+      MEDICHERIA: MEDICHERIA, EXTERNAL_IMPORT_NOTICE: EXTERNAL_IMPORT_NOTICE
     };
   }
 
@@ -3670,6 +3682,7 @@
     if(!Array.isArray(CREATURE)){CREATURE=[];DATA_DIRTY=true;}
     if(!Array.isArray(ARCHIVIO_CREATURE)){ARCHIVIO_CREATURE=[];DATA_DIRTY=true;}
     if(data.MEDICHERIA){ MEDICHERIA = data.MEDICHERIA; }
+    EXTERNAL_IMPORT_NOTICE=normalizeExternalImportNotice(data.EXTERNAL_IMPORT_NOTICE);
     if(!Array.isArray(MESI)){MESI=[];DATA_DIRTY=true;}
     for(var nmi=0;nmi<MESI.length;nmi++){
       if(!Array.isArray(MESI[nmi].posts)){MESI[nmi].posts=[];DATA_DIRTY=true;}
@@ -4144,6 +4157,9 @@
       return found+updated;
     }
     if(found||updated){
+      var medMsg=(found?found+" guarigione"+(found===1?" importata":"i importate"):"")+(found&&updated?" e ":"")+(updated?updated+" aggiornata"+(updated===1?"":"e"):"")+" da Medimagia.";
+      recordExternalImportNotice("Medimagia",medMsg,"posts");
+      scheduleSave(0);
       if(manual){
         if(found&&updated){alert(found+" guarigioni importate e "+updated+" aggiornate da Medimagia.");}
         else if(updated){alert(updated===1?"Guarigione aggiornata da Medimagia.":updated+" guarigioni aggiornate da Medimagia.");}
@@ -4330,7 +4346,7 @@
       var imp=el("button","action ghost small","Controlla invii da Medimagia");imp.type="button";imp.addEventListener(EV,async function(){imp.disabled=true;imp.textContent="Controllo…";await consumeHealingImportsForCurrentPg(true);imp.disabled=false;imp.textContent="Controlla invii da Medimagia";renderAll();});medCheck.appendChild(imp);body.appendChild(medCheck);
     }else{
       var lockBox=el("div","elfo-access-state view","🔒 <b>Importazione e inserimento manuale sono disponibili dopo aver inserito la Password di modifica.</b><br>Stai visualizzando il profilo in sola lettura: entra in modifica per importare da Medimagia, aggiungere una guarigione o modificare le role valide.");
-      var unlockBtn=el("button","action","Inserisci la Password di modifica");unlockBtn.type="button";unlockBtn.style.marginTop="10px";unlockBtn.addEventListener(EV,function(){currentStep="connessione";renderAll();setTimeout(function(){var ds=document.querySelectorAll("details");for(var i=0;i<ds.length;i++){var sm=ds[i].querySelector("summary");if(sm&&/Password per modificare/i.test(sm.textContent||"")){ds[i].open=true;try{ds[i].scrollIntoView({behavior:"smooth",block:"center"});}catch(e){ds[i].scrollIntoView();}break;}}},0);});lockBox.appendChild(unlockBtn);body.appendChild(lockBox);
+      var unlockBtn=el("button","action","Inserisci la Password di modifica");unlockBtn.type="button";unlockBtn.style.marginTop="10px";unlockBtn.addEventListener(EV,function(){currentStep="pg";renderAll();setTimeout(function(){var panel=document.querySelector(".elfo-password-panel");if(panel){try{panel.scrollIntoView({behavior:"smooth",block:"center"});}catch(e){panel.scrollIntoView();}var inp=panel.querySelector('input[type="password"]');if(inp){try{inp.focus();}catch(e){}}}},0);});lockBox.appendChild(unlockBtn);body.appendChild(lockBox);
     }
     if(!active.length){body.appendChild(el("div","tacc-empty","Nessuna guarigione in corso."));}
     active.forEach(function(h){
@@ -4903,6 +4919,28 @@
   document.addEventListener("visibilitychange",function(){if(document.visibilityState==="hidden"&&TACC_CLOUD_TIMER){clearTimeout(TACC_CLOUD_TIMER);TACC_CLOUD_TIMER=null;taccCloudPush(false);}});
 
 
+
+  function normalizeExternalImportNotice(x){
+    if(!x||typeof x!=="object"||Array.isArray(x)){return null;}
+    var msg=String(x.message||"").trim();
+    if(!msg){return null;}
+    return {source:String(x.source||"un altro tool").trim()||"un altro tool",message:msg,step:String(x.step||""),at:String(x.at||"")};
+  }
+  function recordExternalImportNotice(source,message,step){
+    EXTERNAL_IMPORT_NOTICE={source:String(source||"un altro tool"),message:String(message||"Importazione completata."),step:String(step||currentStep||""),at:new Date().toISOString()};
+  }
+  function buildExternalImportNotice(){
+    var n=normalizeExternalImportNotice(EXTERNAL_IMPORT_NOTICE);
+    if(!n){return null;}
+    var box=el("div","external-import-alert");
+    box.appendChild(el("strong",null,"📥 Importazione ricevuta da "+n.source));
+    box.appendChild(el("div","external-import-message",n.message+" L’avviso resta visibile in alto in tutte le sezioni finché non lo confermi."));
+    var actions=el("div","external-import-actions");
+    if(n.step&&n.step!==currentStep){var go=el("button","action small","Vai alla sezione");go.type="button";go.addEventListener(EV,function(){currentStep=n.step;renderAll();window.scrollTo({top:0,behavior:"smooth"});});actions.appendChild(go);}
+    var ack=el("button","action ghost small","Ho visto");ack.type="button";ack.addEventListener(EV,function(){EXTERNAL_IMPORT_NOTICE=null;scheduleSave(0);renderAll();});actions.appendChild(ack);
+    box.appendChild(actions);return box;
+  }
+
   function renderAll(){
     recomputePosts();
     updateElfoIdentityHeader();
@@ -4911,6 +4949,7 @@
     var c = document.getElementById("stepContainer");
     c.innerHTML = "";
     appendAugustSchoolYearReminder(c);
+    var externalImportNotice=buildExternalImportNotice();if(externalImportNotice){c.appendChild(externalImportNotice);}
     var globalActivityAlerts=buildGlobalActivityAlerts();if(globalActivityAlerts){c.appendChild(globalActivityAlerts);}
     if(currentStep === "pg"){ renderPGStep(c); }
     if(currentStep === "posts"){ renderPostsStep(c); }
@@ -5250,9 +5289,8 @@
       if(!EDIT_UNLOCKED){p.appendChild(el("p","elfo-readonly-note","Puoi consultare le sezioni pubbliche di questo Elfo senza password. I Parametri Sociali sono privati e diventano visibili soltanto dopo l’accesso alla modifica."));}
       if(!EDIT_UNLOCKED){
         if(!EDIT_PASSWORD_CONFIGURED){
-          var firstPw=el("details","elfo-password-details");
-          firstPw.open=true;
-          firstPw.appendChild(el("summary",null,"Crea la Password per modificare"));
+          var firstPw=el("div","elfo-password-panel");
+          firstPw.appendChild(el("h4",null,"Crea la Password per modificare"));
           firstPw.appendChild(el("p","elfo-readonly-note","Questo Elfo non possiede ancora una Password di modifica. Creala ora: verrà associata definitivamente a questo PG e da questo momento servirà per entrare in modifica."));
           var fpRow=el("div","row"),fpA=el("div"),fpB=el("div");
           fpA.appendChild(el("label",null,"Crea una password di modifica"));var fp1=el("input");fp1.type="password";fp1.className="elfo-readonly-safe";fp1.autocomplete="new-password";fpA.appendChild(fp1);
@@ -5283,8 +5321,8 @@
           fp2.addEventListener("keydown",function(e){if(e.key==="Enter"){e.preventDefault();setFirstPw.click();}});
           firstPw.appendChild(setFirstPw);p.appendChild(firstPw);
         }else{
-          var pwDetails=el("details","elfo-password-details");
-          pwDetails.appendChild(el("summary",null,"Inserisci la Password per modificare"));
+          var pwDetails=el("div","elfo-password-panel");
+          pwDetails.appendChild(el("h4",null,"Inserisci la Password per modificare"));
           var pwRow=el("div","elfo-password-row"),pwCell=el("div");pwCell.appendChild(el("label",null,"Password di modifica"));
           var pw=el("input");pw.type="password";pw.className="elfo-readonly-safe";pw.autocomplete="current-password";pwCell.appendChild(pw);pwRow.appendChild(pwCell);
           var unlock=el("button","action elfo-readonly-safe","Accedi alla modifica");unlock.type="button";
@@ -7296,7 +7334,7 @@
     var f=parseTransferLines(raw);if(!Object.keys(f).length)return {ok:false,error:"Formato non riconosciuto."};var pz=newCalderone();pz.nomePozione=transferGet(f,"nome pozione")||"";var cls=(transferGet(f,"classificazione")||"X").toUpperCase().replace(/\s+/g,"");if(CLASSI_STUD.indexOf(cls)<0)return {ok:false,error:"La Classificazione "+cls+" non è ammessa nella Postazione dello Studente (X–XXX)."};pz.classificazione=cls;var tipo=transferGet(f,"tipologia");if(TIPOLOGIE.indexOf(tipo)>=0)pz.tipologia=tipo;var main=transferGet(f,"link principale");pz.dataLink=main;pz.calderoneOggetti=transferGet(f,"calderone/oggetti")||"//";
     function out(prefix,label){var es=transferGet(f,label+" esito"),strength=transferGet(f,label+" forza"),link=transferGet(f,label+" link")||main;pz[prefix+"Esito"]=/fall/i.test(es)?"fallita":"riuscita";pz[prefix+"Valore"]=Math.abs(num(String(strength).replace(/[^0-9.,-]/g,"").replace(",","."),0));pz[prefix+"Link"]=link;}out("prep","preparazione");out("prod","produzione");pz.bacchettaEsito=/fall/i.test(transferGet(f,"bacchetta esito"))?"fallita":"riuscita";pz.bacchettaLink=transferGet(f,"bacchetta link")||main;pz.dosi=Math.max(0,num(transferGet(f,"bacchetta dosi"),0));pz.distillSvolta=/^(sì|si|yes)$/i.test(transferGet(f,"distillazione"));pz.distillLink=transferGet(f,"distillazione link")||"";pz.distillEsito=transferGet(f,"distillazione esito")||"";pz.distillBagaglio=transferGet(f,"distillazione bagaglio")||"";pz.imbottLink=transferGet(f,"imbottigliamento link")||main;pz.imbottPercent=transferGet(f,"imbottigliamento esito")||"";pz.postRichiesti=Math.max(0,num(transferGet(f,"post richiesti"),0));pz.imbottModificatori=transferGet(f,"modificatori")||"";applyImportedIllegalFields(pz,f,"pozione");return {ok:true,postazione:pz};
   }
-  function buildPotionImportBox(){var det=el("details","illegal-import-box");keepDetailsState(det,"postazione:import-pozione",false);det.appendChild(el("summary",null,"Importa Pozione dal Generatore"));det.appendChild(el("p","small-note","Incolla il blocco FELIX_ELFO_POZIONE_V1. Legalità, protezioni ed esiti dei controlli illegali vengono salvati come storico; lo Studente usa 1d30, non 1d50 per Sapienza."));var ta=el("textarea");ta.placeholder="FELIX_ELFO_POZIONE_V1\nDESTINAZIONE: Laboratorio/Postazione\nNome Pozione: ...\nLegalità: Illegale\n...";det.appendChild(ta);var btn=el("button","action","Importa Pozione");btn.type="button";btn.addEventListener(EV,function(){if(CALDERONI.length>=ANNO_POSTI[STUDENTE.anno]){alert("Hai già raggiunto il numero massimo di Pozioni contemporanee consentite.");return;}var r=potionFromTransferText(ta.value);if(!r.ok){alert("Importazione non eseguita: "+r.error);return;}CALDERONI.push(r.postazione);scheduleSave(0);renderAll();alert("Pozione importata. I controlli illegali sono stati conservati come storico e non verranno rilanciati.");});det.appendChild(btn);return det;}
+  function buildPotionImportBox(){var det=el("details","illegal-import-box");keepDetailsState(det,"postazione:import-pozione",false);det.appendChild(el("summary",null,"Importa Pozione dal Generatore"));det.appendChild(el("p","small-note","Incolla il blocco FELIX_ELFO_POZIONE_V1. Legalità, protezioni ed esiti dei controlli illegali vengono salvati come storico; lo Studente usa 1d30, non 1d50 per Sapienza."));var ta=el("textarea");ta.placeholder="FELIX_ELFO_POZIONE_V1\nDESTINAZIONE: Laboratorio/Postazione\nNome Pozione: ...\nLegalità: Illegale\n...";det.appendChild(ta);var btn=el("button","action","Importa Pozione");btn.type="button";btn.addEventListener(EV,function(){if(CALDERONI.length>=ANNO_POSTI[STUDENTE.anno]){alert("Hai già raggiunto il numero massimo di Pozioni contemporanee consentite.");return;}var r=potionFromTransferText(ta.value);if(!r.ok){alert("Importazione non eseguita: "+r.error);return;}CALDERONI.push(r.postazione);recordExternalImportNotice("Generatore di Pozioni","Pozione importata: "+String(r.postazione.nomePozione||r.postazione.nome||"nuova Pozione")+".","postazione");scheduleSave(0);renderAll();alert("Pozione importata. I controlli illegali sono stati conservati come storico e non verranno rilanciati.");});det.appendChild(btn);return det;}
 
   function renderPostazioneStep(container){
     var p = el("div", "panel structure-ui");
@@ -7826,6 +7864,8 @@
         imported++;
       }
       if(imported>0){
+        var sourceTool=entityLabel==="Pianta"?"Tool di Erbologia":"Tool di Magizoologia";
+        recordExternalImportNotice(sourceTool,"Importazione completata: "+imported+(imported===1?" "+entityLabel+" aggiunta.":" elementi aggiunti."),currentStep);
         scheduleSave(0);
         var msg="Importazione completata: "+imported+(imported===1?" "+entityLabel+" aggiunta.":" elementi aggiunti.");
         if(errors.length){msg+="\n\nDa controllare:\n- "+errors.join("\n- ");}
