@@ -1330,11 +1330,13 @@
   }
   .tacc-local-banner strong{color:#5b3c16;}
   .tacc-tabs{display:flex;flex-wrap:wrap;gap:7px;margin:12px 0 16px;}
-  .tacc-tab{
-    border:1px solid #80653a; border-radius:9px; padding:8px 11px; cursor:pointer;
-    background:#efe3c7; color:#3d2b19; font-weight:700; font-size:.82rem;
+   .tacc-tab{
+    border:1px solid #80653a; border-radius:999px; padding:8px 12px; cursor:pointer;
+    background:#f4ead3; color:#3d2b19; font-weight:750; font-size:.82rem;
+    box-shadow:0 1px 2px rgba(45,30,15,.06); transition:background .15s ease,transform .15s ease,box-shadow .15s ease;
   }
-  .tacc-tab.active{background:#5b4229;color:#fff4dc;border-color:#5b4229;}
+  .tacc-tab:hover{background:#eadbb9;transform:translateY(-1px);}
+  .tacc-tab.active{background:#5b4229;color:#fff4dc;border-color:#5b4229;box-shadow:0 3px 8px rgba(45,30,15,.18);}
   .tacc-section-head{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin:8px 0 12px;}
   .tacc-section-head h3{margin:0;}
   .tacc-card{
@@ -1362,8 +1364,34 @@
   .tacc-empty{padding:18px 12px;text-align:center;border:1px dashed rgba(82,61,37,.35);border-radius:10px;color:#6b5a45;background:rgba(255,255,255,.35);}
   .tacc-category-block{margin:12px 0 18px;}
   .tacc-category-block>h4{border-bottom:1px solid rgba(83,60,33,.25);padding-bottom:7px;margin-bottom:9px;}
-  .tacc-link{word-break:break-all;font-size:.78rem;}
+  .tacc-link{
+    display:inline-flex;align-items:center;gap:5px;width:max-content;max-width:100%;
+    margin:6px 0 2px;padding:6px 10px;border:1px solid rgba(128,101,58,.65);border-radius:999px;
+    background:#efe3c7;color:#4a3420 !important;text-decoration:none !important;font-size:.76rem;font-weight:800;
+    word-break:normal;overflow-wrap:anywhere;transition:background .15s ease,transform .15s ease;
+  }
+  .tacc-link::after{content:"↗";font-size:.82em;opacity:.7;}
+  .tacc-link:hover{background:#e3d1aa;color:#2f2115 !important;text-decoration:none !important;transform:translateY(-1px);}
   .tacc-role-meta{font-size:.78rem;color:#6d5a43;margin:4px 0;}
+  .tacc-collection-manager{margin:0 0 14px;border:1px solid rgba(93,68,38,.24);border-radius:10px;background:rgba(255,252,241,.62);}
+  .tacc-collection-manager>summary{cursor:pointer;list-style:none;padding:9px 12px;font-size:.78rem;font-weight:850;color:#5a4027;}
+  .tacc-collection-manager>summary::-webkit-details-marker{display:none;}
+  .tacc-collection-manager>summary::after{content:" +";opacity:.65;}
+  .tacc-collection-manager[open]>summary::after{content:" −";}
+  .tacc-collection-manager-body{padding:0 12px 12px;}
+  .tacc-category-title{display:flex;align-items:center;justify-content:space-between;gap:8px;border-bottom:1px solid rgba(83,60,33,.18);padding-bottom:7px;margin-bottom:9px;}
+  .tacc-category-title h4{margin:0;border:0;padding:0;}
+  .tacc-count-badge{display:inline-flex;align-items:center;justify-content:center;min-width:24px;padding:3px 8px;border-radius:999px;background:#e8dcc0;color:#5a4027;font-size:.7rem;font-weight:850;}
+  .tacc-history-role{border:1px solid rgba(93,68,38,.24);background:rgba(255,252,241,.92);border-radius:10px;margin:8px 0;overflow:hidden;box-shadow:0 1px 4px rgba(34,23,13,.05);}
+  .tacc-history-role>summary{cursor:pointer;list-style:none;position:relative;padding:10px 36px 10px 11px;min-height:44px;}
+  .tacc-history-role>summary::-webkit-details-marker{display:none;}
+  .tacc-history-role>summary::after{content:"▸";position:absolute;right:12px;top:50%;transform:translateY(-50%);color:#6b5132;font-weight:900;}
+  .tacc-history-role[open]>summary::after{content:"▾";}
+  .tacc-history-role[open]>summary{background:#f2e7cd;border-bottom:1px dashed rgba(93,68,38,.24);}
+  .tacc-history-role-title{display:block;color:#432f1d;font-weight:900;line-height:1.3;}
+  .tacc-history-role-summary{display:flex;gap:5px 9px;align-items:center;flex-wrap:wrap;margin-top:4px;color:#705d45;font-size:.72rem;line-height:1.35;}
+  .tacc-history-role-body{padding:11px 12px 12px;}
+  .tacc-history-note{margin:8px 0;padding:8px 10px;border-left:3px solid rgba(180,138,70,.75);background:rgba(239,227,199,.55);font-size:.78rem;line-height:1.45;color:#5b4934;}
   .tacc-mission-title{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;}
   .tacc-mission-title h4{margin:0;}
   .tacc-counter{padding:9px 0;border-top:1px dashed rgba(75,50,27,.2);}
@@ -1617,7 +1645,7 @@
 <body>
 <div class="wrap">
   <h1 class="main-title" id="elfoIdentityTitle">Il Mio Elfo Domestico</h1>
-  <div class="elfo-mode-badge studente" aria-label="Versione studente">STUDENTI</div>
+  <div class="elfo-mode-badge studente" aria-label="Versione studente">ELFO STUDENTE</div>
   <div class="tutorial-launch-row"><button type="button" id="tutorialLaunch" class="tutorial-launch-btn elfo-readonly-safe" aria-label="Apri il tutorial">❔ Guida</button></div>
 
   <div class="steps-nav" id="stepsNav"></div>
@@ -5189,29 +5217,37 @@
 
   function renderTaccCronologia(container){
     var head=el("div","tacc-section-head");head.appendChild(el("h3",null,"Cronologia delle Role"));container.appendChild(head);
-    var catCard=el("div","tacc-card");catCard.appendChild(el("h4",null,"Raccolte della Cronologia"));catCard.appendChild(el("p","small-note","Le raccolte servono a raggruppare le Role concluse, per esempio per anno scolastico, Vita adulta, Lavoro o un'altra divisione personale."));var row=el("div","tacc-mini-row"),inp=taccInput("Nome nuova raccolta","");row.appendChild(inp.wrap);row.appendChild(el("div"));var add=el("button","action","+ Aggiungi raccolta");add.type="button";add.addEventListener(EV,function(){var v=String(inp.input.value||"").trim();if(!v){return;}if(TACCUINO.categories.some(function(x){return x.toLowerCase()===v.toLowerCase();})){alert("Questa raccolta esiste già.");return;}TACCUINO.categories.push(v);taccSave();renderAll();});row.appendChild(add);catCard.appendChild(row);container.appendChild(catCard);
+
+    var manage=document.createElement("details");manage.className="tacc-collection-manager";var manageSum=document.createElement("summary");manageSum.textContent="⚙️ Gestisci raccolte";manage.appendChild(manageSum);var manageBody=el("div","tacc-collection-manager-body");var row=el("div","tacc-mini-row"),inp=taccInput("Nuova raccolta","");row.appendChild(inp.wrap);row.appendChild(el("div"));var add=el("button","action","+ Aggiungi");add.type="button";add.addEventListener(EV,function(){var v=String(inp.input.value||"").trim();if(!v){return;}if(TACCUINO.categories.some(function(x){return x.toLowerCase()===v.toLowerCase();})){alert("Questa raccolta esiste già.");return;}TACCUINO.categories.push(v);taccSave();renderAll();});row.appendChild(add);manageBody.appendChild(row);manage.appendChild(manageBody);container.appendChild(manage);
+
     var closed=TACCUINO.roles.filter(function(r){return r&&r.status==="closed";});
     if(!closed.length){container.appendChild(el("div","tacc-empty","La Cronologia è ancora vuota. Concludi una Role aperta per archiviarla qui."));return;}
     TACCUINO.categories.forEach(function(cat){
       var items=closed.filter(function(r){return (r.category||"Altro")===cat;});if(!items.length){return;}
-      var block=el("div","tacc-category-block");block.appendChild(el("h4",null,cat));
-      var periods=[];
-      items.forEach(function(r){var p=String(r.period||"").trim()||"Senza periodo";if(periods.indexOf(p)<0){periods.push(p);}});
+      var block=el("div","tacc-category-block"),catHead=el("div","tacc-category-title");catHead.appendChild(el("h4",null,cat));catHead.appendChild(el("span","tacc-count-badge",items.length+(items.length===1?" role":" role")));block.appendChild(catHead);
+      var periods=[];items.forEach(function(r){var p=String(r.period||"").trim()||"Senza periodo";if(periods.indexOf(p)<0){periods.push(p);}});
       periods.forEach(function(period){
         var pb=el("div","tacc-period-group");pb.appendChild(el("div","tacc-period-title","📅 "+period));
         items.filter(function(r){return (String(r.period||"").trim()||"Senza periodo")===period;}).forEach(function(r){
-          var card=el("div","tacc-card");card.appendChild(el("h4",null,r.title||"Role"));
-          card.appendChild(el("div","tacc-role-meta","<span class=\"tacc-role-badge\">"+taccRoleTypeLabel(r.roleType||"free")+"</span>"+(r.withWhom?" Con: "+r.withWhom:"")+(r.location?" · 📍 "+r.location:"")));
-          card.appendChild(el("div","tacc-role-meta","Archiviata: "+(r.closedAt||"—")));
-          if(r.url){var aa=document.createElement("a");aa.href=r.url;aa.target="_blank";aa.rel="noopener noreferrer";aa.className="tacc-link";aa.textContent="Apri Role";card.appendChild(aa);}if(r.notes){card.appendChild(el("p","small-note",r.notes));}
-          var edit=el("div","tacc-grid-2"),sel=taccSelect("Sposta nella raccolta",TACCUINO.categories,r.category||"Altro"),per=taccInput("Periodo ONGame",r.period||""),loc=taccInput("Luogo",r.location||""),rt=taccRoleTypeSelect(r.roleType||"free");
-          [sel.wrap,per.wrap,loc.wrap,rt.wrap].forEach(function(x){edit.appendChild(x);});card.appendChild(edit);
+          var details=document.createElement("details");details.className="tacc-history-role";
+          var summary=document.createElement("summary"),title=el("span","tacc-history-role-title",r.title||"Role senza titolo"),meta=el("span","tacc-history-role-summary");summary.appendChild(title);
+          meta.appendChild(el("span","tacc-role-badge",taccRoleTypeLabel(r.roleType||"free")));
+          if(r.withWhom){meta.appendChild(el("span",null,"Con: "+r.withWhom));}
+          if(r.location){meta.appendChild(el("span",null,"📍 "+r.location));}
+          if(r.closedAt){meta.appendChild(el("span",null,"✓ "+r.closedAt));}
+          summary.appendChild(meta);details.appendChild(summary);
+          var body=el("div","tacc-history-role-body");
+          if(r.url){var aa=document.createElement("a");aa.href=r.url;aa.target="_blank";aa.rel="noopener noreferrer";aa.className="tacc-link";aa.textContent="Apri Role";body.appendChild(aa);}
+          if(r.notes){body.appendChild(el("div","tacc-history-note",r.notes));}
+          var edit=el("div","tacc-grid-2"),sel=taccSelect("Raccolta",TACCUINO.categories,r.category||"Altro"),per=taccInput("Periodo ONGame",r.period||""),loc=taccInput("Luogo",r.location||""),rt=taccRoleTypeSelect(r.roleType||"free");
+          [sel.wrap,per.wrap,loc.wrap,rt.wrap].forEach(function(x){edit.appendChild(x);});body.appendChild(edit);
           sel.select.addEventListener("change",function(){r.category=sel.select.value;taccSave();renderAll();});
           per.input.addEventListener("change",function(){r.period=per.input.value;taccSave();renderAll();});
           loc.input.addEventListener("input",function(){r.location=loc.input.value;taccSave();});
           function saveCronRoleType(){r.roleType=rt.getValue(r.roleType||"free");taccSave();if(rt.select.value!=="__custom__"){renderAll();}}
           rt.select.addEventListener("change",saveCronRoleType);rt.customInput.addEventListener("change",function(){if(rt.rememberCustom()){r.roleType=rt.getValue(r.roleType||"free");taccSave();renderAll();}});
-          var actions=el("div","tacc-inline-actions");var reopen=el("button","action","↩ Riapri");reopen.type="button";reopen.addEventListener(EV,function(){r.status="open";r.closedAt="";taccSave();renderAll();});actions.appendChild(reopen);var del=el("button","action danger","Rimuovi");del.type="button";del.addEventListener(EV,function(){if(confirm("Rimuovere definitivamente questa Role dalla Cronologia?")){TACCUINO.roles=TACCUINO.roles.filter(function(x){return x.id!==r.id;});taccSave();renderAll();}});actions.appendChild(del);card.appendChild(actions);pb.appendChild(card);
+          var actions=el("div","tacc-inline-actions"),reopen=el("button","action","↩ Riapri");reopen.type="button";reopen.addEventListener(EV,function(){r.status="open";r.closedAt="";taccSave();renderAll();});actions.appendChild(reopen);var del=el("button","action danger","Rimuovi");del.type="button";del.addEventListener(EV,function(){if(confirm("Rimuovere definitivamente questa Role dalla Cronologia?")){TACCUINO.roles=TACCUINO.roles.filter(function(x){return x.id!==r.id;});taccSave();renderAll();}});actions.appendChild(del);body.appendChild(actions);
+          details.appendChild(body);pb.appendChild(details);
         });block.appendChild(pb);
       });container.appendChild(block);
     });
@@ -5422,7 +5458,7 @@
   function renderTaccuinoStep(container){
     var p=el("div","panel");p.appendChild(el("h2",null,"Taccuino Personale"));
     if(TACC_TAB==="guarigione"){TACC_TAB="role";}
-    var tabs=[{k:"role",l:"Role aperte"},{k:"cronologia",l:"Cronologia"},{k:"png",l:"Taccuino PNG"},{k:"missioni",l:TACC_MODE==="studente"?"FantaHogwarts":"FantaWiz"},{k:"extra",l:"Extra"},{k:"import",l:"📥 Importazione"},{k:"note",l:"Appunti & Backup"}],bar=el("div","tacc-tabs");tabs.forEach(function(t){var b=el("button","tacc-tab"+(TACC_TAB===t.k?" active":""),t.l);b.type="button";b.addEventListener(EV,function(){TACC_TAB=t.k;renderAll();});bar.appendChild(b);});p.appendChild(bar);
+    var _tOpen=(TACCUINO.roles||[]).filter(function(r){return r&&r.status!=="closed";}).length,_tClosed=(TACCUINO.roles||[]).filter(function(r){return r&&r.status==="closed";}).length;var tabs=[{k:"role",l:"Role aperte"+(_tOpen?" ("+_tOpen+")":"")},{k:"cronologia",l:"Cronologia"+(_tClosed?" ("+_tClosed+")":"")},{k:"png",l:"Taccuino PNG"+((TACCUINO.png||[]).length?" ("+(TACCUINO.png||[]).length+")":"")},{k:"missioni",l:TACC_MODE==="studente"?"FantaHogwarts":"FantaWiz"},{k:"extra",l:"Extra"},{k:"import",l:"📥 Importazione"},{k:"note",l:"Appunti & Backup"}],bar=el("div","tacc-tabs");tabs.forEach(function(t){var b=el("button","tacc-tab"+(TACC_TAB===t.k?" active":""),t.l);b.type="button";b.addEventListener(EV,function(){TACC_TAB=t.k;renderAll();});bar.appendChild(b);});p.appendChild(bar);
     if(TACC_TAB==="role"){renderTaccRole(p);}else if(TACC_TAB==="cronologia"){renderTaccCronologia(p);}else if(TACC_TAB==="png"){renderTaccPng(p);}else if(TACC_TAB==="missioni"){renderTaccMissioni(p);}else if(TACC_TAB==="extra"){renderTaccExtra(p);}else if(TACC_TAB==="import"){renderTaccLegacyImport(p);}else{renderTaccNoteBackup(p);}container.appendChild(p);
   }
   window.addEventListener("storage",function(e){if(e.key===TACC_STORAGE_KEY){TACCUINO=taccLoad();taccScheduleCloudSync();if(currentStep==="taccuino"){renderAll();}}});
