@@ -1,41 +1,5 @@
 <!DOCTYPE html>
-<!-- v46: avanzamento Cicli corretto: prima il Ciclo successivo (es. 2/2), passaggio di Fase solo a Cicli completi o a tempo OFFGame realmente trascorso; contatore Cicli evidenziato. -->
-<!-- v45: copia raccolta usa <b> HTML; dopo trasferimento in Dispensa mostra avanzamento contestuale + schema Pianta/Creatura. -->
-<!-- v44: copia raccolti completa (specie/classificazione + legenda Ingredienti in quote), import specialistici verdi, navigazione superiore riordinabile direttamente con trascinamento; rimosso il tasto Riordina. -->
-<!-- v43: evidenza visiva della Classificazione applicabile nella raccolta; navigazione superiore riordinabile con numerazione automatica e ordine persistente locale. -->
-<!-- v42: fusione ramo “Audit e correzioni v64” — import Medimagia in upsert sullo stesso importId e consumo della coda solo dopo persistenza locale riuscita; preservate tutte le evoluzioni v41. -->
-<!-- v41: Guarigione storica non retroattiva; raccolto prioritario Serra/Riserva/Cubicolo/Recinto; cataloghi Erbologia v110 e Magizoologia v140; citazioni regolamento e avanzamento fase bloccato finché il raccolto non è registrato. -->
-
-<!-- Revisione Password UI v2: campo password visibile nella prima interfaccia; visualizzazione pubblica esplicitata. -->
-<!-- Accesso pubblico + password di modifica, sessione browser, 01/09/2026. -->
-<!-- v15: prima schermata semplificata — Apri Elfo esplicito; creazione password mostrata solo per PG realmente nuovo. -->
-<!-- Il Mio Elfo Domestico — Studente: integrazione Azioni Illegali 01/09/2026. I tool specialistici restano autoritativi per i dadi; l'Elfo conserva legalità, protezioni ed esiti senza rilanciare. -->
 <html lang="it">
-<!-- v27: personalizzazione titolo corretta — appellativi come scelte esplicite e nuovo nome/nickname con cui l'Elfo deve chiamare il PG; lasciandolo vuoto si usa il nome completo del PG. -->
-<!-- v26: Guarigione trasformata in tendina in I tuoi Post; in sola visualizzazione la tendina segnala chiaramente che importazione e inserimento manuale richiedono la Password di modifica e offre un accesso diretto alla schermata di sblocco. -->
-<!-- v31: Guarigione spostata in fondo a I tuoi Post; riepilogo unico e ben visibile delle role salvate in cima alla tendina; import Medimagia chiarito come controllo manuale di invii normalmente importati in automatico. -->
-<!-- v32: Guarigione in palette San Mungo (verdino/rosso scuro); inserimento manuale prima delle role salvate; badge sui Post mostrano il progresso reale N/totale invece di +1 Guarigione. -->
-<!-- v33: blocco link duplicati nei Post generali; avviso una volta per sessione dopo inserimento Password; risoluzione raccolto Piante nell’Elfo con dadi quantità/distribuzione Ingredienti e Semi. -->
-<!-- v34: Rimuovi nei Post generali non resta più disabilitato durante la verifica accrediti; i Post usati da lavorazioni attive sono rimovibili solo dopo avviso esplicito sulle conseguenze e mantengono il buco nella numerazione globale. -->
-<!-- v35: correzione definitiva Aggiungi/Rimuovi Post: una lettura Firebase valida degli accrediti è sufficiente; il listener realtime non può più bloccare l’azione se non riesce ad attivarsi. -->
-<!-- v36: correzione reale del blocco Rimuovi/Aggiungi Post: il fallimento del listener realtime accrediti non annulla più una lettura Firebase già riuscita; la cache verificata resta valida per le operazioni puntuali. -->
-<!-- v37: Rimuovi Post reso sincrono sul dato locale già verificato: niente seconda lettura Firebase al click; rimozione per indice/identità con splice, rerender immediato e salvataggio successivo. -->
-<!-- v38: fix reale Rimuovi Post — eliminato il residuo disabled legato ad accreditiVerified(); se lo stato accrediti non è noto, il click esegue una sola lettura Firebase puntuale senza avviare/attendere il listener realtime. -->
-<!-- v39: Rimuovi Post mai più silenziosamente disabled in modalità modifica; il click entra sempre nella funzione e mostra esplicitamente eventuali protezioni. Eliminata ogni verifica Firebase preliminare: la rimozione locale è immediata, mentre la transazione di salvataggio continua a proteggere i Mesi accreditati. -->
-<!-- v40: audit completo Rimuovi Post — rimozione attivata su pointerdown prima del blur; niente alert/confirm nativi; conferme e blocchi sono inline; identificazione stabile Mese/Post; Guarigione inclusa nei riferimenti; change del link non ricostruisce più il DOM. -->
-<!-- v30: riepilogo delle role di guarigione salvate portato in alto nella scheda; rimozione guarigione resa sicura e differita per evitare ricostruzioni DOM durante il click; pulizia di bozze/editor e stato alert collegati. -->
-<!-- v25: la sezione generale in I tuoi Post è rinominata “Guarigione”; i metodi specifici restano Guarigione Spontanea/Riposo Forzato e i vecchi record generici vengono normalizzati. -->
-<!-- v24: importazione Guarigione da Medimagia resa visibile in I tuoi Post e cross-origin tramite Firebase; riconoscimento robusto del metodo specifico (es. Riposo Forzato); mantenuto fallback locale per compatibilità. -->
-<!-- v28: Corretto il blocco dei campi Guarigione: nome/titolo role, link, motivo, post e note si salvano senza renderAll() al cambio campo, evitando che il DOM venga ricostruito mentre si passa da un input all’altro. -->
-<!-- v29: più spazio fra titolo e navigazione; le role di Guarigione si confermano con “Salva role” e poi diventano voci compatte; “Aggiungi post” non resta più disabilitato durante la verifica asincrona degli accrediti e prova a verificarli al click. -->
-<!-- v23: Guarigione Passiva semplificata — inserimento manuale ridotto a motivo, Post necessari, link delle role valide e note; rimossa dall’interfaccia l’importazione tecnica/backup da Medimagia. -->
-<!-- v22: Guarigione Passiva inseribile anche manualmente da I tuoi Post, senza codice/formato obbligatorio; dati e role valide restano modificabili. Prima password dei PG senza password configurabile direttamente dal Player come da v21. -->
-<!-- v18: Guarigione Passiva gestita in I tuoi Post + avvisi globali persistenti per completamenti di Pozioni, Piante, Creature e Guarigione. -->
-<!-- v17: identità dell’Elfo personalizzabile + prima integrazione Guarigione Passiva con Medimagia. -->
-<!-- v16: Parametri Sociali privati nell’interfaccia — visibili solo con modifica autorizzata; v14: audit strutturale — coda sincronizzazione Taccuino + flush cloud prima di Disconnetti/cambio PG; v13: audit regressione — riepilogo mensile Bonus Altro completo + disconnessione reale dopo eliminazione remota; v12: regressione bonus primi X corretta + numero reale ultimo post + terminologia Disconnetti; v11: Disconnetti rosso centrato in fondo a ogni pagina; v10: pulsante persistente nella navigazione; v9: Enter richiede password, Camera Blindata/Taccuino invertiti, bonus primi X post. -->
-<!-- v8 password: ritmo verticale uniformato fra selettore, nota e details; v7: font Magic sul summary password -->
-<!-- v3 password: tendina PG chiusa con clic esterno -->
-
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -1536,8 +1500,9 @@
   .plant-harvest-resolution .action{margin-top:6px;}
 
   /* v49 — rifiniture UI: pulsanti Guarigione distanziati, avviso globale importazioni, password fuori dai details. */
-  .healing-active-card > button.action{margin-top:10px;margin-right:10px}
-  .external-import-alert{margin:0 auto 14px;max-width:1100px;padding:11px 13px;border:1px solid #6f9368;border-left:6px solid #557d4d;border-radius:9px;background:#e9f3e5;color:#29452a;box-shadow:0 2px 6px rgba(0,0,0,.08)}
+  .healing-active-card > button.action{margin-top:10px!important;margin-right:14px!important}
+  .healing-active-card > button.action + button.action{margin-left:4px!important}
+  .external-import-alert{position:sticky;top:8px;z-index:60;margin:0 auto 14px;max-width:1100px;padding:11px 13px;border:1px solid #6f9368;border-left:6px solid #557d4d;border-radius:9px;background:#e9f3e5;color:#29452a;box-shadow:0 4px 12px rgba(0,0,0,.14)}
   .external-import-alert > strong{display:block;margin-bottom:4px;color:#315c39}
   .external-import-alert .external-import-message{font-size:.82rem;line-height:1.45}
   .external-import-alert .external-import-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
@@ -2377,16 +2342,13 @@
   }
   function requestGeneralPostRemoval(meseId,postId,globalNo,fallbackIndex){
     var hit=findGeneralPostForRemoval(meseId,postId,globalNo,fallbackIndex);
-    if(!hit){GENERAL_POST_REMOVE_UI={armedKey:"",noticeKey:"",noticeText:"Non riesco più a trovare questo Post nei dati del Mese. Ricarica la sezione e riprova.",noticeKind:"error"};renderAll();return false;}
-    var mese=hit.mese,post=hit.post,key=generalPostRemoveKey(mese,post),reason=generalPostRemovalBlockReason(mese);
-    if(reason){GENERAL_POST_REMOVE_UI={armedKey:"",noticeKey:key,noticeText:reason,noticeKind:"blocked"};renderAll();return false;}
-    var refs=generalPostRemovalReferences(post);
-    if(refs.length && GENERAL_POST_REMOVE_UI.armedKey!==key){
-      GENERAL_POST_REMOVE_UI={armedKey:key,noticeKey:key,noticeText:"Questo Post è usato da: "+refs.join(" · ")+". Se lo rimuovi, quelle attività potrebbero tornare incomplete. Premi «Conferma rimozione» per eliminarlo davvero.",noticeKind:"warning"};
-      renderAll();return false;
-    }
-    hit=findGeneralPostForRemoval(meseId,postId,globalNo,fallbackIndex);
-    if(!hit){GENERAL_POST_REMOVE_UI={armedKey:"",noticeKey:key,noticeText:"Il Post è cambiato mentre provavo a rimuoverlo. Riprova.",noticeKind:"error"};renderAll();return false;}
+    if(!hit){alert("Non riesco più a trovare questo Post nei dati del Mese. Ricarica la sezione e riprova.");return false;}
+    var mese=hit.mese,reason=generalPostRemovalBlockReason(mese);
+    if(reason){alert(reason);return false;}
+
+    /* v52: la rimozione è immediata. L'eventuale uso del Post da parte di
+       Guarigione/altre attività viene aggiornato automaticamente; se la
+       cancellazione è stata involontaria si può usare ↶ Annulla in alto. */
     if(typeof healingForgetPostSnapshot==="function"){healingForgetPostSnapshot(hit.post);}
     hit.mese.posts.splice(hit.index,1);
     clearGeneralPostRemoveUi();
@@ -4926,19 +4888,59 @@
     if(!msg){return null;}
     return {source:String(x.source||"un altro tool").trim()||"un altro tool",message:msg,step:String(x.step||""),at:String(x.at||"")};
   }
+  function externalImportNoticePgName(){
+    try{
+      if(typeof PG_ID!=="undefined"&&String(PG_ID||"").trim()){return String(PG_ID||"").trim();}
+      if(typeof STUDENTE!=="undefined"&&STUDENTE&&String(STUDENTE.nome||"").trim()){return String(STUDENTE.nome||"").trim();}
+    }catch(e){}
+    return "";
+  }
+  function externalImportNoticeStorageKey(){
+    var pg=externalImportNoticePgName().toLocaleLowerCase("it-IT").replace(/\s+/g," ").trim();
+    var mode=(typeof STUDENTE!=="undefined")?"studente":"adulto";
+    return pg?"ffgdr_elfo_external_import_notice_v2_"+mode+"_"+pg:"";
+  }
+  function loadExternalImportNoticeLocal(){
+    var key=externalImportNoticeStorageKey();if(!key){return null;}
+    try{return normalizeExternalImportNotice(JSON.parse(localStorage.getItem(key)||"null"));}catch(e){return null;}
+  }
+  function persistExternalImportNoticeLocal(value){
+    var key=externalImportNoticeStorageKey();if(!key){return;}
+    try{
+      if(value){localStorage.setItem(key,JSON.stringify(value));}
+      else{localStorage.removeItem(key);}
+    }catch(e){}
+  }
   function recordExternalImportNotice(source,message,step){
     EXTERNAL_IMPORT_NOTICE={source:String(source||"un altro tool"),message:String(message||"Importazione completata."),step:String(step||currentStep||""),at:new Date().toISOString()};
+    persistExternalImportNoticeLocal(EXTERNAL_IMPORT_NOTICE);
   }
   function buildExternalImportNotice(){
-    var n=normalizeExternalImportNotice(EXTERNAL_IMPORT_NOTICE);
+    var cloudNotice=normalizeExternalImportNotice(EXTERNAL_IMPORT_NOTICE);
+    var localNotice=loadExternalImportNoticeLocal();
+    var n=cloudNotice;
+    if(localNotice&&(!n||String(localNotice.at||"")>String(n.at||""))){n=localNotice;EXTERNAL_IMPORT_NOTICE=localNotice;}
     if(!n){return null;}
+    persistExternalImportNoticeLocal(n);
     var box=el("div","external-import-alert");
     box.appendChild(el("strong",null,"📥 Importazione ricevuta da "+n.source));
-    box.appendChild(el("div","external-import-message",n.message+" L’avviso resta visibile in alto in tutte le sezioni finché non lo confermi."));
+    box.appendChild(el("div","external-import-message",n.message+" L’avviso resta visibile in alto in tutte le sezioni finché non lo segni come visualizzato."));
     var actions=el("div","external-import-actions");
-    if(n.step&&n.step!==currentStep){var go=el("button","action small","Vai alla sezione");go.type="button";go.addEventListener(EV,function(){currentStep=n.step;renderAll();window.scrollTo({top:0,behavior:"smooth"});});actions.appendChild(go);}
-    var ack=el("button","action ghost small","Ho visto");ack.type="button";ack.addEventListener(EV,function(){EXTERNAL_IMPORT_NOTICE=null;scheduleSave(0);renderAll();});actions.appendChild(ack);
-    box.appendChild(actions);return box;
+    if(n.step&&n.step!==currentStep){
+      var go=el("button","action small","Vai alla sezione");go.type="button";
+      go.addEventListener(EV,function(){currentStep=n.step;renderAll();window.scrollTo({top:0,behavior:"smooth"});});
+      actions.appendChild(go);
+    }
+    var ack=el("button","action ghost small","✓ Visualizzato");ack.type="button";
+    ack.addEventListener(EV,function(){
+      EXTERNAL_IMPORT_NOTICE=null;
+      persistExternalImportNoticeLocal(null);
+      scheduleSave(0);
+      renderAll();
+    });
+    actions.appendChild(ack);
+    box.appendChild(actions);
+    return box;
   }
 
   function renderAll(){
@@ -5593,17 +5595,37 @@
         tdLink.appendChild(iLink);
         var existingDuplicate=findDuplicateGeneralPostLink(post.link,post);
         if(existingDuplicate&&isValidPostLink(post.link)){iLink.classList.add("post-link-duplicate");tdLink.appendChild(el("span","post-link-duplicate-note","⚠ Questo link è già presente in un altro Post generale."));}
-        var healingUse=healingPostUseInfo(post);
-        if(healingUse.active.length){
-          tr.classList.add("healing-post-active");
-          var hpTxt=healingUse.activeProgress.map(function(x){return x.index+"/"+x.required;}).join(" · ");
-          tdLink.appendChild(el("span","healing-post-badge","❤️ "+hpTxt));
+
+        /* Il countdown della Guarigione si aggiorna appena il link digitato/incollato
+           viene riconosciuto, senza richiedere Aggiungi post o un rerender della pagina. */
+        var healingBadgeSlot=el("span","healing-post-badge-slot");
+        tdLink.appendChild(healingBadgeSlot);
+        function refreshHealingBadge(){
+          tr.classList.remove("healing-post-active","healing-post-completed");
+          while(healingBadgeSlot.firstChild){healingBadgeSlot.removeChild(healingBadgeSlot.firstChild);}
+          var healingUse=healingPostUseInfo(post);
+          if(healingUse.active.length){
+            var healingReachedEnd=healingUse.activeProgress.some(function(x){return x.index>=x.required;});
+            tr.classList.add(healingReachedEnd?"healing-post-completed":"healing-post-active");
+            var hpTxt=healingUse.activeProgress.map(function(x){
+              return x.index+"/"+x.required+(x.index>=x.required?" · Guarigione completa!":"");
+            }).join(" · ");
+            healingBadgeSlot.appendChild(el("span","healing-post-badge"+(healingReachedEnd?" done":""),"❤️ "+hpTxt));
+          }else if(healingUse.completed.length){
+            tr.classList.add("healing-post-completed");
+            var hcTxt=healingUse.completedProgress.map(function(x){return x.index+"/"+x.required;}).join(" · ");
+            healingBadgeSlot.appendChild(el("span","healing-post-badge done","✓ "+hcTxt));
+          }
         }
-        else if(healingUse.completed.length){
-          tr.classList.add("healing-post-completed");
-          var hcTxt=healingUse.completedProgress.map(function(x){return x.index+"/"+x.required;}).join(" · ");
-          tdLink.appendChild(el("span","healing-post-badge done","✓ "+hcTxt));
+        function refreshHealingBadgeSoon(){
+          setTimeout(function(){
+            if(document.body.contains(iLink)){refreshHealingBadge();}
+          },0);
         }
+        iLink.addEventListener("input",refreshHealingBadgeSoon);
+        iLink.addEventListener("paste",refreshHealingBadgeSoon);
+        iLink.addEventListener("change",refreshHealingBadgeSoon);
+        refreshHealingBadge();
         tr.appendChild(tdLink);
         if(showInlineGlobal){
           var tdGlobal = el("td", "global-number-cell");
@@ -5611,9 +5633,7 @@
           tdGlobal.appendChild(globalSpan); tr.appendChild(tdGlobal); refreshInlineGlobal();
         }
         var tdRm = el("td");
-        var removeKey=generalPostRemoveKey(mese,post);
-        var removeArmed=GENERAL_POST_REMOVE_UI.armedKey===removeKey;
-        var rmBtn = el("button", "action danger small"+(removeArmed?" post-remove-confirm":""), removeArmed?"Conferma rimozione":"Rimuovi");
+        var rmBtn = el("button", "action danger small", "Rimuovi");
         rmBtn.type="button";
         rmBtn.disabled=false;
         rmBtn.setAttribute("data-general-post-remove","1");
@@ -5640,9 +5660,6 @@
         else if(accreditato){rmBtn.title="Mese accreditato: il motivo verrà mostrato nella riga.";}
         else if(isImportedStudentMonth(mese)){rmBtn.title="Storico importato: il motivo verrà mostrato nella riga.";}
         tdRm.appendChild(rmBtn);
-        if(GENERAL_POST_REMOVE_UI.noticeKey===removeKey && GENERAL_POST_REMOVE_UI.noticeText){
-          tdRm.appendChild(el("div","post-remove-inline-warning "+String(GENERAL_POST_REMOVE_UI.noticeKind||""),GENERAL_POST_REMOVE_UI.noticeText));
-        }
         tr.appendChild(tdRm);
         tbl.appendChild(tr);
       })(mese.posts[i], i);
