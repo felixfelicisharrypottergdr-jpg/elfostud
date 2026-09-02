@@ -1396,12 +1396,11 @@
   /* v26 - Elfi pubblici in lettura, password solo per la modifica */
   .elfo-access-state{margin:12px 0;padding:11px 13px;border:1px solid var(--gold);border-radius:8px;background:rgba(255,255,255,.38);line-height:1.5}
   .elfo-access-state.view{border-color:#8a7042}.elfo-access-state.edit{border-color:#397247;background:rgba(46,107,62,.10)}
-  .elfo-password-details{margin-top:12px}.elfo-password-row{display:flex;gap:9px;align-items:flex-end;flex-wrap:wrap;margin-top:10px}.elfo-password-row>div{flex:1;min-width:220px}.elfo-password-row button{margin-top:0}
-  .elfo-password-details > summary{font-family:'magic',Georgia,'Times New Roman',serif !important;}
+  .elfo-password-row{display:flex;gap:9px;align-items:flex-end;flex-wrap:wrap;margin-top:10px}.elfo-password-row>div{flex:1;min-width:220px}.elfo-password-row button{margin-top:0}
   .pg-picker{position:relative;max-width:640px}.pg-picker-line{display:grid;grid-template-columns:minmax(0,1fr) 42px;gap:6px;align-items:stretch}
   .pg-picker-line input{margin:0}.pg-picker-arrow{margin:0!important;padding:0!important;min-width:42px;font-size:1rem}
   .pg-picker-menu{position:absolute;z-index:90;left:0;right:48px;top:calc(100% + 4px);max-height:260px;overflow:auto;border:1px solid var(--gold);border-radius:7px;background:#fffdf5;box-shadow:0 9px 24px rgba(0,0,0,.28)}
-  .pg-picker-menu[hidden]{display:none}.pg-picker-option{display:block;width:100%;margin:0!important;padding:8px 10px;border:0;border-bottom:1px solid rgba(169,128,58,.25);border-radius:0;background:#fffdf5;color:var(--ink);text-align:left;cursor:pointer;font:inherit}
+  .pg-picker-menu[hidden]{display:none}.pg-picker-menu.pg-picker-pass-through{pointer-events:none}.pg-picker-option{display:block;width:100%;margin:0!important;padding:8px 10px;border:0;border-bottom:1px solid rgba(169,128,58,.25);border-radius:0;background:#fffdf5;color:var(--ink);text-align:left;cursor:pointer;font:inherit}
   .pg-picker-option:hover,.pg-picker-option:focus{background:#efe4c4}.pg-picker-empty{padding:9px 10px;font-size:.8rem;color:#6a5a3a}
   .elfo-readonly-note{margin:10px 0 12px;padding:8px 10px;border-left:4px solid #8a7042;background:rgba(255,255,255,.28);font-size:.8rem}
   .elfo-readonly input[readonly],.elfo-readonly textarea[readonly],.elfo-readonly select:disabled,.elfo-readonly input:disabled{opacity:1!important;color:inherit!important;-webkit-text-fill-color:currentColor!important}
@@ -1519,9 +1518,6 @@
   .activity-ack input{width:auto;margin:0;}
   @media(max-width:700px){.global-activity-alert-row{align-items:flex-start;flex-direction:column}.global-activity-alert-row .action{width:100%}}
 
-  .post-remove-inline-warning{margin-top:7px;max-width:340px;padding:7px 9px;border:1px solid rgba(120,25,25,.45);border-radius:8px;font-size:12px;line-height:1.35;background:rgba(96,20,20,.10);}
-  .post-remove-inline-warning.warning{border-color:rgba(145,83,22,.55);background:rgba(145,83,22,.10);}
-  .post-remove-inline-warning.blocked,.post-remove-inline-warning.error{border-color:rgba(120,25,25,.65);background:rgba(120,25,25,.13);}
   .post-remove-confirm{font-weight:800;box-shadow:0 0 0 2px rgba(120,25,25,.18) inset;}
 </style>
 
@@ -1558,14 +1554,39 @@
   .harvest-inline-complete{background:#e3f0dd;color:#31562d;border:1px solid #9fbe95}
   .harvest-inline-note{background:#eee9dc;color:#5f5132;border:1px solid #c9bd9e}
   .advancement-harvest-required{margin-top:8px;padding:8px 10px;border-radius:7px;background:#f2e4e5;color:#6f292f;border:1px solid #caa0a3;font-weight:800}
+
+  /* v tutorial — guida discreta, versionata e riapribile */
+  .tutorial-launch-row{display:flex;justify-content:flex-end;align-items:center;margin:-7px 0 7px;min-height:28px}
+  .tutorial-launch-btn{display:none;align-items:center;gap:5px;border:1px solid rgba(230,216,172,.62);background:rgba(20,28,23,.38);color:var(--parch);border-radius:999px;padding:4px 9px;font-size:.72rem;cursor:pointer;opacity:.66}
+  .tutorial-launch-btn:hover,.tutorial-launch-btn:focus{opacity:1;background:rgba(20,28,23,.62)}
+  .tutorial-launch-btn.tutorial-attention{opacity:1;animation:tutorialPulse 1.8s ease-in-out infinite;box-shadow:0 0 0 0 rgba(230,216,172,.35)}
+  @keyframes tutorialPulse{0%,100%{transform:scale(1);box-shadow:0 0 0 0 rgba(230,216,172,.32)}50%{transform:scale(1.025);box-shadow:0 0 0 6px rgba(230,216,172,0)}}
+  #tutorialHost{margin:0 0 12px}
+  .tutorial-invite,.tutorial-card{border:1px solid var(--gold);border-left:5px solid var(--gold);border-radius:9px;background:rgba(255,253,245,.96);color:var(--ink);box-shadow:0 5px 18px rgba(0,0,0,.18);padding:12px 14px}
+  .tutorial-invite{animation:tutorialReveal .26s ease-out}
+  @keyframes tutorialReveal{from{transform:translateY(-4px);opacity:0}to{transform:translateY(0);opacity:1}}
+  .tutorial-invite strong,.tutorial-card strong{color:var(--green-dark)}
+  .tutorial-invite p,.tutorial-card p{margin:6px 0 0;line-height:1.45;font-size:.84rem}
+  .tutorial-actions{display:flex;flex-wrap:wrap;gap:7px;margin-top:10px;align-items:center}
+  .tutorial-actions button{margin:0!important}
+  .tutorial-progress{font-size:.72rem;font-weight:800;color:#6f6249;margin-bottom:5px}
+  .tutorial-card-title{font-size:.98rem;font-weight:900;color:var(--green-dark)}
+  .tutorial-disabled-note{margin-top:7px!important;padding:6px 8px;border-radius:6px;background:rgba(169,128,58,.12);font-size:.76rem!important}
+  .step-btn.tutorial-target{position:relative;z-index:2;opacity:1!important;outline:3px solid var(--parch);outline-offset:2px;box-shadow:0 0 0 5px var(--gold),0 0 18px rgba(255,245,197,.72)!important;transform:translateY(-1px)}
+  .context-help-btn{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;min-width:22px;margin:0 0 0 8px!important;padding:0!important;border-radius:50%!important;font-size:.72rem!important;vertical-align:middle;opacity:.68}
+  .context-help-box{margin:8px 0 14px;padding:9px 11px;border-left:4px solid var(--gold);background:rgba(169,128,58,.10);border-radius:6px;font-size:.8rem;line-height:1.45}
+  @media(max-width:520px){.tutorial-launch-row{justify-content:center;margin-top:-4px}.tutorial-invite,.tutorial-card{padding:11px 12px}.tutorial-actions{justify-content:center}.step-btn.tutorial-target{outline-width:2px;box-shadow:0 0 0 3px var(--gold),0 0 12px rgba(255,245,197,.65)!important}}
+
 </style>
 
 </head>
 <body>
 <div class="wrap">
   <h1 class="main-title" id="elfoIdentityTitle">Il Mio Elfo Domestico</h1>
+  <div class="tutorial-launch-row"><button type="button" id="tutorialLaunch" class="tutorial-launch-btn elfo-readonly-safe" aria-label="Apri il tutorial">❔ Guida</button></div>
 
   <div class="steps-nav" id="stepsNav"></div>
+  <div id="tutorialHost" aria-live="polite"></div>
   <p id="fb-indicator" style="text-align:center; color:#e6d8ac; font-size:.8rem; margin-bottom:4px;">○ Non connesso</p>
   <p id="session-warning" style="text-align:center; color:#f2d58a; font-size:.78rem; font-weight:bold; margin:0 0 14px 0;"></p>
   <div id="stepContainer"></div>
@@ -1907,6 +1928,19 @@
     return runTransaction(fbDb,async function(tx){var parent=await tx.get(parentRef);if(!parent.exists()){throw new Error("not-found");}if(parent.data()._deleted){throw new Error("deleted-pg");}tx.set(snapRef,snap);}).then(function(){return true;}).catch(function(e){var code=e&&e.message?e.message:"error";if(code==="deleted-pg"||code==="not-found"){window.fbLastSaveError={code:code,raw:e};}console.error(e);return false;});
   };
 
+
+  window.fbTaccCloudSave = function(collectionName, pgId, payload){
+    var next = Object.assign({}, payload || {});
+    next.savedAt = serverTimestamp();
+    return setDoc(doc(fbDb, String(collectionName || "taccuini_personali"), String(pgId || "")), next).then(function(){ return true; });
+  };
+
+  window.fbTaccCloudLoad = function(collectionName, pgId){
+    return getDoc(doc(fbDb, String(collectionName || "taccuini_personali"), String(pgId || ""))).then(function(snap){
+      return { exists:snap.exists(), data:snap.exists()?snap.data():null };
+    });
+  };
+
   window.fbReady = true;
   if(window.fbOnReady){ window.fbOnReady(); }
 </script>
@@ -1982,6 +2016,7 @@
   function historyComparableState(v){
     var c=persistenceComparableState(v);
     delete c._dispensaBatchDraft;
+    delete c._tutorialState;
     return c;
   }
   function shortHistoryValue(v){
@@ -2136,6 +2171,20 @@
   var EDIT_PASSWORD_CONFIGURED = false;
   var NEW_PG_PENDING = false;
   var NEW_PG_PASSWORD_DRAFT = "";
+  var TUTORIAL_VERSION = 1;
+  var TUTORIAL_STATE = { completedVersion:0, dismissedVersion:0, pendingVersion:0 };
+  var TUTORIAL_RUNTIME = { active:false, index:0 };
+  var TUTORIAL_CONTENT = {
+    'pg':{title:'Dati Personaggio e Strutture',text:'Qui controlli i dati del PG, l’Anno Scolastico, le strutture attive e la personalizzazione dell’Elfo. Se una struttura non è attiva, il relativo pulsante resta disabilitato.'},
+    'posts':{title:'I tuoi Post',text:'Qui registri i Post del mese. Il loro numero globale permette all’Elfo di riconoscerli nelle lavorazioni, nei Cicli e nelle Guarigioni senza doverli ricopiare.'},
+    'blindata':{title:'Camera Blindata',text:'Qui tieni sotto controllo Galeoni, movimenti e accrediti collegati ai mesi di gioco.'},
+    'taccuino':{title:'Taccuino',text:'Qui puoi seguire Role, Guarigioni, missioni, PNG, relazioni, appunti e altri progressi personali.'},
+    'dispensa':{title:'Dispensa',text:'Qui trovi gli Ingredienti posseduti. Puoi registrarli manualmente oppure riceverli dalle altre attività e dai tool collegati.'},
+    'postazione':{title:'Postazione',text:'Qui gestisci le lavorazioni di Pozioni: preparazione, produzione, uso della bacchetta, distillazione, imbottigliamento e pulizia.'},
+    'cubicolo':{title:'Cubicolo',text:'Qui gestisci le Piante e i loro Cicli. A fine produzione l’Elfo ti guida nella raccolta degli Ingredienti 🌿; la Riproduzione usa invece i Semi 🌱.'},
+    'recinto':{title:'Recinto',text:'Qui gestisci le Creature e i loro Cicli. A fine produzione l’Elfo ti guida nella raccolta degli Ingredienti delle Creature 🪶.'},
+    'esporta':{title:'Diventa Adulto → Esporta',text:'Quando il PG passa alla vita adulta, qui prepari il pacchetto di trasferimento per portare con te Post, lavorazioni, Piante, Creature e Dispensa senza ricominciare da zero.'}
+  };
   var LOCKED_MIGRATION_PENDING = false;
   var PUBLIC_PG_DIRECTORY = [];
   var PUBLIC_DIRECTORY_LOADED = false;
@@ -2299,11 +2348,9 @@
      Non usa popup nativi (che possono essere soppressi negli iframe) e non dipende
      dal click successivo al blur del campo Link. L'attivazione avviene su pointerdown,
      prima che un eventuale change possa ricostruire il DOM. */
-  var GENERAL_POST_REMOVE_UI = { armedKey:"", noticeKey:"", noticeText:"", noticeKind:"" };
   function generalPostRemoveKey(mese,post){
     return String(mese&&mese.id!=null?mese.id:"")+"|"+String(post&&post.id!=null?post.id:"")+"|"+String(post&&post.globalNo!=null?post.globalNo:"");
   }
-  function clearGeneralPostRemoveUi(){GENERAL_POST_REMOVE_UI={armedKey:"",noticeKey:"",noticeText:"",noticeKind:""};}
   function generalPostRemovalBlockReason(mese){
     if(!EDIT_UNLOCKED){return "Per rimuovere un Post devi prima inserire la Password di modifica.";}
     if(isImportedStudentMonth(mese)){return "Questo Mese è uno storico importato da Studente e non può essere modificato.";}
@@ -2351,7 +2398,6 @@
        cancellazione è stata involontaria si può usare ↶ Annulla in alto. */
     if(typeof healingForgetPostSnapshot==="function"){healingForgetPostSnapshot(hit.post);}
     hit.mese.posts.splice(hit.index,1);
-    clearGeneralPostRemoveUi();
     recomputePosts();
     DATA_DIRTY=true;
     FORCE_PERSIST_SAVE=true;
@@ -3103,6 +3149,95 @@
     }, true);
   }
 
+  /* ---------- TUTORIAL / GUIDA ---------- */
+  function tutorialNormalizeState(raw){
+    raw=(raw&&typeof raw==="object"&&!Array.isArray(raw))?raw:{};
+    return {
+      completedVersion:Math.max(0,parseInt(raw.completedVersion,10)||0),
+      dismissedVersion:Math.max(0,parseInt(raw.dismissedVersion,10)||0),
+      pendingVersion:Math.max(0,parseInt(raw.pendingVersion,10)||0)
+    };
+  }
+  function tutorialFlagFirstAccess(){
+    TUTORIAL_STATE=tutorialNormalizeState(TUTORIAL_STATE);
+    if(TUTORIAL_STATE.completedVersion<TUTORIAL_VERSION){
+      TUTORIAL_STATE.pendingVersion=TUTORIAL_VERSION;
+      TUTORIAL_STATE.dismissedVersion=Math.min(TUTORIAL_STATE.dismissedVersion,TUTORIAL_VERSION-1);
+      if(fbConnected){DATA_DIRTY=true;FORCE_PERSIST_SAVE=true;}
+    }
+  }
+  function tutorialNeedsInvite(){
+    return !!(fbConnected&&EDIT_UNLOCKED&&TUTORIAL_STATE.pendingVersion===TUTORIAL_VERSION&&TUTORIAL_STATE.completedVersion<TUTORIAL_VERSION&&TUTORIAL_STATE.dismissedVersion<TUTORIAL_VERSION);
+  }
+  function tutorialPersist(){DATA_DIRTY=true;scheduleSave(0,false);}
+  function tutorialStart(){
+    if(!fbConnected){return;}
+    TUTORIAL_RUNTIME.active=true;TUTORIAL_RUNTIME.index=0;
+    TUTORIAL_STATE.dismissedVersion=Math.max(TUTORIAL_STATE.dismissedVersion,TUTORIAL_VERSION);
+    TUTORIAL_STATE.pendingVersion=0;tutorialPersist();renderAll();
+    setTimeout(function(){var t=document.querySelector('.step-btn.tutorial-target');if(t&&t.scrollIntoView){t.scrollIntoView({behavior:'smooth',block:'nearest',inline:'center'});}},0);
+  }
+  function tutorialClose(markCompleted){
+    TUTORIAL_RUNTIME.active=false;
+    TUTORIAL_STATE.pendingVersion=0;
+    TUTORIAL_STATE.dismissedVersion=Math.max(TUTORIAL_STATE.dismissedVersion,TUTORIAL_VERSION);
+    if(markCompleted){TUTORIAL_STATE.completedVersion=Math.max(TUTORIAL_STATE.completedVersion,TUTORIAL_VERSION);}
+    tutorialPersist();renderAll();
+  }
+  function tutorialMove(delta){
+    var ordered=navOrderedSteps();if(!ordered.length){tutorialClose(false);return;}
+    TUTORIAL_RUNTIME.index=Math.max(0,Math.min(ordered.length-1,TUTORIAL_RUNTIME.index+delta));renderAll();
+    setTimeout(function(){var t=document.querySelector('.step-btn.tutorial-target');if(t&&t.scrollIntoView){t.scrollIntoView({behavior:'smooth',block:'nearest',inline:'center'});}},0);
+  }
+  function tutorialLauncherSync(){
+    var b=document.getElementById('tutorialLaunch');if(!b){return;}
+    b.style.display=fbConnected?'inline-flex':'none';
+    b.classList.toggle('tutorial-attention',tutorialNeedsInvite());
+    if(!b.dataset.bound){b.dataset.bound='1';b.addEventListener(EV,function(){tutorialStart();});}
+  }
+  function renderTutorialUi(){
+    tutorialLauncherSync();
+    var host=document.getElementById('tutorialHost');if(!host){return;}host.innerHTML='';
+    var oldTargets=document.querySelectorAll('.step-btn.tutorial-target');for(var oi=0;oi<oldTargets.length;oi++){oldTargets[oi].classList.remove('tutorial-target');}
+    if(!fbConnected){TUTORIAL_RUNTIME.active=false;return;}
+    if(TUTORIAL_RUNTIME.active){
+      var ordered=navOrderedSteps();if(!ordered.length){TUTORIAL_RUNTIME.active=false;return;}
+      TUTORIAL_RUNTIME.index=Math.max(0,Math.min(ordered.length-1,TUTORIAL_RUNTIME.index));
+      var step=ordered[TUTORIAL_RUNTIME.index],info=TUTORIAL_CONTENT[step.key]||{title:step.label,text:'Questa è una delle sezioni principali dell’Elfo.'};
+      var target=document.querySelector('.step-btn[data-nav-key="'+step.key+'"]');if(target){target.classList.add('tutorial-target');}
+      var card=el('div','tutorial-card');
+      card.appendChild(el('div','tutorial-progress','Tutorial · '+(TUTORIAL_RUNTIME.index+1)+'/'+ordered.length));
+      card.appendChild(el('div','tutorial-card-title',info.title));
+      card.appendChild(el('p',null,info.text));
+      if(target&&target.getAttribute('aria-disabled')==='true'){card.appendChild(el('p','tutorial-disabled-note','Questo pulsante è al momento disattivato: puoi attivare la relativa struttura dalla prima sezione dell’Elfo. Il tutorial te lo mostra comunque così sai già dove trovarlo.'));}
+      var actions=el('div','tutorial-actions');
+      var prev=el('button','action ghost small','← Indietro');prev.type='button';prev.disabled=TUTORIAL_RUNTIME.index===0;prev.addEventListener(EV,function(){tutorialMove(-1);});actions.appendChild(prev);
+      var nextLabel=TUTORIAL_RUNTIME.index===ordered.length-1?'✓ Fine tutorial':'Avanti →';
+      var next=el('button','action small',nextLabel);next.type='button';next.addEventListener(EV,function(){if(TUTORIAL_RUNTIME.index===ordered.length-1){tutorialClose(true);}else{tutorialMove(1);}});actions.appendChild(next);
+      var exit=el('button','action ghost small','Chiudi');exit.type='button';exit.addEventListener(EV,function(){tutorialClose(false);});actions.appendChild(exit);
+      card.appendChild(actions);host.appendChild(card);return;
+    }
+    if(tutorialNeedsInvite()){
+      var invite=el('div','tutorial-invite');invite.appendChild(el('strong',null,'✨ Prima volta nell’Elfo?'));
+      invite.appendChild(el('p',null,'Posso mostrarti rapidamente a cosa serve ogni pulsante principale. Il tour è breve, non modifica nulla e potrai riaprirlo in qualsiasi momento da «❔ Guida».'));
+      var ia=el('div','tutorial-actions');
+      var start=el('button','action small','Inizia il tutorial');start.type='button';start.addEventListener(EV,function(){tutorialStart();});ia.appendChild(start);
+      var later=el('button','action ghost small','Più tardi');later.type='button';later.addEventListener(EV,function(){TUTORIAL_STATE.dismissedVersion=Math.max(TUTORIAL_STATE.dismissedVersion,TUTORIAL_VERSION);TUTORIAL_STATE.pendingVersion=0;tutorialPersist();renderAll();});ia.appendChild(later);
+      invite.appendChild(ia);host.appendChild(invite);
+    }
+  }
+  function attachContextHelp(container){
+    if(!fbConnected||!container){return;}
+    var info=TUTORIAL_CONTENT[currentStep];if(!info){return;}
+    var heading=container.querySelector('.panel h2');if(!heading||heading.querySelector('.context-help-btn')){return;}
+    var b=el('button','action ghost small context-help-btn','?');b.type='button';b.classList.add('elfo-readonly-safe');b.title='Che cosa posso fare in questa sezione?';
+    b.addEventListener(EV,function(){
+      var existing=heading.parentNode.querySelector('.context-help-box');if(existing){existing.remove();return;}
+      var box=el('div','context-help-box','<b>'+info.title+'</b><br>'+info.text);heading.insertAdjacentElement('afterend',box);
+    });
+    heading.appendChild(b);
+  }
+
   /* ---------- NAV ---------- */
   function navDefaultOrder(){
     return STEPS.map(function(s){return s.key;});
@@ -3428,7 +3563,7 @@
     };
 
     var merged=cloneHistoryState(snapshot);
-    merged._schemaVersion=25;
+    merged._schemaVersion=27;
     merged._dbRevision=keep.dbRevision;
     merged._pgName=String(STUDENTE.nome||"");
     merged._lastModifiedAt=keep.lastModifiedAt;
@@ -3534,13 +3669,15 @@
     MEDICHERIA = { nome:"", specie:"", classificazione:"X", link:"" }; EXTERNAL_IMPORT_NOTICE = null;
     DISPENSA = { ingredienti:[], movimenti:[], archivioTotali:{ galeoniVendite:0, perCommercianteTipo:{}, conteggiMovimenti:{} } }; ingredienteCounter = 0; movimentoCounter = 0; resetDispensaBatch(); PG_ARCHIVIATO = false; DELETE_REQUESTED = false; PG_DOC_EXISTS = false; DB_REVISION = 0;
     PARAMETRI_SOCIALI = {popolarita:null,stima:null,bonta:null,malvagita:null}; VERIFICHE_PARAMETRI_SOCIALI = {}; SOCIAL_SYNC_META = { lastStaffFingerprint:"" };
+    TUTORIAL_STATE = { completedVersion:0, dismissedVersion:0, pendingVersion:0 }; TUTORIAL_RUNTIME = { active:false, index:0 };
     OPEN_DETAILS = {}; stopAccreditiWatch(); accreditiCache = null; ACCREDITI_LOAD_STATE="idle"; ACCREDITI_WATCH_ACTIVE=false; SAVE_CONFLICT_LOCKED=false; var conflictOverlay=document.getElementById("revision-conflict-overlay");if(conflictOverlay){conflictOverlay.remove();} LAST_MODIFIED_AT=null; LAST_MODIFIED_BY=""; LAST_SESSION_ID=""; LAST_NARRATOR_AT=null; LAST_NARRATOR_ACTION=""; DATA_DIRTY=false; FORCE_PERSIST_SAVE=false; ARCHIVE_UNLOCK_UNTIL=null; LAST_PERSISTED_STATE=null; LAST_AUDITED_STATE=null; PENDING_AUDIT_STATE=null; SESSION_SNAPSHOT_DONE=false; LAST_SNAPSHOT_MS=0; SAVE_IN_FLIGHT_PROMISE=null; SAVE_FORCE_AGAIN=false;
   }
 
   function collectState(){
     return {
-      _schemaVersion: 26, _dbRevision: DB_REVISION, _pgName: STUDENTE.nome, _editPasswordConfigured: EDIT_PASSWORD_CONFIGURED,
+      _schemaVersion: 27, _dbRevision: DB_REVISION, _pgName: STUDENTE.nome, _editPasswordConfigured: EDIT_PASSWORD_CONFIGURED,
       RICHIESTA_ELIMINAZIONE: DELETE_REQUESTED,
+      _tutorialState: tutorialNormalizeState(TUTORIAL_STATE),
       STUDENTE: STUDENTE,
       MESI: MESI, meseCounter: meseCounter, postCounter: postCounter, globalPostCounter: globalPostCounter, ARCHIVIO_DB: ARCHIVIO_DB,
       PARAMETRI_SOCIALI: PARAMETRI_SOCIALI, VERIFICHE_PARAMETRI_SOCIALI: VERIFICHE_PARAMETRI_SOCIALI, SOCIAL_SYNC_META: SOCIAL_SYNC_META,
@@ -3616,6 +3753,7 @@
     if(data.movimentoCounter){ movimentoCounter = data.movimentoCounter; }
     PG_ARCHIVIATO = !!data._archiviato;
     EDIT_PASSWORD_CONFIGURED = data._editPasswordConfigured === true;
+    TUTORIAL_STATE = tutorialNormalizeState(data._tutorialState);
     DELETE_REQUESTED = !!data.RICHIESTA_ELIMINAZIONE;
     DB_REVISION = Math.max(0, parseInt(data._dbRevision,10) || 0);
     LAST_MODIFIED_AT = data._lastModifiedAt || null;
@@ -3725,7 +3863,7 @@
          scrittura: il backup resta verificabile e ripristinabile dal Narratore. */
       snapPromise=window.fbLoadState(STUDENTE.nome).then(function(remoteBefore){
         if(!remoteBefore){ return true; }
-        return window.fbCreateSnapshot(STUDENTE.nome,{state:remoteBefore,reason:reason,sessionId:SESSION_ID,sizeBytes:stateSizeBytes(remoteBefore),schemaVersion:26});
+        return window.fbCreateSnapshot(STUDENTE.nome,{state:remoteBefore,reason:reason,sessionId:SESSION_ID,sizeBytes:stateSizeBytes(remoteBefore),schemaVersion:27});
       });
     }
     var auditEvent=null, auditTarget=cloneHistoryState(auditComparable);
@@ -4459,8 +4597,9 @@
     var frozen;
     try{frozen=taccNormalize(JSON.parse(JSON.stringify(TACCUINO)));}catch(e){frozen=TACCUINO;}
     var updated=(frozen.meta&&frozen.meta.updatedAt)||new Date().toISOString();
-    var payload={schemaVersion:1,pgId:pg,mode:TACC_MODE,updatedAt:updated,savedAt:serverTimestamp(),data:frozen};
-    var work=setDoc(doc(fbDb,TACC_CLOUD_COLLECTION,pg),payload).then(function(){
+    var payload={schemaVersion:1,pgId:pg,mode:TACC_MODE,updatedAt:updated,data:frozen};
+    if(typeof window.fbTaccCloudSave!=="function"){TACC_CLOUD_BUSY=false;taccCloudSetStatus("Cloud non disponibile: helper Firebase non inizializzato",true);return Promise.resolve(false);}
+    var work=window.fbTaccCloudSave(TACC_CLOUD_COLLECTION,pg,payload).then(function(){
       TACC_CLOUD_LOGIN_PG=pg; taccCloudSetStatus("Cloud sincronizzato · "+new Date().toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"}),false);
       return true;
     }).catch(function(e){
@@ -4486,12 +4625,13 @@
     taccSwitchLocalProfile(pg);
     TACC_CLOUD_LOGIN_PG=pg; clearTimeout(TACC_CLOUD_TIMER); TACC_CLOUD_TIMER=null;
     taccCloudSetStatus("Controllo della copia cloud…",false);
-    return getDoc(doc(fbDb,TACC_CLOUD_COLLECTION,pg)).then(function(snap){
-      if(!snap.exists()){
+    if(typeof window.fbTaccCloudLoad!=="function"){taccCloudSetStatus("Cloud non disponibile: helper Firebase non inizializzato",true);return Promise.resolve(false);}
+    return window.fbTaccCloudLoad(TACC_CLOUD_COLLECTION,pg).then(function(remote){
+      if(!remote||!remote.exists){
         if(taccCloudIsMeaningful(TACCUINO)){return taccCloudPush(true);}
         taccCloudSetStatus("Cloud pronto · nessun backup ancora presente",false); return true;
       }
-      var envelope=snap.data()||{},cloud=taccNormalize(envelope.data||{});
+      var envelope=remote.data||{},cloud=taccNormalize(envelope.data||{});
       var localMeaning=taccCloudIsMeaningful(TACCUINO),cloudMeaning=taccCloudIsMeaningful(cloud);
       var lt=Date.parse((TACCUINO.meta&&TACCUINO.meta.updatedAt)||"")||0;
       var ct=Date.parse(envelope.updatedAt||(cloud.meta&&cloud.meta.updatedAt)||"")||0;
@@ -4948,6 +5088,7 @@
     updateElfoIdentityHeader();
     applyTheme();
     renderNav();
+    renderTutorialUi();
     var c = document.getElementById("stepContainer");
     c.innerHTML = "";
     appendAugustSchoolYearReminder(c);
@@ -4962,6 +5103,7 @@
     if(currentStep === "cubicolo"){ renderOccupantFacilityStep(c, "cubicolo"); }
     if(currentStep === "recinto"){ renderOccupantFacilityStep(c, "recinto"); }
     if(currentStep === "esporta"){ renderEsportaStep(c); }
+    attachContextHelp(c);
     enhanceLinkInputs(c);
     if(EDIT_UNLOCKED && currentStep !== "pg" && currentStep !== "taccuino"){ appendUndoRedoControls(c); }
     if(EDIT_UNLOCKED && currentStep !== "pg" && currentStep !== "taccuino"){ appendManualSave(c); }
@@ -5086,6 +5228,7 @@
       }
       startAccreditiWatch(nome);
       renderAll();
+      if(typeof taccCloudSyncAfterLogin==="function"){taccCloudSyncAfterLogin(nome);}
       if(EDIT_UNLOCKED&&FORCE_PERSIST_SAVE){scheduleSave(0,false);}
       return true;
     });
@@ -5125,7 +5268,7 @@
           return window.fbClaimExistingPgPassword(nome,editPassword,SESSION_ID).then(function(res){
             if(res&&res.ok){
               DB_REVISION=Math.max(DB_REVISION+1,parseInt(res.revision,10)||0);
-              EDIT_PASSWORD_CONFIGURED=true;EDIT_UNLOCKED=true;LAST_MODIFIED_AT=new Date();LAST_MODIFIED_BY="pg";LAST_SESSION_ID=SESSION_ID;fbStatusText="Password configurata · modifica autorizzata";showPasswordSessionNoticeOnce(nome);
+              EDIT_PASSWORD_CONFIGURED=true;EDIT_UNLOCKED=true;LAST_MODIFIED_AT=new Date();LAST_MODIFIED_BY="pg";LAST_SESSION_ID=SESSION_ID;fbStatusText="Password configurata · modifica autorizzata";tutorialFlagFirstAccess();showPasswordSessionNoticeOnce(nome);
               if(LAST_PERSISTED_STATE){LAST_PERSISTED_STATE._editPasswordConfigured=true;LAST_PERSISTED_STATE._dbRevision=DB_REVISION;}
               if(LAST_AUDITED_STATE){LAST_AUDITED_STATE._editPasswordConfigured=true;LAST_AUDITED_STATE._dbRevision=DB_REVISION;}
               if(LOCKED_MIGRATION_PENDING){FORCE_PERSIST_SAVE=true;LOCKED_MIGRATION_PENDING=false;}
@@ -5152,7 +5295,7 @@
     }).finally(function(){if(btn&&document.body.contains(btn)){btn.disabled=false;btn.textContent=originalButtonText||"Apri Elfo";}});
   }
   function createNewPgAccess(nome,password,btn){
-    resetDataState();STUDENTE.nome=nome;EDIT_PASSWORD_CONFIGURED=true;
+    resetDataState();STUDENTE.nome=nome;EDIT_PASSWORD_CONFIGURED=true;tutorialFlagFirstAccess();
     var state=collectState();
     return window.fbCreateNewPgWithPassword(nome,state,password,SESSION_ID).then(function(res){
       if(!res||!res.ok){
@@ -5241,10 +5384,10 @@
       function setName(v){STUDENTE.nome=v;}
       function clearPendingNewPg(){NEW_PG_PENDING=false;NEW_PG_PASSWORD_DRAFT="";}
       function drawMenu(open){
-        menu.innerHTML="";var matches=prefixPgMatches(i1.value);
+        menu.innerHTML="";menu.classList.remove("pg-picker-pass-through");var matches=prefixPgMatches(i1.value);
         if(PUBLIC_DIRECTORY_LOADING){menu.appendChild(el("div","pg-picker-empty","Caricamento elenco…"));}
-        else if(!PUBLIC_DIRECTORY_LOADED){menu.appendChild(el("div","pg-picker-empty","Elenco non disponibile: puoi comunque scrivere il nome esatto e premere «Apri Elfo»."));}
-        else if(!matches.length){menu.appendChild(el("div","pg-picker-empty","Nessun Personaggio che inizi con «"+String(i1.value||"").trim()+"». Premi «Apri Elfo» per verificare il nome e, se è nuovo, crearlo."));}
+        else if(!PUBLIC_DIRECTORY_LOADED){menu.classList.add("pg-picker-pass-through");menu.appendChild(el("div","pg-picker-empty","Elenco non disponibile: puoi comunque scrivere il nome esatto e premere «Apri Elfo»."));}
+        else if(!matches.length){menu.classList.add("pg-picker-pass-through");menu.appendChild(el("div","pg-picker-empty","Nessun Personaggio che inizi con «"+String(i1.value||"").trim()+"». Premi «Apri Elfo» per verificare il nome e, se è nuovo, crearlo."));}
         else{
           for(var mi=0;mi<matches.length;mi++){
             (function(entry){
@@ -5307,7 +5450,7 @@
             window.fbClaimExistingPgPassword(STUDENTE.nome,fp1.value,SESSION_ID).then(function(res){
               if(res&&res.ok){
                 DB_REVISION=Math.max(DB_REVISION+1,parseInt(res.revision,10)||0);
-                EDIT_PASSWORD_CONFIGURED=true;EDIT_UNLOCKED=true;LAST_MODIFIED_AT=new Date();LAST_MODIFIED_BY="pg";LAST_SESSION_ID=SESSION_ID;
+                EDIT_PASSWORD_CONFIGURED=true;EDIT_UNLOCKED=true;LAST_MODIFIED_AT=new Date();LAST_MODIFIED_BY="pg";LAST_SESSION_ID=SESSION_ID;tutorialFlagFirstAccess();
                 if(LAST_PERSISTED_STATE){LAST_PERSISTED_STATE._editPasswordConfigured=true;LAST_PERSISTED_STATE._dbRevision=DB_REVISION;}
                 if(LAST_AUDITED_STATE){LAST_AUDITED_STATE._editPasswordConfigured=true;LAST_AUDITED_STATE._dbRevision=DB_REVISION;}
                 fbStatusText="Password configurata · modifica autorizzata";showPasswordSessionNoticeOnce(STUDENTE.nome);
@@ -7179,7 +7322,9 @@
     bulkDet.appendChild(bulk);
     var bulkBtn=el("button","action small","Aggiungi elenco");
     bulkBtn.addEventListener(EV,function(){
-      var rawLines=bulk.value.split(/\r?\n/),errs=[],added=0;
+      var bulkRaw=String(bulk.value||"");
+      var fromIngredientGenerator=/(?:FELIX_ELFO_[A-Z_]*INGREDIENT|RISULTATI\s+RACCOLTA\s*:|GENERATORE\s+RICERCA\s+INGREDIENTI)/i.test(bulkRaw);
+      var rawLines=bulkRaw.split(/\r?\n/),errs=[],added=0;
       for(var bi=0;bi<rawLines.length;bi++){
         var parsed=parseDispensaBulkLine(rawLines[bi]);
         if(!parsed){continue;}
@@ -7188,6 +7333,9 @@
       }
       if(errs.length){alert("Non riconosciuti nel Glossario: "+errs.join(", "));}
       if(added){
+        if(fromIngredientGenerator){
+          recordExternalImportNotice("Generatore Ricerca Ingredienti","Importati "+added+(added===1?" Ingrediente in Dispensa.":" Ingredienti in Dispensa."),"dispensa");
+        }
         bulk.value="";
         resizeBulkTextarea();
         scheduleSave(0);
@@ -8026,11 +8174,15 @@
   function harvestConfirmIfReady(box,occupant,sub,h,isReproduction,config,ready){
     if(!ready)return;var b=el("button","action harvest-confirm","✓ Registra raccolto");b.type="button";b.addEventListener(EV,function(){h.confirmed=true;h.resolvedAt=new Date().toISOString();scheduleSave(0);renderAll();});box.appendChild(b);
   }
+  function harvestUiIcon(config,isReproduction){
+    if(isReproduction)return "🌱";
+    return config&&config.tipoLabel==="Creatura"?"🪶":"🌿";
+  }
   function buildPlantHarvestResolution(occupant,stage,sub,isReproduction,config){
     if(!occupant||!subEntryFilled(sub))return null;config=config||{tipoLabel:"Pianta"};var entity=config.tipoLabel||"Pianta";if(entity==="Creatura"&&isReproduction)return null;
     var type=isReproduction?"semi":"ingredienti",h=ensurePlantHarvestState(sub,type,occupant,config),spec=plantHarvestSpecies(occupant),normSpec=plantHarvestNorm(spec),pct=plantHarvestOutcomePct(sub),app=harvestApplicability(occupant,isReproduction,config,sub);
     if(!app.applicable)return null;
-    var box=el("div","plant-harvest-resolution harvest-priority-resolver");box.appendChild(el("h4",null,isReproduction?"🌱 Raccogli i tuoi Semi":"🌿 Raccogli i tuoi Ingredienti"));
+    var box=el("div","plant-harvest-resolution harvest-priority-resolver");box.appendChild(el("h4",null,harvestUiIcon(config,isReproduction)+" "+(isReproduction?"Raccogli i tuoi Semi":"Raccogli i tuoi Ingredienti")));
     if(h.confirmed){box.appendChild(el("div","harvest-summary","<b>Raccolto registrato:</b> "+(String(sub.ottenuti||"").trim()||harvestItemsText(h.items)||"registrato")+"."));return box;}
     if(pct!==33&&pct!==66&&pct!==100){box.appendChild(harvestRegulationBox(occupant,isReproduction,config,null));box.appendChild(el("div","harvest-summary","Prima indica nell’<b>Esito</b> del Ciclo un risultato 0%, 33%, 66% o 100%. Solo con 33/66/100% si determina il raccolto."));return box;}
     var data=null,creatureData=null;
@@ -8076,14 +8228,14 @@
   }
   function buildFacilityPendingHarvests(LIST,stages,config){
     var all=[];(LIST||[]).forEach(function(o){all=all.concat(pendingHarvestEntriesForOccupant(o,stages,config));});if(!all.length)return null;
-    var wrap=el("div","harvest-priority-zone");wrap.appendChild(el("h3",null,"🌿 Raccolti da completare"));wrap.appendChild(el("p","small-note","I Post necessari sono terminati. Completa qui il raccolto prima di avanzare la fase vitale: non serve aprire Produzione → singolo Ciclo."));
-    all.forEach(function(x){var card=el("div","harvest-priority-card");card.id=harvestPriorityAnchorId(x.occupant,x.stage,x.keySuffix);var nm=String(x.occupant.nome||x.occupant.specieSesso||config.tipoLabel);card.appendChild(el("h4",null,(x.isReproduction?"🌱 Raccogli i tuoi Semi":"🌿 Raccogli i tuoi Ingredienti")+" — "+nm+" · "+x.stage.label+" · "+x.title));var resolver=buildPlantHarvestResolution(x.occupant,x.stage,x.sub,x.isReproduction,config);if(resolver){var duplicateTitle=resolver.querySelector("h4");if(duplicateTitle)duplicateTitle.remove();card.appendChild(resolver);}wrap.appendChild(card);});
+    var wrap=el("div","harvest-priority-zone");wrap.appendChild(el("h3",null,harvestUiIcon(config,false)+" Raccolti da completare"));wrap.appendChild(el("p","small-note","I Post necessari sono terminati. Completa qui il raccolto prima di avanzare la fase vitale: non serve aprire Produzione → singolo Ciclo."));
+    all.forEach(function(x){var card=el("div","harvest-priority-card");card.id=harvestPriorityAnchorId(x.occupant,x.stage,x.keySuffix);var nm=String(x.occupant.nome||x.occupant.specieSesso||config.tipoLabel);card.appendChild(el("h4",null,harvestUiIcon(config,x.isReproduction)+" "+(x.isReproduction?"Raccogli i tuoi Semi":"Raccogli i tuoi Ingredienti")+" — "+nm+" · "+x.stage.label+" · "+x.title));var resolver=buildPlantHarvestResolution(x.occupant,x.stage,x.sub,x.isReproduction,config);if(resolver){var duplicateTitle=resolver.querySelector("h4");if(duplicateTitle)duplicateTitle.remove();card.appendChild(resolver);}wrap.appendChild(card);});
     return wrap;
   }
   function buildHarvestCycleInlineStatus(occupant,stage,sub,isReproduction,config,keySuffix){
     if(!subEntryFilled(sub))return null;var app=harvestApplicability(occupant,isReproduction,config,sub);if(!app.applicable)return app.note?el("div","harvest-inline-note",app.note):null;var done=harvestResolutionComplete(occupant,sub,isReproduction,config),h=ensurePlantHarvestState(sub,isReproduction?"semi":"ingredienti",occupant,config);
     if(done)return el("div","harvest-inline-complete","✓ Raccolto registrato"+(String(sub.ottenuti||"").trim()?": "+String(sub.ottenuti).trim():""));
-    return el("div","harvest-inline-pending","🌿 Raccolto da completare nel riquadro prioritario in cima alla "+(config.tipoLabel==="Pianta"?"struttura":"struttura")+".");
+    return el("div","harvest-inline-pending",harvestUiIcon(config,false)+" Raccolto da completare nel riquadro prioritario in cima alla struttura.");
   }
 
   function buildSubEntryUI(sub, labelHtml, ottenutiLabel, options){
@@ -8439,7 +8591,7 @@
 
     if(pendingHarvests.length){
       wrap.appendChild(el("div","advancement-harvest-required","I Post della fase sono terminati, ma hai ancora "+pendingHarvests.length+" raccolto"+(pendingHarvests.length===1?"":"i")+" da registrare. Prima raccogli gli Ingredienti/Semi."));
-      var firstPending=pendingHarvests[0],btnCollect=el("button","action","🌿 Raccogli i tuoi Ingredienti");if(firstPending.isReproduction)btnCollect.textContent="🌱 Raccogli i tuoi Semi";btnCollect.type="button";btnCollect.addEventListener(EV,function(){var target=document.getElementById(harvestPriorityAnchorId(firstPending.occupant,firstPending.stage,firstPending.keySuffix));if(target&&target.scrollIntoView){target.scrollIntoView({behavior:"smooth",block:"start"});}else{window.scrollTo(0,0);}});btnRow.appendChild(btnCollect);
+      var firstPending=pendingHarvests[0],btnCollect=el("button","action",harvestUiIcon(phaseConfig,firstPending.isReproduction)+" "+(firstPending.isReproduction?"Raccogli i tuoi Semi":"Raccogli i tuoi Ingredienti"));btnCollect.type="button";btnCollect.addEventListener(EV,function(){var target=document.getElementById(harvestPriorityAnchorId(firstPending.occupant,firstPending.stage,firstPending.keySuffix));if(target&&target.scrollIntoView){target.scrollIntoView({behavior:"smooth",block:"start"});}else{window.scrollTo(0,0);}});btnRow.appendChild(btnCollect);
     }else if(nextCycle && !phaseReady){
       wrap.appendChild(el("div","advancement-next-cycle","Il prossimo passaggio ordinario è il Ciclo di Produzione <b>"+(nextCycle.index+1)+"/"+nextCycle.total+"</b>."));
       var btnCycle=el("button","action","Passa al Ciclo di Produzione "+(nextCycle.index+1)+"/"+nextCycle.total);btnCycle.type="button";
