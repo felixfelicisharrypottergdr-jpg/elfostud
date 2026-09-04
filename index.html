@@ -3927,19 +3927,31 @@
     SAVE_CONFLICT_LOCKED=true;
     if(fbSaveTimer){clearTimeout(fbSaveTimer);fbSaveTimer=null;}
     var deleted=(code==="deleted-pg"||code==="not-found");
-    fbStatusText=deleted?"Salvataggio bloccato: questo PG è stato eliminato dal Narratore":"Salvataggio bloccato: i dati remoti sono cambiati. Ricarica il Tool prima di continuare"; updateFbIndicator();
+    fbStatusText=deleted?"Salvataggio bloccato: questo PG è stato eliminato dal Narratore":"Salvataggio bloccato: i dati remoti sono cambiati. Ricarica i dati prima di continuare"; updateFbIndicator();
     var old=document.getElementById("revision-conflict-overlay");if(old){return;}
     var overlay=document.createElement("div");overlay.id="revision-conflict-overlay";overlay.style.cssText="position:fixed;inset:0;z-index:999999;background:rgba(0,0,0,.72);display:flex;align-items:center;justify-content:center;padding:20px;";
     var box=document.createElement("div");box.style.cssText="max-width:620px;width:100%;background:#fff;color:#222;border-radius:12px;padding:22px;box-shadow:0 20px 60px rgba(0,0,0,.35);font-family:inherit;";
-    var h=document.createElement("h2");h.textContent=deleted?"⚠ Personaggio eliminato":"⚠ Dati aggiornati in un'altra sessione";box.appendChild(h);
-    var p=document.createElement("p");p.textContent=deleted?"Questo Personaggio è stato eliminato definitivamente dal Narratore mentre il Tracker era aperto. Le modifiche locali successive non sono state salvate e il documento non verrà ricreato. Ricarica il Tool per chiudere questa sessione.":"Il salvataggio locale è stato fermato perché Firebase contiene una versione più recente di questo PG. Nessun dato remoto è stato sovrascritto. Per evitare conflitti, il Tool resta bloccato finché non ricarichi la pagina e riapri il Personaggio.";box.appendChild(p);
-    var b=document.createElement("button");b.className="action";b.textContent=deleted?"Disconnetti e ricarica":"Ricarica il Tool";
+    var h=document.createElement("h2");h.textContent=deleted?"⚠ Personaggio eliminato":"⚠ Sono disponibili dati più recenti";box.appendChild(h);
+    var p=document.createElement("p");p.textContent=deleted?"Questo Personaggio è stato eliminato definitivamente dal Narratore mentre il Tracker era aperto. Le modifiche locali successive non sono state salvate e il documento non verrà ricreato. Ricarica il Tool per chiudere questa sessione.":"Questo Elfo è stato aggiornato online dopo che avevi aperto la pagina. Per evitare di sovrascrivere dati più recenti, le modifiche locali in conflitto non sono state salvate. Premi «Ricarica i dati»: la sessione di modifica viene chiusa e il PG viene riaperto dalla versione più recente presente su Firebase.";box.appendChild(p);
+    var actions=document.createElement("div");actions.style.cssText="display:flex;gap:10px;flex-wrap:wrap;margin-top:18px;";
+    var b=document.createElement("button");b.className="action";b.textContent=deleted?"Disconnetti e ricarica":"Ricarica i dati";
     b.addEventListener("click",function(){
-      if(!deleted){window.location.reload();return;}
-      b.disabled=true;b.textContent="Disconnessione…";
-      try{rememberBrowserPg("");}catch(e){}
+      b.disabled=true;b.textContent=deleted?"Disconnessione…":"Ricarico…";
+      if(fbSaveTimer){clearTimeout(fbSaveTimer);fbSaveTimer=null;}
+      try{EDIT_UNLOCKED=false;DATA_DIRTY=false;FORCE_PERSIST_SAVE=false;}catch(e){}
+      if(deleted){try{rememberBrowserPg("");}catch(e){}}
       Promise.resolve(window.fbEndEditSession?window.fbEndEditSession():true).catch(function(e){console.error(e);}).finally(function(){window.location.reload();});
-    });box.appendChild(b);overlay.appendChild(box);document.body.appendChild(overlay);
+    });actions.appendChild(b);
+    if(!deleted){
+      var change=document.createElement("button");change.className="action ghost";change.textContent="Cambia Elfo";
+      change.addEventListener("click",function(){
+        b.disabled=true;change.disabled=true;change.textContent="Uscita…";
+        if(fbSaveTimer){clearTimeout(fbSaveTimer);fbSaveTimer=null;}
+        try{rememberBrowserPg("");EDIT_UNLOCKED=false;DATA_DIRTY=false;FORCE_PERSIST_SAVE=false;}catch(e){}
+        Promise.resolve(window.fbEndEditSession?window.fbEndEditSession():true).catch(function(e){console.error(e);}).finally(function(){window.location.reload();});
+      });actions.appendChild(change);
+    }
+    box.appendChild(actions);overlay.appendChild(box);document.body.appendChild(overlay);
   }
 
   function saveErrorStatus(){
@@ -3949,7 +3961,7 @@
     if(code==="permission-denied"){return "Salvataggio bloccato: il database è cambiato. Premi Disconnetti e ricarica il PG";}
     if(code==="snapshot-failed"){return "Salvataggio bloccato: non è stato possibile creare il backup di sicurezza prima della rimozione. Riprova senza chiudere la pagina";}
     if(code==="revision-conflict"){return "Salvataggio bloccato: questo PG è stato modificato in un’altra scheda o dispositivo. Le modifiche locali non sono state sovrascritte: ricarica i dati prima di continuare";}
-    if(code==="accredited-month-conflict"){return "Salvataggio bloccato: il Narratore ha accreditato una Camera Blindata mentre erano presenti modifiche locali non ancora consolidate. La CB accreditata non è stata alterata: ricarica il Tool prima di continuare";}
+    if(code==="accredited-month-conflict"){return "Salvataggio bloccato: il Narratore ha accreditato una Camera Blindata mentre erano presenti modifiche locali non ancora consolidate. La CB accreditata non è stata alterata: ricarica i dati prima di continuare";}
     return "Errore nel salvataggio, riprova";
   }
   function manualSaveNow(btn){
