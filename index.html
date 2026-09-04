@@ -1,4 +1,17 @@
 <!DOCTYPE html>
+<!-- v111 — stato Staffer attivo/non attivo: stop nuovi ST negli Elfi, consumi storici invariati, 04/09/2026 -->
+<!-- v110 — correzione semantica ST: eliminare un Mese NON rimborsa gli Staff Token già usati; consumo e storico restano validi, 04/09/2026 -->
+<!-- v109 — secondo audit: coerenza Staff Token su riferimenti attivi + protezione eliminazione Mesi con ST, 04/09/2026 -->
+<!-- v108 — audit Rules v42→v43: integrazione Staff Token verificata con sessione Staff sicura, 04/09/2026 -->
+<!-- v107 — segnalazioni community: import Fanta più robusto, Dispensa aggiornata, Nome+Cognome e elenco PG cloud, 04/09/2026 -->
+<!-- v106 — Staff Token live in Camera Blindata: saldo, uso/rimborso +1 PP e registro condiviso, 04/09/2026 -->
+<!-- v105 — audit incrociato Adulto/Studente: protezione completa dei campi Link e controlli da link antenati, 04/09/2026 -->
+<!-- v104 — details compatti estesi a tutte le Piante/Creature attive, 04/09/2026 -->
+<!-- v103 — dati generali strutture e Pozioni attive in details distinti, 04/09/2026 -->
+<!-- v102 — Disconnetti robusto: final save best-effort + timeout sessione, 04/09/2026 -->
+<!-- v101 - audit generico: uscita sicura con Taccuino cloud -->
+<!-- v99 - audit Elfo: Cambia Elfo unificato + migrazione sicura «Diventa Adulto → Esporta» -->
+<!-- v97 - Camera Blindata: Archivia/Riapri Mese + Cambia Elfo dopo Disconnetti -->
 <html lang="it">
 <head>
 <meta charset="UTF-8">
@@ -162,6 +175,137 @@
     font-weight:800;
     font-size:1.02rem;
   }
+
+
+  /* v106/v103 — gerarchia details: strutture ≠ lavorazioni */
+  .structure-ui details.structure-shell{
+    border:2px solid var(--gold);
+    background:rgba(255,255,255,.18);
+    box-shadow:0 5px 16px rgba(0,0,0,.08);
+  }
+  .structure-ui details.structure-shell > summary{
+    padding:10px 12px;
+    border-radius:9px;
+    background:rgba(128,96,42,.10);
+    color:var(--green-dark);
+    font-weight:900;
+  }
+
+  /* Dati generali della struttura: tendina secondaria, sobria ma chiaramente “strutturale”. */
+  .structure-ui details.facility-general-details{
+    margin:14px 0 18px;
+    border:1px solid rgba(128,96,42,.62);
+    border-radius:9px;
+    background:rgba(230,216,172,.22);
+    overflow:hidden;
+  }
+  .structure-ui details.facility-general-details > summary{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    list-style:none;
+    cursor:pointer;
+    padding:10px 12px;
+    color:var(--green-dark);
+    font-weight:900;
+    font-variant:small-caps;
+    letter-spacing:.055em;
+    background:rgba(128,96,42,.08);
+  }
+  .structure-ui details.facility-general-details > summary::-webkit-details-marker{display:none;}
+  .structure-ui details.facility-general-details > summary::before{
+    content:"▶";
+    flex:0 0 auto;
+    width:1em;
+    text-align:center;
+    color:var(--gold);
+    font-size:.78em;
+  }
+  .structure-ui details.facility-general-details[open] > summary::before{content:"▼";}
+  .structure-ui details.facility-general-details > .structure-general-block{
+    margin:0;
+    border:0;
+    border-top:1px solid rgba(128,96,42,.28);
+    border-radius:0;
+    box-shadow:none;
+    background:rgba(255,255,255,.30);
+  }
+  .structure-ui details.facility-general-details > .facility-general-extra{
+    padding:0 14px 12px;
+  }
+
+  /* Pozione in lavorazione: aspetto più leggero e “operativo”, distinto dalla struttura. */
+  .structure-ui details.working-entity-details{
+    margin:11px 0 13px;
+    border:1px solid rgba(106,61,154,.38);
+    border-left:4px solid rgba(106,61,154,.68);
+    border-radius:8px;
+    background:rgba(255,255,255,.34);
+    overflow:hidden;
+    box-shadow:0 2px 7px rgba(0,0,0,.05);
+  }
+  .structure-ui details.working-entity-details > summary{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    list-style:none;
+    cursor:pointer;
+    padding:10px 12px;
+    font-weight:800;
+    font-variant:normal;
+    letter-spacing:.01em;
+    color:#4c345f;
+    background:rgba(106,61,154,.07);
+  }
+  .structure-ui details.working-entity-details > summary::-webkit-details-marker{display:none;}
+  .structure-ui details.working-entity-details > summary::before{
+    content:"▶";
+    flex:0 0 auto;
+    width:1em;
+    text-align:center;
+    color:#6a3d9a;
+    font-size:.76em;
+  }
+  .structure-ui details.working-entity-details[open] > summary::before{content:"▼";}
+  .structure-ui details.working-entity-details > .card{
+    margin:0;
+    border:0;
+    border-top:1px solid rgba(106,61,154,.20);
+    border-radius:0;
+    box-shadow:none;
+  }
+  .structure-ui details.working-entity-details.potion-class-x{border-left-color:#7fa66c;}
+  .structure-ui details.working-entity-details.potion-class-xx{border-left-color:#6f9a64;}
+  .structure-ui details.working-entity-details.potion-class-xxx{border-left-color:#c9a74d;}
+  .structure-ui details.working-entity-details.potion-class-xxxx{border-left-color:#d48b3c;}
+  .structure-ui details.working-entity-details.potion-class-xxxxx{border-left-color:#bb554e;}
+
+  /* Le entità ospitate hanno lo stesso livello “operativo” delle Pozioni, ma colori propri.
+     Restano nettamente più leggere dei details della struttura. */
+  .structure-ui details.working-entity-details.plant-work-details{
+    border-color:rgba(66,105,48,.34);
+    border-left-color:#5d873e;
+    background:rgba(246,252,240,.52);
+  }
+  .structure-ui details.working-entity-details.plant-work-details > summary{
+    color:#355624;
+    background:rgba(93,135,62,.09);
+  }
+  .structure-ui details.working-entity-details.plant-work-details > summary::before{color:#5d873e;}
+  .structure-ui details.working-entity-details.plant-work-details > .card{border-top-color:rgba(93,135,62,.20);}
+
+  .structure-ui details.working-entity-details.creature-work-details{
+    border-color:rgba(151,92,35,.34);
+    border-left-color:#a7652c;
+    background:rgba(255,248,239,.55);
+  }
+  .structure-ui details.working-entity-details.creature-work-details > summary{
+    color:#72451f;
+    background:rgba(167,101,44,.09);
+  }
+  .structure-ui details.working-entity-details.creature-work-details > summary::before{color:#a7652c;}
+  .structure-ui details.working-entity-details.creature-work-details > .card{border-top-color:rgba(167,101,44,.20);}
+
   .structure-ui .structure-general-block{
     margin:16px 0 22px;
     padding:15px 17px 18px;
@@ -1547,6 +1691,55 @@
   @media(max-width:700px){.global-activity-alert-row{align-items:flex-start;flex-direction:column}.global-activity-alert-row .action{width:100%}}
 
   .post-remove-confirm{font-weight:800;box-shadow:0 0 0 2px rgba(120,25,25,.18) inset;}
+
+  /* Taccuino pubblico: consultabile da chiunque, modificabile solo dopo Password. */
+  .tacc-public-readonly-note{
+    margin:10px 0 14px;padding:10px 12px;border:1px solid rgba(160,130,70,.45);
+    border-radius:9px;background:rgba(255,248,224,.72);font-size:.92rem;line-height:1.4;
+  }
+  .tacc-readonly .tacc-inline-actions,
+  .tacc-readonly .tacc-collection-manager,
+  .tacc-readonly .tacc-backup-row,
+  .tacc-readonly .tacc-danger-zone,
+  .tacc-readonly .tacc-legacy-import,
+  .tacc-readonly .tacc-import-history .action,
+  .tacc-readonly button.action{display:none!important;}
+  .tacc-readonly input[readonly],
+  .tacc-readonly textarea[readonly],
+  .tacc-readonly select:disabled,
+  .tacc-readonly input:disabled{
+    opacity:1!important;color:inherit!important;-webkit-text-fill-color:currentColor!important;
+    cursor:default!important;
+  }
+
+
+  /* Staff Token in Camera Blindata */
+  .staff-token-live{
+    display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;
+    margin:14px 0 16px;padding:12px 14px;border:1px solid var(--gold);border-left:5px solid #9eea00;
+    border-radius:8px;background:rgba(158,234,0,.08);box-shadow:0 2px 8px rgba(0,0,0,.08);
+  }
+  .staff-token-live-main{flex:1 1 360px;min-width:0}
+  .staff-token-live-title{font-weight:900;color:var(--green-dark);font-size:.95rem}
+  .staff-token-live-title i{color:#6d9f00;margin-right:6px}
+  .staff-token-live-note{margin-top:3px;font-size:.78rem;line-height:1.35;color:#5e5545}
+  .staff-token-live-error{margin-top:6px;color:#8f2525;font-size:.76rem;font-weight:800}
+  .staff-token-live-balance{
+    flex:0 0 auto;display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:999px;
+    background:#111;color:#fff;border:1px solid #9eea00;
+  }
+  .staff-token-live-balance span{font-size:.72rem;opacity:.78}
+  .staff-token-live-balance b{font-size:.95rem;color:#9eea00}
+  .staff-token-cell{min-width:112px;text-align:center}
+  button.staff-token-use{margin:0!important;white-space:nowrap}
+  button.staff-token-use.active{background:#5d8700!important;border-color:#9eea00!important;color:#fff!important}
+  button.staff-token-use.active:hover{background:#476700!important}
+  button.staff-token-use:disabled{opacity:.42;cursor:not-allowed}
+  .staff-token-history-badge{display:inline-flex;align-items:center;gap:5px;padding:4px 8px;border-radius:999px;border:1px solid rgba(93,135,0,.38);background:rgba(158,234,0,.12);color:#4f7100;font-size:.72rem;font-weight:800;white-space:nowrap}
+  .staff-token-post-note{margin-top:4px;font-size:.68rem;color:#6a604f;white-space:nowrap}
+  body.theme-cb .staff-token-live{background:rgba(158,234,0,.06)}
+  body.theme-cb .staff-token-live-note,body.theme-cb .staff-token-post-note{color:#4b4b4b}
+
 </style>
 
 <style id="elfo-v41-harvest-style">
@@ -1770,7 +1963,16 @@
     await authReady();
     var user=fbAuth.currentUser;
     if(!user||isNarratorUser(user)){return true;}
-    try{await deleteDoc(doc(fbDb,EDIT_SESSION_COLLECTION,user.uid));}catch(e){}
+    /* v103/v102: la cancellazione del documento-sessione non deve poter bloccare
+       Disconnetti a tempo indefinito. Anche se Firebase è lento/offline, dopo un
+       breve timeout eseguiamo comunque signOut: una sessione rimasta orfana non è
+       riutilizzabile perché le Rules la legano allo stesso auth.uid. */
+    try{
+      await Promise.race([
+        deleteDoc(doc(fbDb,EDIT_SESSION_COLLECTION,user.uid)),
+        new Promise(function(resolve){setTimeout(resolve,1800);})
+      ]);
+    }catch(e){}
     try{await signOut(fbAuth);}catch(e){}
     return true;
   };
@@ -2004,6 +2206,281 @@
     });
   };
 
+
+
+  /* ================================================================
+     STAFF TOKEN — collegamento live con Gestore Staff Token / CB
+     ================================================================ */
+  function staffTokenNormalizeName(v){
+    return String(v||"").trim().toLocaleLowerCase("it-IT").replace(/\s+/g," ");
+  }
+  function staffTokenKind(v){ return v==="adulti" ? "adulti" : "studenti"; }
+  function staffTokenHash(v){
+    var s=String(v||""),h=2166136261;
+    for(var i=0;i<s.length;i++){h^=s.charCodeAt(i);h=Math.imul(h,16777619);}
+    return (h>>>0).toString(16).padStart(8,"0");
+  }
+  function staffTokenUsageId(payload){
+    payload=payload||{};
+    var raw=[
+      staffTokenKind(payload.pgKind),
+      String(payload.pgId||"").trim(),
+      String(payload.monthId==null?"":payload.monthId),
+      String(payload.postId==null?"":payload.postId),
+      String(payload.globalNo==null?"":payload.globalNo)
+    ].join("|");
+    return "st_"+staffTokenHash(raw);
+  }
+  window.fbStaffTokenUsageId=staffTokenUsageId;
+
+  window.fbWatchStaffTokenForPg=function(pgId,pgKind,onData,onError){
+    var wanted=staffTokenNormalizeName(pgId),kind=staffTokenKind(pgKind);
+    if(!wanted){ if(typeof onData==="function")onData(null); return function(){}; }
+    return onSnapshot(collection(fbDb,"staff_token"),function(snap){
+      var found=null;
+      snap.forEach(function(d){
+        if(found)return;
+        var data=d.data()||{};
+        /* «Non è più Staffer» non cancella saldo, associazioni o storico:
+           semplicemente disabilita nuovi utilizzi negli Elfi. */
+        if(data.stafferAttivo===false)return;
+        var arr=Array.isArray(data.pgAssociati)?data.pgAssociati:[];
+        for(var i=0;i<arr.length;i++){
+          var pg=arr[i]||{};
+          if(staffTokenNormalizeName(pg.nome)===wanted && staffTokenKind(pg.tipo)===kind){
+            found={
+              staffId:d.id,
+              staffName:String(data.nomeVisualizzato||d.id),
+              balance:(parseInt(data.st_totali,10)||0)
+            };
+            break;
+          }
+        }
+      });
+      if(typeof onData==="function")onData(found);
+    },function(e){console.error("Staff Token owner watch:",e);if(typeof onError==="function")onError(e);});
+  };
+
+  window.fbWatchStaffTokenUsagesForPg=function(pgId,pgKind,onData,onError){
+    var id=String(pgId||"").trim(),kind=staffTokenKind(pgKind);
+    if(!id){if(typeof onData==="function")onData([]);return function(){};}
+    var q=query(collection(fbDb,"staff_token_usi"),where("pgId","==",id));
+    return onSnapshot(q,function(snap){
+      var out=[];
+      snap.forEach(function(d){
+        var x=d.data()||{};
+        if(staffTokenKind(x.pgKind)!==kind)return;
+        out.push(Object.assign({id:d.id},x));
+      });
+      if(typeof onData==="function")onData(out);
+    },function(e){console.error("Staff Token usage watch:",e);if(typeof onError==="function")onError(e);});
+  };
+
+  function staffTokenPgIsAssociated(staffData,pgId,pgKind){
+    var arr=Array.isArray(staffData&&staffData.pgAssociati)?staffData.pgAssociati:[];
+    var wanted=staffTokenNormalizeName(pgId),kind=staffTokenKind(pgKind);
+    return arr.some(function(pg){
+      return staffTokenNormalizeName(pg&&pg.nome)===wanted && staffTokenKind(pg&&pg.tipo)===kind;
+    });
+  }
+  function staffTokenPostLabel(payload){
+    var g=parseInt(payload&&payload.globalNo,10);
+    return g>0 ? "Post globale n° "+g : "Post della Camera Blindata";
+  }
+
+  window.fbSetStaffTokenUsage=async function(payload){
+    payload=Object.assign({},payload||{});
+    var pgId=String(payload.pgId||"").trim();
+    var pgKind=staffTokenKind(payload.pgKind);
+    var staffId=String(payload.staffId||"").trim();
+    var enable=payload.enabled===true;
+    if(!pgId||!staffId){return {ok:false,code:"staff-token-missing-data"};}
+    try{
+      await ensurePlayerAuth();
+      if(window.fbHasEditSession){
+        var sessionOk=await window.fbHasEditSession(pgId);
+        if(!sessionOk)throw new Error("edit-session-missing");
+      }
+      var staffRef=doc(fbDb,"staff_token",staffId);
+      var usageId=staffTokenUsageId(payload);
+      var usageRef=doc(fbDb,"staff_token_usi",usageId);
+      var logRef=doc(collection(fbDb,"staff_token_log"));
+      var result=await runTransaction(fbDb,async function(tx){
+        var staffSnap=await tx.get(staffRef);
+        if(!staffSnap.exists())throw new Error("staff-token-owner-not-found");
+        var staff=staffSnap.data()||{};
+        var usageSnap=await tx.get(usageRef);
+        var usage=usageSnap.exists()?usageSnap.data():null;
+        var balance=parseInt(staff.st_totali,10)||0;
+
+        if(enable){
+          if(staff.stafferAttivo===false)throw new Error("staff-token-staffer-inactive");
+          if(!staffTokenPgIsAssociated(staff,pgId,pgKind))throw new Error("staff-token-pg-not-associated");
+          if(usage&&usage.active===true){
+            /* Un uso già attivo può arrivare qui dopo un refresh/race locale.
+               Se nel frattempo è cambiato il link del Post, Rules v44 richiedono
+               che uso e log di spesa restino coerenti nello STESSO commit. */
+            var activeLogId=String(usage.spendLogId||"").trim();
+            if(!activeLogId)throw new Error("staff-token-spend-log-missing");
+            var activeLogRef=doc(fbDb,"staff_token_log",activeLogId);
+            var activeLogSnap=await tx.get(activeLogRef);
+            if(!activeLogSnap.exists())throw new Error("staff-token-spend-log-not-found");
+            var activeLog=activeLogSnap.data()||{},activeObjs=Array.isArray(activeLog.obiettivi)?activeLog.obiettivi.slice():[];
+            if(!activeObjs.length)throw new Error("staff-token-spend-log-invalid");
+            var activeLink=String(payload.link||"").trim();
+            activeObjs[0]=Object.assign({},activeObjs[0],{riferimenti:activeLink});
+            tx.set(usageRef,{
+              link:activeLink,
+              globalNo:parseInt(payload.globalNo,10)||null,
+              updatedAt:serverTimestamp()
+            },{merge:true});
+            tx.set(activeLogRef,{obiettivi:activeObjs},{merge:true});
+            return {balance:balance,usageId:usageId,changed:false};
+          }
+          if(balance<=0)throw new Error("staff-token-empty");
+          var after=balance-1;
+          var staffName=String(staff.nomeVisualizzato||payload.staffName||staffId);
+          var postLabel=staffTokenPostLabel(payload);
+          tx.set(staffRef,{
+            st_totali:after,
+            ultimoMovimentoId:logRef.id,
+            ultimoAggiornamento:serverTimestamp()
+          },{merge:true});
+          tx.set(usageRef,{
+            active:true,
+            staffId:staffId,
+            staffName:staffName,
+            pgId:pgId,
+            pgKind:pgKind,
+            monthId:String(payload.monthId==null?"":payload.monthId),
+            monthName:String(payload.monthName||""),
+            postId:String(payload.postId==null?"":payload.postId),
+            globalNo:parseInt(payload.globalNo,10)||null,
+            link:String(payload.link||"").trim(),
+            spendLogId:logRef.id,
+            usedAt:serverTimestamp(),
+            updatedAt:serverTimestamp()
+          },{merge:true});
+          tx.set(logRef,{
+            tipo:"spesa_elfo",
+            azione:"spesa",
+            source:"elfo_cb",
+            usageId:usageId,
+            staffId:staffId,
+            nomeVisualizzato:staffName,
+            pgId:pgId,
+            pgKind:pgKind,
+            delta:-1,
+            guadagnati:-1,
+            saldoPrima:balance,
+            saldoDopo:after,
+            movimentoPrecedenteId:staff.ultimoMovimentoId||null,
+            obiettivi:[{
+              id:"spesa_elfo",
+              nome:"Camera Blindata — "+pgId,
+              ft:-1,
+              dettaglio:"1 Staff Token usato da "+pgId+" su "+postLabel+".",
+              riferimenti:String(payload.link||"").trim()
+            }],
+            data:serverTimestamp(),
+            registratoIl:serverTimestamp()
+          });
+          return {balance:after,usageId:usageId,changed:true};
+        }
+
+        if(staff.stafferAttivo===false)throw new Error("staff-token-staffer-inactive");
+        if(!usage||usage.active!==true){
+          return {balance:balance,usageId:usageId,changed:false};
+        }
+        if(String(usage.staffId||staffId)!==staffId)throw new Error("staff-token-owner-mismatch");
+        var afterRefund=balance+1;
+        var staffNameRefund=String(staff.nomeVisualizzato||usage.staffName||payload.staffName||staffId);
+        var refLink=String(payload.link||usage.link||"").trim();
+        var refundPostLabel=staffTokenPostLabel({
+          globalNo:payload.globalNo||usage.globalNo
+        });
+        tx.set(staffRef,{
+          st_totali:afterRefund,
+          ultimoMovimentoId:logRef.id,
+          ultimoAggiornamento:serverTimestamp()
+        },{merge:true});
+        tx.set(usageRef,{
+          active:false,
+          link:refLink,
+          globalNo:parseInt(payload.globalNo||usage.globalNo,10)||null,
+          refundLogId:logRef.id,
+          refundedAt:serverTimestamp(),
+          updatedAt:serverTimestamp()
+        },{merge:true});
+        tx.set(logRef,{
+          tipo:"spesa_elfo",
+          azione:"rimborso",
+          source:"elfo_cb",
+          usageId:usageId,
+          staffId:staffId,
+          nomeVisualizzato:staffNameRefund,
+          pgId:pgId,
+          pgKind:pgKind,
+          delta:1,
+          guadagnati:1,
+          saldoPrima:balance,
+          saldoDopo:afterRefund,
+          movimentoPrecedenteId:staff.ultimoMovimentoId||null,
+          obiettivi:[{
+            id:"rimborso_elfo",
+            nome:"Camera Blindata — "+pgId,
+            ft:1,
+            dettaglio:"1 Staff Token restituito da "+pgId+" dopo la rimozione dell’uso su "+refundPostLabel+".",
+            riferimenti:refLink
+          }],
+          data:serverTimestamp(),
+          registratoIl:serverTimestamp()
+        });
+        return {balance:afterRefund,usageId:usageId,changed:true};
+      });
+      return Object.assign({ok:true},result||{});
+    }catch(e){
+      console.error("Staff Token transaction:",e);
+      var code=(e&&e.code)||((e&&e.message)||"staff-token-error");
+      return {ok:false,code:code,raw:e};
+    }
+  };
+
+  window.fbUpdateStaffTokenUsageReference=async function(payload){
+    payload=Object.assign({},payload||{});
+    var usageId=staffTokenUsageId(payload);
+    try{
+      await ensurePlayerAuth();
+      if(window.fbHasEditSession){
+        var ok=await window.fbHasEditSession(String(payload.pgId||"").trim());
+        if(!ok)throw new Error("edit-session-missing");
+      }
+      var usageRef=doc(fbDb,"staff_token_usi",usageId);
+      await runTransaction(fbDb,async function(tx){
+        var snap=await tx.get(usageRef);
+        if(!snap.exists())return;
+        var usage=snap.data()||{};
+        if(usage.active!==true)return;
+        var link=String(payload.link||"").trim();
+        var logId=String(usage.spendLogId||"").trim();
+        var logRef=logId?doc(fbDb,"staff_token_log",logId):null;
+        var logSnap=logRef?await tx.get(logRef):null;
+        tx.set(usageRef,{link:link,globalNo:parseInt(payload.globalNo,10)||null,updatedAt:serverTimestamp()},{merge:true});
+        if(logRef&&logSnap&&logSnap.exists()){
+          var log=logSnap.data()||{},objs=Array.isArray(log.obiettivi)?log.obiettivi.slice():[];
+          if(objs.length){
+            objs[0]=Object.assign({},objs[0],{riferimenti:link});
+            tx.set(logRef,{obiettivi:objs},{merge:true});
+          }
+        }
+      });
+      return {ok:true};
+    }catch(e){
+      console.error("Staff Token reference update:",e);
+      return {ok:false,code:(e&&e.code)||((e&&e.message)||"staff-token-error"),raw:e};
+    }
+  };
+
   window.fbReady = true;
   if(window.fbOnReady){ window.fbOnReady(); }
 </script>
@@ -2012,6 +2489,268 @@
 (function(){
 
   "use strict";
+
+  /* ================================================================
+     STAFF TOKEN — stato live e controlli Camera Blindata
+     ================================================================ */
+  var STAFF_TOKEN_KIND="studenti";
+  var STAFF_TOKEN_STATE={
+    pg:"",associated:false,loading:false,error:"",
+    staffId:"",staffName:"",balance:0,
+    usageLoaded:false,usageError:"",usageById:{},
+    unsubOwner:null,unsubUsage:null
+  };
+  var STAFF_TOKEN_BUSY={};
+  var staffTokenRenderTimer=null;
+
+  function staffTokenCurrentPgName(){
+    return String(typeof STUDENTE!=="undefined"&&STUDENTE&&STUDENTE.nome?STUDENTE.nome:"").trim();
+  }
+  function staffTokenOwnerShort(v){
+    var s=String(v||"");
+    if(/lulu/i.test(s))return "Lulu";
+    if(/gideon/i.test(s))return "Gideon";
+    if(/noah/i.test(s))return "Noah";
+    if(/odette/i.test(s))return "Odette";
+    return s||"Staff";
+  }
+  function staffTokenPayload(post,mese,enabled){
+    return {
+      enabled:enabled===true,
+      staffId:String(post&&post.staffTokenStaffId||STAFF_TOKEN_STATE.staffId||""),
+      staffName:String(post&&post.staffTokenStaffName||STAFF_TOKEN_STATE.staffName||""),
+      pgId:staffTokenCurrentPgName(),
+      pgKind:STAFF_TOKEN_KIND,
+      monthId:mese&&mese.id!=null?mese.id:"",
+      monthName:String(mese&&mese.nome||""),
+      postId:post&&post.id!=null?post.id:"",
+      globalNo:post&&post.globalNo!=null?post.globalNo:null,
+      link:String(post&&post.link||"").trim()
+    };
+  }
+  function staffTokenUsageIdForPost(post,mese){
+    if(!window.fbStaffTokenUsageId)return "";
+    try{return window.fbStaffTokenUsageId(staffTokenPayload(post,mese,true));}catch(e){return "";}
+  }
+  function staffTokenIsUsed(post,mese){
+    if(!post)return false;
+    var id=staffTokenUsageIdForPost(post,mese);
+    if(STAFF_TOKEN_STATE.usageLoaded&&id&&Object.prototype.hasOwnProperty.call(STAFF_TOKEN_STATE.usageById,id)){
+      return STAFF_TOKEN_STATE.usageById[id]&&STAFF_TOKEN_STATE.usageById[id].active===true;
+    }
+    return post.staffTokenUsato===true;
+  }
+  function staffTokenCountForPosts(posts,endExclusive,mese){
+    posts=Array.isArray(posts)?posts:[];
+    var limit=Math.min(posts.length,endExclusive==null?posts.length:endExclusive),n=0;
+    for(var i=0;i<limit;i++){if(posts[i]&&isValidPostLink(posts[i].link)&&staffTokenIsUsed(posts[i],mese))n++;}
+    return n;
+  }
+  function staffTokenErrorText(code){
+    code=String(code||"");
+    if(code.indexOf("permission-denied")>=0)return "Firebase non consente all’Elfo di aggiornare il saldo Staff Token. Verifica di avere pubblicato le Rules v44 e di essere entrato in modifica con la Password del PG.";
+    if(code==="edit-session-missing")return "Entra prima in modifica con la Password del PG.";
+    if(code==="staff-token-empty")return "Non ci sono Staff Token disponibili.";
+    if(code==="staff-token-staffer-inactive")return "Questo Staffer è segnato come «Non è più Staffer»: gli ST già usati restano consumati, ma non sono consentiti nuovi utilizzi o restituzioni dagli Elfi.";
+    if(code==="staff-token-pg-not-associated")return "Questo PG non risulta più associato allo Staffer nel Gestore Staff Token.";
+    if(code==="staff-token-owner-not-found")return "Non trovo il saldo dello Staffer.";
+    if(code==="staff-token-owner-mismatch")return "L’uso registrato appartiene a un altro saldo Staffer.";
+    return "Non riesco ad aggiornare gli Staff Token ("+code+").";
+  }
+  function staffTokenScheduleRender(){
+    if(currentStep!=="blindata")return;
+    if(staffTokenRenderTimer)clearTimeout(staffTokenRenderTimer);
+    staffTokenRenderTimer=setTimeout(function(){staffTokenRenderTimer=null;renderAll();},70);
+  }
+  function staffTokenRefreshDom(){
+    var nodes=document.querySelectorAll("[data-staff-token-balance]");
+    for(var i=0;i<nodes.length;i++)nodes[i].textContent=String(STAFF_TOKEN_STATE.balance)+" ST";
+    var btns=document.querySelectorAll("button.staff-token-use");
+    for(var j=0;j<btns.length;j++){
+      var b=btns[j],used=b.getAttribute("data-staff-token-used")==="1";
+      if(!used&&STAFF_TOKEN_STATE.balance<=0)b.disabled=true;
+    }
+  }
+  function staffTokenApplyUsageCache(){
+    if(!STAFF_TOKEN_STATE.usageLoaded)return false;
+    var changed=false;
+    for(var mi=0;mi<MESI.length;mi++){
+      var mese=MESI[mi],posts=Array.isArray(mese&&mese.posts)?mese.posts:[];
+      for(var pi=0;pi<posts.length;pi++){
+        var post=posts[pi],id=staffTokenUsageIdForPost(post,mese);
+        if(!id)continue;
+        var rec=STAFF_TOKEN_STATE.usageById[id]||null;
+        var active=!!(rec&&rec.active===true);
+        if(post.staffTokenUsato!==active){post.staffTokenUsato=active;changed=true;}
+        if(rec){
+          var sid=String(rec.staffId||"");
+          var sn=String(rec.staffName||"");
+          if(String(post.staffTokenStaffId||"")!==sid){post.staffTokenStaffId=sid;changed=true;}
+          if(String(post.staffTokenStaffName||"")!==sn){post.staffTokenStaffName=sn;changed=true;}
+        }else if(!active){
+          if(post.staffTokenStaffId){post.staffTokenStaffId="";changed=true;}
+          if(post.staffTokenStaffName){post.staffTokenStaffName="";changed=true;}
+        }
+      }
+    }
+    if(changed&&EDIT_UNLOCKED)scheduleSave(500);
+    return changed;
+  }
+  function staffTokenStopWatchers(){
+    try{if(typeof STAFF_TOKEN_STATE.unsubOwner==="function")STAFF_TOKEN_STATE.unsubOwner();}catch(e){}
+    try{if(typeof STAFF_TOKEN_STATE.unsubUsage==="function")STAFF_TOKEN_STATE.unsubUsage();}catch(e){}
+    STAFF_TOKEN_STATE.unsubOwner=null;STAFF_TOKEN_STATE.unsubUsage=null;
+  }
+  function staffTokenEnsureWatcher(){
+    var pg=String(staffTokenCurrentPgName()||"").trim();
+    if(!pg){
+      if(STAFF_TOKEN_STATE.pg){staffTokenStopWatchers();}
+      STAFF_TOKEN_STATE.pg="";STAFF_TOKEN_STATE.associated=false;STAFF_TOKEN_STATE.loading=false;
+      return;
+    }
+    if(STAFF_TOKEN_STATE.pg===pg&&(STAFF_TOKEN_STATE.unsubOwner||STAFF_TOKEN_STATE.loading))return;
+    staffTokenStopWatchers();
+    STAFF_TOKEN_STATE.pg=pg;
+    STAFF_TOKEN_STATE.loading=true;
+    STAFF_TOKEN_STATE.error="";
+    STAFF_TOKEN_STATE.associated=false;
+    STAFF_TOKEN_STATE.staffId="";
+    STAFF_TOKEN_STATE.staffName="";
+    STAFF_TOKEN_STATE.balance=0;
+    STAFF_TOKEN_STATE.usageLoaded=false;
+    STAFF_TOKEN_STATE.usageError="";
+    STAFF_TOKEN_STATE.usageById={};
+
+    function start(){
+      if(!window.fbWatchStaffTokenForPg){
+        setTimeout(start,120);return;
+      }
+      STAFF_TOKEN_STATE.unsubOwner=window.fbWatchStaffTokenForPg(pg,STAFF_TOKEN_KIND,function(owner){
+        var oldAssoc=STAFF_TOKEN_STATE.associated,oldId=STAFF_TOKEN_STATE.staffId,oldBalance=STAFF_TOKEN_STATE.balance;
+        STAFF_TOKEN_STATE.loading=false;STAFF_TOKEN_STATE.error="";
+        STAFF_TOKEN_STATE.associated=!!owner;
+        STAFF_TOKEN_STATE.staffId=owner?String(owner.staffId||""):"";
+        STAFF_TOKEN_STATE.staffName=owner?String(owner.staffName||""):"";
+        STAFF_TOKEN_STATE.balance=owner?(parseInt(owner.balance,10)||0):0;
+        if(currentStep==="blindata"){
+          if(oldAssoc!==STAFF_TOKEN_STATE.associated||oldId!==STAFF_TOKEN_STATE.staffId||((oldBalance<=0)!==(STAFF_TOKEN_STATE.balance<=0)))staffTokenScheduleRender();
+          else staffTokenRefreshDom();
+        }
+      },function(e){
+        STAFF_TOKEN_STATE.loading=false;STAFF_TOKEN_STATE.error=(e&&e.code)||((e&&e.message)||"error");
+        if(currentStep==="blindata"&&STAFF_TOKEN_STATE.associated)staffTokenScheduleRender();
+      });
+      if(window.fbWatchStaffTokenUsagesForPg){
+        STAFF_TOKEN_STATE.unsubUsage=window.fbWatchStaffTokenUsagesForPg(pg,STAFF_TOKEN_KIND,function(list){
+          var map={};(Array.isArray(list)?list:[]).forEach(function(x){if(x&&x.id)map[x.id]=x;});
+          STAFF_TOKEN_STATE.usageById=map;STAFF_TOKEN_STATE.usageLoaded=true;STAFF_TOKEN_STATE.usageError="";
+          var changed=staffTokenApplyUsageCache();
+          if(currentStep==="blindata"&&changed)staffTokenScheduleRender();
+        },function(e){
+          STAFF_TOKEN_STATE.usageLoaded=false;STAFF_TOKEN_STATE.usageError=(e&&e.code)||((e&&e.message)||"error");
+        });
+      }
+    }
+    start();
+  }
+  function appendStaffTokenLiveCard(parent){
+    if(!STAFF_TOKEN_STATE.associated)return;
+    var box=el("div","staff-token-live");
+    var left=el("div","staff-token-live-main");
+    left.appendChild(el("div","staff-token-live-title","<i class=\"fa-solid fa-pen-nib\"></i> Staff Token di "+staffTokenOwnerShort(STAFF_TOKEN_STATE.staffName)));
+    left.appendChild(el("div","staff-token-live-note","Ogni Staff Token usato su un Post vale <b>+1 PP</b>. Il saldo si aggiorna in tempo reale anche nel Gestore."));
+    if(STAFF_TOKEN_STATE.error)left.appendChild(el("div","staff-token-live-error",staffTokenErrorText(STAFF_TOKEN_STATE.error)));
+    box.appendChild(left);
+    var bal=el("div","staff-token-live-balance");
+    bal.innerHTML="<span>Disponibili</span><b data-staff-token-balance>"+STAFF_TOKEN_STATE.balance+" ST</b>";
+    box.appendChild(bal);parent.appendChild(box);
+  }
+  async function setStaffTokenOnPost(post,mese,enabled,opts){
+    opts=opts||{};
+    if(!post||!mese)return false;
+    if(!EDIT_UNLOCKED){if(!opts.silent)alert("Entra in modifica con la Password del PG per usare gli Staff Token.");return false;}
+    var staffId=String(post.staffTokenStaffId||STAFF_TOKEN_STATE.staffId||"");
+    if(enabled&&!STAFF_TOKEN_STATE.associated){if(!opts.silent)alert("Questo PG non è associato a uno Staffer nel Gestore Staff Token.");return false;}
+    if(!staffId){if(!opts.silent)alert("Non trovo lo Staffer proprietario di questo PG.");return false;}
+    if(!isValidPostLink(post.link)){if(!opts.silent)alert("Inserisci prima un link valido per il Post.");return false;}
+    if(enabled&&STAFF_TOKEN_STATE.balance<=0){if(!opts.silent)alert("Non ci sono Staff Token disponibili.");return false;}
+    if(!window.fbSetStaffTokenUsage){if(!opts.silent)alert("Il collegamento Staff Token con Firebase non è ancora disponibile.");return false;}
+    var payload=staffTokenPayload(post,mese,enabled);
+    payload.staffId=staffId;
+    var key=staffTokenUsageIdForPost(post,mese)||[mese.id,post.id].join(":");
+    if(STAFF_TOKEN_BUSY[key])return false;
+    STAFF_TOKEN_BUSY[key]=true;
+    try{
+      var res=await window.fbSetStaffTokenUsage(payload);
+      if(!res||!res.ok){
+        if(!opts.silent)alert(staffTokenErrorText(res&&res.code));
+        return false;
+      }
+      post.staffTokenUsato=enabled===true;
+      if(STAFF_TOKEN_STATE.usageLoaded&&key){
+        STAFF_TOKEN_STATE.usageById[key]=Object.assign({},STAFF_TOKEN_STATE.usageById[key]||{},payload,{id:key,active:enabled===true,staffId:staffId,staffName:String(STAFF_TOKEN_STATE.staffName||post.staffTokenStaffName||"")});
+      }
+      if(enabled){
+        post.staffTokenStaffId=staffId;
+        post.staffTokenStaffName=String(STAFF_TOKEN_STATE.staffName||post.staffTokenStaffName||"");
+        post.staffTokenUsedAt=(new Date()).toISOString();
+      }else{
+        post.staffTokenStaffId="";
+        post.staffTokenStaffName="";
+        post.staffTokenUsedAt="";
+      }
+      if(Number.isFinite(Number(res.balance)))STAFF_TOKEN_STATE.balance=parseInt(res.balance,10)||0;
+      if(!opts.deferSave){scheduleSave(0);}
+      if(!opts.deferRender){renderAll();}
+      return true;
+    }finally{delete STAFF_TOKEN_BUSY[key];}
+  }
+  async function syncStaffTokenReference(post,mese){
+    if(!post||!mese||!staffTokenIsUsed(post,mese)||!window.fbUpdateStaffTokenUsageReference)return true;
+    var payload=staffTokenPayload(post,mese,true);
+    payload.staffId=String(post.staffTokenStaffId||STAFF_TOKEN_STATE.staffId||"");
+    var res=await window.fbUpdateStaffTokenUsageReference(payload);
+    if(!res||!res.ok){alert(staffTokenErrorText(res&&res.code));return false;}
+    return true;
+  }
+  function makeStaffTokenCell(post,mese,locked){
+    var td=el("td","staff-token-cell"),used=staffTokenIsUsed(post,mese);
+    var btn=el("button","action small staff-token-use"+(used?" active":""));
+    btn.type="button";
+    btn.setAttribute("data-staff-token-used",used?"1":"0");
+    btn.innerHTML=used?"<i class=\"fa-solid fa-check\"></i> ST +1":"<i class=\"fa-solid fa-pen-nib\"></i> Usa ST";
+    var busy=!!STAFF_TOKEN_BUSY[staffTokenUsageIdForPost(post,mese)];
+    btn.disabled=!!locked||!EDIT_UNLOCKED||!isValidPostLink(post.link)||busy||(!used&&STAFF_TOKEN_STATE.balance<=0);
+    if(locked)btn.title="Il Mese è in sola lettura.";
+    else if(!EDIT_UNLOCKED)btn.title="Entra in modifica per usare o restituire lo Staff Token.";
+    else if(!isValidPostLink(post.link))btn.title="Inserisci prima il link del Post.";
+    else if(!used&&STAFF_TOKEN_STATE.balance<=0)btn.title="Nessuno Staff Token disponibile.";
+    else btn.title=used?"Clicca per restituire questo Staff Token.":"Usa 1 Staff Token su questo Post (+1 PP).";
+    btn.addEventListener(EV,function(){setStaffTokenOnPost(post,mese,!staffTokenIsUsed(post,mese),{});});
+    td.appendChild(btn);
+    td.appendChild(el("div","staff-token-post-note",used?"+1 PP applicato":"1 ST = +1 PP"));
+    return td;
+  }
+
+
+  function staffTokenMonthHasHistory(posts,mese){
+    posts=Array.isArray(posts)?posts:[];
+    for(var i=0;i<posts.length;i++){
+      if(posts[i]&&isValidPostLink(posts[i].link)&&staffTokenIsUsed(posts[i],mese))return true;
+    }
+    return false;
+  }
+  function makeStaffTokenHistoricalCell(post,mese){
+    var td=el("td","staff-token-cell"),used=staffTokenIsUsed(post,mese);
+    if(used){
+      td.appendChild(el("span","staff-token-history-badge","<i class=\"fa-solid fa-check\"></i> ST usato"));
+      td.appendChild(el("div","staff-token-post-note","+1 PP già applicato · consumo storico"));
+    }else{
+      td.appendChild(el("span","cb-bonus-none","—"));
+    }
+    return td;
+  }
+
 
   function getAnonymousSessionId(kind){
     var key="ff_tracker_session_"+String(kind||"pg");
@@ -2197,6 +2936,7 @@
     var det=el("details","elfo-identity-details");
     det.appendChild(el("summary",null,"Personalizza il titolo dell’Elfo"));
     det.appendChild(el("p","small-note","Il titolo standard resta «Il Mio Elfo Domestico». Se vuoi, puoi scegliere il nome dell’Elfo, l’appellativo e anche il nome con cui deve chiamarti. Se lasci vuoto quest’ultimo campo, verrà usato automaticamente il nome completo del PG."));
+    det.appendChild(el("div","elfo-readonly-note","<b>Identificativo del PG (Nome e cognome):</b> "+String(STUDENTE.nome||"—")+". Questo è il nome usato negli elenchi e nei salvataggi; il «Nome con cui deve chiamarti» qui sotto è solo estetico e non cambia l’identificativo."));
     var toggleLabel=el("label","elfo-identity-toggle"),toggle=el("input");toggle.type="checkbox";toggle.checked=STUDENTE.elfoTitoloPersonalizzato===true;toggleLabel.appendChild(toggle);toggleLabel.appendChild(document.createTextNode(" Usa titolo personalizzato"));det.appendChild(toggleLabel);
     var grid=el("div","elfo-identity-grid"),a=el("div"),b=el("div"),c=el("div","elfo-callname");
     a.appendChild(el("label",null,"Nome dell’Elfo"));var ni=el("input");ni.type="text";ni.maxLength=50;ni.value=STUDENTE.elfoNome||"Dobby";a.appendChild(ni);
@@ -2245,7 +2985,7 @@
         '<b>Accesso al Personaggio.</b> Puoi aprire un Elfo già registrato anche senza password; la password serve soltanto per modificare i dati.',
         '<b>Password di modifica.</b> Al primo accesso in modifica la crei qui. Una volta sbloccata, la modifica vale per tutte le sezioni dell’Elfo.',
         '<b>Dati del PG.</b> Nome e Anno Scolastico determinano anche alcuni limiti e capacità delle strutture.',
-        '<b>Strutture attive.</b> Dispensa, Postazione, Cubicolo e Recinto possono essere attivati o disattivati: se una struttura non è attiva, il relativo pulsante resta disabilitato.',
+        '<b>Strutture e sezioni opzionali.</b> Taccuino, Dispensa, Postazione, Cubicolo, Recinto e «Diventa Adulto → Esporta» possono essere mostrati soltanto quando servono. La sezione di esportazione può restare nascosta fino alla fine del VII anno.',
         '<b>Personalizzazione dell’Elfo.</b> Puoi personalizzare nome, appellativo e modo in cui l’Elfo si rivolge al PG.',
         '<b>Gestione del PG.</b> Da qui puoi cambiare Elfo o inviare al Narratore una richiesta di eliminazione del PG dal tool.'
       ],
@@ -2434,20 +3174,26 @@
   var PUBLIC_PG_DIRECTORY = [];
   var PUBLIC_DIRECTORY_LOADED = false;
   var PUBLIC_DIRECTORY_LOADING = false;
+  var PUBLIC_DIRECTORY_ERROR = "";
   var BROWSER_PG_KEY = "ff_elfo_active_pg_studente_v1";
   var RESTORE_BROWSER_IN_FLIGHT = false;
   function rememberBrowserPg(name){try{if(name){sessionStorage.setItem(BROWSER_PG_KEY,String(name));}else{sessionStorage.removeItem(BROWSER_PG_KEY);}}catch(e){}}
   function browserPg(){try{return String(sessionStorage.getItem(BROWSER_PG_KEY)||"");}catch(e){return "";}}
   function ensurePublicDirectory(force){
-    if(force){PUBLIC_DIRECTORY_LOADED=false;}
+    if(force){PUBLIC_DIRECTORY_LOADED=false;PUBLIC_DIRECTORY_ERROR="";}
     if(PUBLIC_DIRECTORY_LOADED||PUBLIC_DIRECTORY_LOADING||!window.fbReady||!window.fbListPublicPgs){return;}
-    PUBLIC_DIRECTORY_LOADING=true;
+    PUBLIC_DIRECTORY_LOADING=true;PUBLIC_DIRECTORY_ERROR="";
     window.fbListPublicPgs().then(function(list){
       PUBLIC_PG_DIRECTORY=Array.isArray(list)?list:[];
       PUBLIC_DIRECTORY_LOADED=true;
       PUBLIC_DIRECTORY_LOADING=false;
+      PUBLIC_DIRECTORY_ERROR="";
       if(!fbConnected){renderAll();}
-    }).catch(function(e){console.error(e);PUBLIC_DIRECTORY_LOADING=false;});
+    }).catch(function(e){
+      console.error(e);PUBLIC_DIRECTORY_LOADING=false;PUBLIC_DIRECTORY_LOADED=false;
+      PUBLIC_DIRECTORY_ERROR=(e&&e.code)||((e&&e.message)||"errore di caricamento");
+      if(!fbConnected){renderAll();}
+    });
   }
   function prefixPgMatches(query){
     var q=String(query||"").trim().toLocaleLowerCase("it-IT");
@@ -2632,11 +3378,16 @@
     var fi=parseInt(fallbackIndex,10);if(idx<0&&!isNaN(fi)&&fi>=0&&fi<mese.posts.length){idx=fi;}
     return idx>=0?{mese:mese,monthIndex:mi,post:mese.posts[idx],index:idx}:null;
   }
-  function requestGeneralPostRemoval(meseId,postId,globalNo,fallbackIndex){
+  async function requestGeneralPostRemoval(meseId,postId,globalNo,fallbackIndex){
     var hit=findGeneralPostForRemoval(meseId,postId,globalNo,fallbackIndex);
     if(!hit){alert("Non riesco più a trovare questo Post nei dati del Mese. Ricarica la sezione e riprova.");return false;}
     var mese=hit.mese,reason=generalPostRemovalBlockReason(mese);
     if(reason){alert(reason);return false;}
+
+    if(staffTokenIsUsed(hit.post,mese)){
+      var refunded=await setStaffTokenOnPost(hit.post,mese,false,{deferSave:true,deferRender:true});
+      if(!refunded){return false;}
+    }
 
     /* v52: la rimozione è immediata. L'eventuale uso del Post da parte di
        Guarigione/altre attività viene aggiornato automaticamente; se la
@@ -2734,6 +3485,9 @@
 
     var refs=[];
     var posts=Array.isArray(mese.posts)?mese.posts:[];
+    /* Gli Staff Token sono una spesa storica: se il Mese viene eliminato,
+       NON vengono rimborsati e non bloccano l'eliminazione. Il saldo e il
+       registro Firebase continuano a rappresentare correttamente l'uso già avvenuto. */
     for(var i=0;i<posts.length;i++){
       var p=posts[i];
       if(!p){continue;}
@@ -2759,6 +3513,7 @@
     var typed=prompt(
       "Stai per eliminare definitivamente dalla Camera Blindata «"+nome+"».\n\n"+
       "Verranno rimossi dal database del PG il Mese, i suoi Post e i suoi Bonus. "+
+      "Gli Staff Token già usati in questi Post RESTANO CONSUMATI e registrati nello storico: l’eliminazione del Mese non li rimborsa. "+
       "I numeri globali già assegnati NON verranno riutilizzati.\n\n"+
       "Per confermare, riscrivi esattamente il nome del Mese:"
     );
@@ -2966,7 +3721,7 @@
   }
 
 
-  var STRUTTURE = { taccuino:false, dispensa:false, postazione:false, cubicolo:false, recinto:false };
+  var STRUTTURE = { taccuino:false, dispensa:false, postazione:false, cubicolo:false, recinto:false, esporta:false };
 
   var POSTAZIONE_FAC = { descrizione:"", distillatoriMax:0 };
   var CALDERONI = []; var calderoneCounter = 0;
@@ -3028,10 +3783,15 @@
   function normalizePgName(v){ return String(v||"").trim().replace(/\s+/g," "); }
   function validatePgName(v){
     var n=normalizePgName(v);
-    if(!n){ return "Scrivi prima il nome del tuo Personaggio."; }
+    if(!n){ return "Scrivi prima nome e cognome del tuo Personaggio."; }
     if(/[\/]/.test(n)){ return "Il nome del PG non può contenere il carattere /."; }
     if(n === "." || n === ".." || /^__.*__$/.test(n)){ return "Questo nome non può essere usato come identificativo Firebase."; }
     if(n.length>120){ return "Il nome del PG è troppo lungo."; }
+    return "";
+  }
+  function validateNewPgFullName(v){
+    var n=normalizePgName(v),parts=n.split(/\s+/).filter(Boolean);
+    if(parts.length<2){return "Per creare un nuovo Elfo inserisci NOME E COGNOME completi del PG. È l’identificativo che comparirà negli elenchi e serve a distinguere eventuali omonimi.";}
     return "";
   }
   function stateSizeBytes(obj){ try{return new Blob([JSON.stringify(obj)]).size;}catch(e){return 0;} }
@@ -3134,11 +3894,31 @@
           if(normalized){ a.href = normalized; a.className = "link-open-icon"; }
           else { a.removeAttribute("href"); a.className = "link-open-icon is-hidden"; }
         }
+        /* v105: parità con l'Elfo Adulto. Cliccare/scrivere in un campo Link non può
+           attivare un eventuale <a> antenato del contenitore ospite o markup legacy. */
+        input.addEventListener("click", function(ev){
+          var ancestor = input.closest ? input.closest('a[href],a[download]') : null;
+          if(ancestor){ ev.preventDefault(); ev.stopPropagation(); }
+        });
         input.addEventListener("input", refresh);
         input.addEventListener("change", refresh);
         input.addEventListener("paste", function(){ setTimeout(refresh, 0); });
         refresh();
       })(inputs[i]);
+    }
+  }
+  function protectFormControlsFromAncestorLinks(root){
+    if(!root || !root.querySelectorAll){return;}
+    var controls=root.querySelectorAll('input,textarea,select,button');
+    for(var i=0;i<controls.length;i++){
+      (function(control){
+        if(control.getAttribute('data-no-ancestor-link')==='1'){return;}
+        control.setAttribute('data-no-ancestor-link','1');
+        control.addEventListener('click',function(ev){
+          var ancestor=control.closest?control.closest('a[href],a[download]'):null;
+          if(ancestor && ancestor!==control){ev.preventDefault();ev.stopPropagation();}
+        });
+      })(controls[i]);
     }
   }
   function lockAfterRevisionConflict(code){
@@ -3541,6 +4321,7 @@
     if(step.key === "postazione" && !STRUTTURE.postazione){ return false; }
     if(step.key === "cubicolo" && !STRUTTURE.cubicolo){ return false; }
     if(step.key === "recinto" && !STRUTTURE.recinto){ return false; }
+    if(step.key === "esporta" && !STRUTTURE.esporta){ return false; }
     return true;
   }
   function navVisibleSteps(){ return navOrderedSteps().filter(isStepVisibleInNav); }
@@ -3680,13 +4461,24 @@
     container.appendChild(footer);
   }
 
+  var EDIT_DISCONNECT_PENDING = false;
+
   function appendGlobalDisconnect(container){
-    if(!fbConnected || !EDIT_UNLOCKED){ return; }
+    if(!fbConnected){ return; }
     var footer = el("div", "global-disconnect-footer elfo-readonly-safe");
-    var btn = el("button", "action global-disconnect-btn elfo-readonly-safe", "Disconnetti");
-    btn.type = "button";
-    btn.title = "Disconnetti";
-    btn.addEventListener(EV, function(){ lockEditingKeepPg(btn); });
+    var btn;
+    if(EDIT_UNLOCKED){
+      btn = el("button", "action global-disconnect-btn elfo-readonly-safe", EDIT_DISCONNECT_PENDING?"Disconnessione…":"Disconnetti");
+      btn.type = "button";
+      btn.title = "Disconnetti";
+      if(EDIT_DISCONNECT_PENDING){btn.disabled=true;}
+      else{btn.addEventListener(EV, function(){ lockEditingKeepPg(btn); });}
+    }else{
+      btn = el("button", "action elfo-readonly-safe", "Cambia Elfo");
+      btn.type = "button";
+      btn.title = "Cambia Elfo";
+      btn.addEventListener(EV, function(){ changeCurrentPg(btn); });
+    }
     footer.appendChild(btn);
     container.appendChild(footer);
   }
@@ -3956,7 +4748,7 @@
   function resetDataState(){
     POSTS = []; MESI = []; meseCounter = 0; postCounter = 0; globalPostCounter = 0; ARCHIVIO_DB = { periodiche:[], ultima:null };
     STUDENTE = { nome:"", anno:"V", annoPromemoriaAgosto:0, elfoNome:"Dobby", elfoAppellativo:"Padron", elfoNomeChiamata:"", elfoTitoloPersonalizzato:false };
-    STRUTTURE = { taccuino:false, dispensa:false, postazione:false, cubicolo:false, recinto:false };
+    STRUTTURE = { taccuino:false, dispensa:false, postazione:false, cubicolo:false, recinto:false, esporta:false };
     POSTAZIONE_FAC = { descrizione:"", distillatoriMax:0 }; CALDERONI = []; calderoneCounter = 0; ARCHIVIO_CALDERONI = [];
     CUBICOLO_FAC = { descrizione:"" }; PIANTE = []; piantaCounter = 0; ARCHIVIO_PIANTE = [];
     RECINTO_FAC = { descrizione:"" }; CREATURE = []; creaturaCounter = 0; ARCHIVIO_CREATURE = [];
@@ -4023,6 +4815,10 @@
     if(data.STRUTTURE){ STRUTTURE = data.STRUTTURE; }
     if(typeof STRUTTURE.taccuino === "undefined"){ STRUTTURE.taccuino = true; DATA_DIRTY=true; }
     if(typeof STRUTTURE.dispensa === "undefined"){ STRUTTURE.dispensa = false; }
+    /* v99: i salvataggi precedenti non conoscono ancora questa preferenza.
+       Deve nascere esplicitamente come false, così resta nascosta fino a fine VII anno
+       e il primo salvataggio in modifica consolida la migrazione. */
+    if(typeof STRUTTURE.esporta === "undefined"){ STRUTTURE.esporta = false; DATA_DIRTY=true; }
     if(data.DISPENSA){ DISPENSA = data.DISPENSA; }
     if(data._dispensaBatchDraft && typeof data._dispensaBatchDraft === "object"){
       var bd=data._dispensaBatchDraft;
@@ -4112,6 +4908,10 @@
         var _pb=MESI[nmi].posts[_pbi];
         if(!_pb||typeof _pb!=="object"){continue;}
         if(!_pb.bonusUtilizzi||typeof _pb.bonusUtilizzi!=="object"||Array.isArray(_pb.bonusUtilizzi)){_pb.bonusUtilizzi={};}
+        if(typeof _pb.staffTokenUsato!=="boolean"){_pb.staffTokenUsato=false;DATA_DIRTY=true;}
+        if(typeof _pb.staffTokenStaffId!=="string"){_pb.staffTokenStaffId="";DATA_DIRTY=true;}
+        if(typeof _pb.staffTokenStaffName!=="string"){_pb.staffTokenStaffName="";DATA_DIRTY=true;}
+        if(typeof _pb.staffTokenUsedAt!=="string"){_pb.staffTokenUsedAt="";DATA_DIRTY=true;}
       }
     }
     repairCountersFromData();
@@ -4863,6 +5663,16 @@
     TACC_STORAGE_KEY=nextKey;
     try{localStorage.setItem(TACC_LAST_PROFILE_KEY,pg);}catch(e){}
   }
+
+  function taccReloadLocalForEditing(pg){
+    pg=normalizePgName(pg||""); if(!pg){return;}
+    var key=taccProfileStorageKey(pg),raw=null;
+    try{raw=localStorage.getItem(key);}catch(e){}
+    TACC_STORAGE_KEY=key;
+    if(raw){try{TACCUINO=taccNormalize(JSON.parse(raw));}catch(e){TACCUINO=taccDefault();}}
+    else{TACCUINO=taccDefault();}
+  }
+
   function taccCloudStoreLocal(data){
     TACCUINO=taccNormalize(data);
     try{
@@ -4929,15 +5739,27 @@
     var pg=normalizePgName(pgName||"");
     if(!pg||!window.fbReady){return Promise.resolve(false);}
     taccSwitchLocalProfile(pg);
+    /* In sola visualizzazione mostriamo sempre la copia cloud pubblica e non la
+       salviamo sopra l'eventuale copia locale del proprietario. Quando la Password
+       viene sbloccata, ricarichiamo invece la copia locale e la confrontiamo col cloud. */
+    if(EDIT_UNLOCKED){taccReloadLocalForEditing(pg);}
     TACC_CLOUD_LOGIN_PG=pg; clearTimeout(TACC_CLOUD_TIMER); TACC_CLOUD_TIMER=null;
-    taccCloudSetStatus("Controllo della copia cloud…",false);
+    taccCloudSetStatus(EDIT_UNLOCKED?"Controllo della copia cloud…":"Caricamento del Taccuino pubblico…",false);
     if(typeof window.fbTaccCloudLoad!=="function"){taccCloudSetStatus("Cloud non disponibile: helper Firebase non inizializzato",true);return Promise.resolve(false);}
     return window.fbTaccCloudLoad(TACC_CLOUD_COLLECTION,pg).then(function(remote){
       if(!remote||!remote.exists){
+        if(!EDIT_UNLOCKED){
+          TACC_CLOUD_APPLYING=true; TACCUINO=taccDefault(); TACC_CLOUD_APPLYING=false;
+          taccCloudSetStatus("Taccuino pubblico non ancora sincronizzato",false); renderAll(); return true;
+        }
         if(taccCloudIsMeaningful(TACCUINO)){return taccCloudPush(true);}
         taccCloudSetStatus("Cloud pronto · nessun backup ancora presente",false); return true;
       }
       var envelope=remote.data||{},cloud=taccNormalize(envelope.data||{});
+      if(!EDIT_UNLOCKED){
+        TACC_CLOUD_APPLYING=true; TACCUINO=cloud; TACC_CLOUD_APPLYING=false;
+        taccCloudSetStatus("Taccuino pubblico aggiornato dal cloud",false); renderAll(); return true;
+      }
       var localMeaning=taccCloudIsMeaningful(TACCUINO),cloudMeaning=taccCloudIsMeaningful(cloud);
       var lt=Date.parse((TACCUINO.meta&&TACCUINO.meta.updatedAt)||"")||0;
       var ct=Date.parse(envelope.updatedAt||(cloud.meta&&cloud.meta.updatedAt)||"")||0;
@@ -4959,6 +5781,7 @@
     });
   }
   function taccSave(){
+    if(taccCurrentPgName()&&!EDIT_UNLOCKED){taccCloudSetStatus("Sola visualizzazione: inserisci la Password per modificare il Taccuino.",false);return false;}
     TACCUINO.meta=TACCUINO.meta||{}; TACCUINO.meta.updatedAt=new Date().toISOString();
     var ok=true;
     try{
@@ -4980,6 +5803,7 @@
     s.claimed=s.claimed&&typeof s.claimed==="object"?s.claimed:{};
     s.entries=s.entries&&typeof s.entries==="object"?s.entries:{};
     s.people=Array.isArray(s.people)?s.people:[];
+    s.peopleCountExtra=Math.max(0,parseInt(s.peopleCountExtra,10)||0);
     s.flags=s.flags&&typeof s.flags==="object"?s.flags:{};
     s.notes=String(s.notes||""); s.period=String(s.period||"");
     return s;
@@ -4990,7 +5814,7 @@
     {id:"fh_malvagio",name:"Il Malvagio — Livelli Medio/Difficile",kind:"counters",note:"Acquisti ruolati nei Negozi Sinistri in una o più giocate di almeno 5 post; gli acquisti esclusivamente OFFGame non valgono.",counters:[{key:"legali",label:"Acquisti Legali",goal:300,unit:"G"},{key:"illegali",label:"Acquisti Illegali",goal:500,unit:"G"}]},
     {id:"fh_amiconi",name:"Gli Amiconi",kind:"relations",note:"Valgono solo le role in cui i due PG ruolano da soli. Il conteggio viene condiviso con «I Compari» quando il PG diventa Adulto.",thresholds:[3,5,10,20],unit:"role"},
     {id:"fh_attivista",name:"L'Attivista — Livello Difficile",kind:"people",note:"Servono almeno 3 PG che accettino ONGame volantini/depliant, nella stessa role o in più role diverse; nelle role usate il PG Attivista deve aver scritto almeno 3 post.",goal:3,peopleLabel:"PG che hanno accettato"},
-    {id:"fh_estroversi",name:"Gli Estroversi",kind:"people",note:"Servono PG diversi e role diverse nello stesso anno scolastico. Le role estive valgono per l'anno scolastico che deve iniziare; non valgono le role di gruppo.",thresholds:[5,10,15],periodLabel:"Anno scolastico",peopleLabel:"PG diverso + role diversa"},
+    {id:"fh_estroversi",name:"Gli Estroversi",kind:"people",note:"Servono PG diversi e role diverse nello stesso anno scolastico. Le role estive valgono per l'anno scolastico che deve iniziare; non valgono le role di gruppo. Il conteggio dei PG diversi è tra i progressi che possono proseguire nel «Popolare» al passaggio Adulto, secondo la regola transitoria.",thresholds:[5,10,15],periodLabel:"Anno scolastico",peopleLabel:"PG diverso + role diversa"},
     {id:"fh_influencer",name:"L'Influencer — Livello Facile",kind:"counters",note:"La missione è riscattabile ogni 3 post in cui il PG pubblicizza attivamente il/i proprio/i Club; i post possono trovarsi in role diverse.",counters:[{key:"post",label:"Post di pubblicizzazione",repeatEvery:3,unit:"post"}]},
     {id:"fh_quidditch",name:"Il Quidditch Addicted",kind:"counters",note:"Conta le partite ufficiali e/o amichevoli giocate dal PG.",counters:[{key:"partite",label:"Partite giocate",thresholds:[1,3,5],unit:"partite"}]},
     {id:"fh_spendaccione",name:"Lo Spendaccione",kind:"counters",note:"Conta solo i Galeoni spesi per role nelle Locande di Hogsmeade. Il premio è riscattabile ogni 50 G; non valgono le Locande di Diagon e Notturn Alley.",counters:[{key:"spesa",label:"Spesa nelle Locande di Hogsmeade",repeatEvery:50,unit:"G"}]},
@@ -5012,7 +5836,7 @@
     {id:"fw_giornalista",name:"Il Giornalista — Livello Difficile",kind:"counters",note:"Conta gli articoli pubblicati a nome proprio per il Giornale per cui il PG lavora. Il premio è riscattabile ogni 3 articoli.",counters:[{key:"articoli",label:"Articoli pubblicati",repeatEvery:3,unit:"articoli"}]},
     {id:"fw_negoziante",name:"Il Negoziante",kind:"counters",note:"Il premio base della missione è per singola role; il Taccuino tiene soltanto il conteggio aggiuntivo di Popolarità previsto ogni 3 role nel proprio Negozio.",counters:[{key:"roleNegozio",label:"Role nel proprio Negozio",repeatEvery:3,unit:"role"}]},
     {id:"fw_politico",name:"Il Politico — Livelli Medio/Estremo",kind:"counters",note:"Il premio dei livelli cumulativi è riscattabile ogni 3 partecipazioni.",counters:[{key:"sedute",label:"Sedute Straordinarie come Onorevole",repeatEvery:3,unit:"sedute"},{key:"processi",label:"Processi del Wizengamot come spettatore",repeatEvery:3,unit:"processi"}]},
-    {id:"fw_popolare",name:"Il Popolare",kind:"people",periodLabel:"Anno solare",note:"Servono PG diversi e role diverse tra il 1° gennaio e il 31 dicembre; non valgono le role di gruppo. Il passaggio dal VII anno segue la specifica transitoria del regolamento.",thresholds:[5,10,15],peopleLabel:"PG diverso + role diversa"},
+    {id:"fw_popolare",name:"Il Popolare",kind:"people",periodLabel:"Anno solare",note:"Servono PG diversi e role diverse tra il 1° gennaio e il 31 dicembre; non valgono le role di gruppo. Al passaggio dal VII anno il conteggio già maturato in «Gli Estroversi» viene recuperato secondo la specifica transitoria del regolamento.",thresholds:[5,10,15],peopleLabel:"PG diverso + role diversa"},
     {id:"fw_quidditcher",name:"Il Quidditcher",kind:"counters",note:"Conta le partite di Quidditch a cui il PG partecipa come giocatore.",counters:[{key:"partite",label:"Partite giocate",thresholds:[1,3,5],unit:"partite"}]},
     {id:"fw_venditore",name:"Il Venditore (Adulto)",kind:"counters",note:"Vendite presso lo Zoppo ruolate in una o più role di almeno 5 post; le vendite fatte esclusivamente OFFGame non valgono.",counters:[{key:"legali",label:"Vendite Legali",goal:300,unit:"G"},{key:"illegali",label:"Vendite Illegali",goal:250,unit:"G"}]},
     {id:"fw_cliente_virtuoso",name:"Il Cliente Virtuoso — Livello Difficile",kind:"counters",note:"Conta le role concluse nelle Locande di Diagon Alley. Il premio è riscattabile ogni 3 role.",counters:[{key:"role",label:"Role nelle Locande di Diagon Alley",repeatEvery:3,unit:"role"}]},
@@ -5286,7 +6110,8 @@
       });
     }else if(def.kind==="people"){
       var addp=el("div","tacc-mini-row"),pn=taccInput("Nome PG","") ,pr=taccInput("Link / riferimento Role","");pr.input.type="url";addp.appendChild(pn.wrap);addp.appendChild(pr.wrap);var pab=el("button","action","+ Aggiungi");pab.type="button";pab.addEventListener(EV,function(){var name=String(pn.input.value||"").trim();if(!name){alert("Scrivi il nome del PG.");return;}if(state.people.some(function(x){return String(x.name||"").trim().toLowerCase()===name.toLowerCase();})){alert("Questo PG è già presente in questo conteggio.");return;}state.people.push({id:taccId("person"),name:name,role:String(pr.input.value||"").trim()});taccSave();renderAll();});addp.appendChild(pab);card.appendChild(addp);
-      var pd={goal:def.goal,thresholds:def.thresholds,unit:"PG"},pp=taccProgress(state.people.length,pd,{claimed:{}},"people");card.appendChild(el("div","tacc-progress "+(pp.complete?"complete":"pending"),pp.text));
+      if(state.peopleCountExtra>0){var extra=taccInput("Conteggio importato senza nominativi",state.peopleCountExtra,"number");extra.input.type="number";extra.input.min="0";extra.input.step="1";extra.input.addEventListener("input",function(){state.peopleCountExtra=Math.max(0,parseInt(extra.input.value,10)||0);taccSave();});extra.input.addEventListener("change",function(){renderAll();});card.appendChild(extra.wrap);card.appendChild(el("div","small-note","Sono progressi riconosciuti dal vecchio Taccuino ma privi di un nominativo recuperabile. Puoi correggerli manualmente se necessario."));}
+      var peopleTotal=state.people.length+Math.max(0,parseInt(state.peopleCountExtra,10)||0),pd={goal:def.goal,thresholds:def.thresholds,unit:"PG"},pp=taccProgress(peopleTotal,pd,{claimed:{}},"people");card.appendChild(el("div","tacc-progress "+(pp.complete?"complete":"pending"),pp.text));
       var list=el("ul","tacc-people-list");state.people.forEach(function(x){var li=el("li"),main=el("div","tacc-people-main");main.appendChild(el("strong",null,x.name||"PG"));if(x.role){var a=document.createElement("a");a.href=x.role;a.target="_blank";a.rel="noopener noreferrer";a.className="tacc-link";a.textContent="Apri Role";main.appendChild(document.createElement("br"));main.appendChild(a);}li.appendChild(main);var rm=el("button","action danger","Rimuovi");rm.type="button";rm.addEventListener(EV,function(){state.people=state.people.filter(function(y){return y.id!==x.id;});taccSave();renderAll();});li.appendChild(rm);list.appendChild(li);});card.appendChild(list);
     }
     var nlab=el("label",null,"Role / promemoria collegati");card.appendChild(nlab);var notes=el("textarea");notes.placeholder="Link, titoli delle role, date o altre note utili";notes.value=state.notes||"";notes.addEventListener("input",function(){state.notes=notes.value;taccSave();});card.appendChild(notes);
@@ -5315,73 +6140,125 @@
   }
   function taccLegacyPlain(s){
     s=String(s||"");
-    s=s.replace(/\[URL=([^\]]+)\]([\s\S]*?)\[\/URL\]/gi,"$2").replace(/\[URL\]([\s\S]*?)\[\/URL\]/gi,"$1");
+    s=s.replace(/\[URL=([^\]]*)\]([\s\S]*?)\[\/URL\]/gi,"$2").replace(/\[URL\]([\s\S]*?)\[\/URL\]/gi,"$1");
     s=s.replace(/<a\b[^>]*>([\s\S]*?)<\/a>/gi,"$1");
     s=s.replace(/\[IMG(?:=[^\]]*)?\][\s\S]*?\[\/IMG\]/gi," ").replace(/<img\b[^>]*>/gi," ");
     s=s.replace(/<i\b[^>]*><\/i>/gi," ").replace(/<[^>]+>/g," ");
-    s=s.replace(/\[(?:\/?(?:size|font|color|b|i|u|del|quote|center|left|right|align|code)|hr|br)(?:=[^\]]*)?\]/gi," ");
+    s=s.replace(/\[(?:\/?(?:size|font|color|b|i|u|del|quote|center|left|right|align|code|spoiler|html)|hr|br)(?:=[^\]]*)?\]/gi," ");
     s=taccLegacyDecodeHtml(s).replace(/\s+/g," ").trim();return s;
   }
   function taccLegacySections(raw){
     raw=String(raw||"");var re=/<div\b[^>]*data-label\s*=\s*["']([^"']+)["'][^>]*>/gi,m,starts=[];
     while((m=re.exec(raw))){starts.push({label:taccLegacyPlain(m[1]),start:m.index});}
-    if(!starts.length){return [{label:"Taccuino importato",raw:raw}];}
-    return starts.map(function(x,idx){return {label:x.label||("Sezione "+(idx+1)),raw:raw.slice(x.start,idx+1<starts.length?starts[idx+1].start:raw.length)};});
+    if(starts.length){return starts.map(function(x,idx){return {label:x.label||("Sezione "+(idx+1)),raw:raw.slice(x.start,idx+1<starts.length?starts[idx+1].start:raw.length)};});}
+    var headingRe=/(Role\s+aperte|Cronologia(?:\s+delle\s+Role)?|Taccuino\s+PNG|FantaHogwarts|FantaWiz|Banner(?:\s+e\s+Medaglie)?|Medaglie|Appunti(?:\s*&\s*Backup)?|Appunti\s+liberi|Conti\s+e\s+Promemoria|Idee(?:\s+e\s+Dove\s+Tenerle)?)/gi,hs=[],lastKey="";
+    while((m=headingRe.exec(raw))){
+      var plain=taccLegacyPlain(m[1]),key=/role\s+aperte/i.test(plain)?"Role aperte":/cronologia/i.test(plain)?"Cronologia":/png/i.test(plain)?"Taccuino PNG":/fantahogwarts/i.test(plain)?"FantaHogwarts":/fantawiz/i.test(plain)?"FantaWiz":/banner|medagli/i.test(plain)?"Banner e Medaglie":/conti/i.test(plain)?"Conti e Promemoria":/idee/i.test(plain)?"Idee":"Appunti";
+      if(key!==lastKey){hs.push({label:key,start:m.index});lastKey=key;}
+    }
+    if(hs.length){return hs.map(function(x,idx){return {label:x.label,raw:raw.slice(x.start,idx+1<hs.length?hs[idx+1].start:raw.length)};});}
+    return [{label:"Taccuino importato",raw:raw}];
   }
   function taccLegacyUrlKey(url){
     var u=taccLegacyDecodeHtml(String(url||"").trim()).replace(/^https?:\/\/felixfelicisharrypottergdr\.forumfree\.it\/?/i,"").replace(/^https?:\/\/felixfelicisharrypottergdr-jpg\.github\.io\/?/i,"");
     return u.replace(/^\//,"").toLowerCase();
   }
   function taccLegacyLinks(line){
-    line=String(line||"");var out=[],re=/\[URL=([^\]]+)\]([\s\S]*?)\[\/URL\]/gi,m;
-    while((m=re.exec(line))){out.push({url:taccLegacyDecodeHtml(m[1]).trim(),label:taccLegacyPlain(m[2])});}
-    var ar=/<a\b[^>]*href\s*=\s*["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi;
-    while((m=ar.exec(line))){out.push({url:taccLegacyDecodeHtml(m[1]).trim(),label:taccLegacyPlain(m[2])});}
+    line=String(line||"");var out=[],re=/\[URL=([^\]]*)\]([\s\S]*?)\[\/URL\]/gi,m;
+    while((m=re.exec(line))){out.push({url:taccLegacyDecodeHtml(m[1]).trim(),label:taccLegacyPlain(m[2]),raw:m[0]});}
+    var ar=/<a\b[^>]*href\s*=\s*["']([^"']*)["'][^>]*>([\s\S]*?)<\/a>/gi;
+    while((m=ar.exec(line))){out.push({url:taccLegacyDecodeHtml(m[1]).trim(),label:taccLegacyPlain(m[2]),raw:m[0]});}
     return out;
   }
   function taccLegacyRoleType(line,sectionRaw){
-    var l=String(line||"").toLowerCase(),head=String(sectionRaw||"").slice(0,1800).toLowerCase();
+    var l=String(line||"").toLowerCase(),head=String(sectionRaw||"").slice(0,2200).toLowerCase(),v="";
     if(/fa-eye-slash/.test(l)){return "limitato";}if(/fa-eye\b/.test(l)){return "indiscrete";}if(/fa-book\b/.test(l)){return "ripetizioni";}if(/fa-magnifying-glass/.test(l)){return "trama";}if(/fa-chess-knight|fa-dice/.test(l)){return "quest";}
     if(/fa-users|fa-people-group/.test(l)){if(/masterate/.test(head)){return "masterata";}if(/eventi/.test(head)){return "evento";}return "gruppo";}
-    if(/fa-comment-dots|fa-comment\b/.test(l)){return "free";}return "altro";
+    if(/fa-comment-dots|fa-comment\b/.test(l)){return "free";}
+    if(/fa-scroll/.test(l)){return "custom:Scolastica";}if(/fa-wand-sparkles/.test(l)){return "custom:Lavoro";}if(/fa-hourglass/.test(l)){return "custom:Adulti";}if(/fa-user-secret/.test(l)){return "custom:Investigazione";}if(/fa-box-archive/.test(l)){return "custom:Archiviata";}
+    var p=taccLegacyPlain(line);
+    if(/(?:^|[→|·])\s*quest\b/i.test(p)){return "quest";}if(/(?:^|[→|·])\s*evento\b/i.test(p)){return "evento";}if(/(?:^|[→|·])\s*free(?:\s*role)?\b/i.test(p)){return "free";}if(/role\s+di\s+gruppo/i.test(p)){return "gruppo";}if(/masterat[ao]/i.test(p)){return "masterata";}
+    if(/\bevento\b/i.test(p)){return "evento";}if(/quidditch/i.test(p)){v="Quidditch";}else if(/\bscolastica\b/i.test(p)){v="Scolastica";}else if(/\blavoro\b/i.test(p)){v="Lavoro";}else if(/\binvestigazione\b/i.test(p)){v="Investigazione";}else if(/\barchiviat[ao]\b/i.test(p)){v="Archiviata";}
+    return v?"custom:"+v:"altro";
   }
   function taccLegacyCategoryFromLine(line){
     var p=taccLegacyPlain(line),m=p.match(/\b((?:IV|V|VI|VII)\s+anno)\b/i);if(m){return m[1].replace(/^iv\b/i,"IV").replace(/^vii\b/i,"VII").replace(/^vi\b/i,"VI").replace(/^v\b/i,"V").replace(/anno/i,"anno");}
-    if(/vita\s+adulta/i.test(p)){return "Vita adulta";}return "";
+    if(/\bquarto\s+anno\b/i.test(p)){return "IV anno";}if(/\bquinto\s+anno\b/i.test(p)){return "V anno";}if(/\bsesto\s+anno\b/i.test(p)){return "VI anno";}if(/\bsettimo\s+anno\b/i.test(p)){return "VII anno";}
+    if(/vita\s+adulta/i.test(p)){return "Vita adulta";}if(/^\s*lavoro\s*:?\s*$/i.test(p)){return "Lavoro";}if(/^\s*free[-\s]*role\s*:?\s*$/i.test(p)){return "Free-role";}if(/^\s*altro\s*:?\s*$/i.test(p)){return "Altro";}return "";
   }
   function taccLegacyPeriodFromLine(line){
-    var raw=String(line||""),p=taccLegacyPlain(raw);if(!p){return "";}
-    var m=p.match(/\b(Gennaio|Febbraio|Marzo|Aprile|Maggio|Giugno|Luglio|Agosto|Settembre|Ottobre|Novembre|Dicembre)(?:\s*\/\s*(?:Gennaio|Febbraio|Marzo|Aprile|Maggio|Giugno|Luglio|Agosto|Settembre|Ottobre|Novembre|Dicembre))?\s+\d{4}\b/i);if(m){return m[0];}
+    var raw=String(line||""),p=taccLegacyPlain(raw);if(!p){return "";}var months="Gennaio|Febbraio|Marzo|Aprile|Maggio|Giugno|Luglio|Agosto|Settembre|Ottobre|Novembre|Dicembre";
+    var m=p.match(new RegExp("\\b("+months+")(?:\\s*\\/\\s*(?:"+months+"))?\\s+20\\d{2}\\b","i"));if(m){return m[0];}
     m=p.match(/\b20\d{2}\.\d{2}\b/);if(m){return m[0];}
-    m=p.match(/\bEstate(?:\s+20\d{2})?\b/i);if(m){return m[0];}
+    m=p.match(/\b(?:Estate|Autunno|Inverno|Primavera)(?:\s+20\d{2}(?:-20\d{2})?)?\b/i);if(m){return m[0];}
+    if(!taccLegacyLinks(raw).some(function(x){return x&&x.url&&taccLegacyIsTopicUrl(x.url);})){
+      m=p.match(new RegExp("\\b("+months+")(?:\\s*\\([^\\)]*\\))?\\b","i"));if(m&&p.length<80){return m[0];}
+    }
     if(/fa-calendar(?:-days)?/.test(raw)&&!taccLegacyLinks(raw).length){return p.replace(/^\d+\s*/,"").trim();}
     return "";
   }
+  function taccLegacyRolePeriodFromLine(line){
+    var p=taccLegacyPlain(line),months="Gennaio|Febbraio|Marzo|Aprile|Maggio|Giugno|Luglio|Agosto|Settembre|Ottobre|Novembre|Dicembre",m=p.match(new RegExp("(?:\\b\\d{1,2}\\s+|\\b(?:inizio|fine)\\s+|\\?\\s*)?("+months+")(?:(?:\\s+circa)+)?\\s+(20\\d{2})\\b","i"));
+    if(!m){return "";}var mon=String(m[1]||"");mon=mon.charAt(0).toUpperCase()+mon.slice(1).toLowerCase();return mon+" "+m[2];
+  }
   function taccLegacyLocation(line){
     line=String(line||"");var parts=line.split(/fa-location-dot[^>]*><\/i>/i);if(parts.length>1){var loc=taccLegacyPlain(parts[parts.length-1]);loc=loc.replace(/^[|·,\s]+/,"").trim();if(loc){return loc;}}
-    var p=taccLegacyPlain(line),m=p.match(/\(@([^,\)]+)(?:,\s*20\d{2}\.\d{2})?\)/);return m?m[1].trim():"";
+    var p=taccLegacyPlain(line),m=p.match(/\(@([^,\)]+)(?:,\s*20\d{2}\.\d{2})?\)/);if(m){return m[1].trim();}
+    var links=taccLegacyLinks(line),topic=links.find(function(x){return taccLegacyLooksLikeRoleLink(x,line);});if(topic&&topic.raw){var pos=line.indexOf(topic.raw);if(pos>0){var prefix=taccLegacyPlain(line.slice(0,pos)).replace(/^[-•|·,:\s]+|[-•|·,:\s]+$/g,"").trim();if(prefix&&!/^(?:free|quest|evento|quidditch|scolastica|lavoro|investigazione|archiviata)$/i.test(prefix)&&prefix.length<=100){return prefix;}}}
+    return "";
   }
   function taccLegacyOpenInlinePeriod(line){var p=taccLegacyPlain(line),m=p.match(/\(@[^,\)]+,\s*(20\d{2}\.\d{2})\)/);return m?m[1]:"";}
-  function taccLegacyWithWhom(line){
-    var s=String(line||""),locPos=s.search(/<i\b[^>]*fa-location-dot/i);if(locPos>=0){s=s.slice(0,locPos);}var all=taccLegacyLinks(s);if(!all.length){return "";}
-    var lastClose=s.toLowerCase().lastIndexOf("[/url]");if(lastClose<0){lastClose=s.toLowerCase().lastIndexOf("</a>");if(lastClose>=0){lastClose+=4;}}else{lastClose+=6;}
-    if(lastClose<0){return "";}var tail=taccLegacyPlain(s.slice(lastClose));tail=tail.replace(/^\s*[|!·,:-]+\s*/,"").replace(/\(@[^\)]*\)/g,"").trim();return tail;
+  function taccLegacyIsTopicUrl(url){
+    var u=taccLegacyDecodeHtml(String(url||"").trim());return /(?:^|[?&])t=\d+/i.test(u)||/\/t\/\d+/i.test(u)||/showtopic=/i.test(u)||(/#entry\d+/i.test(u)&&!/act=profile/i.test(u));
+  }
+  function taccLegacyLooksLikeRoleLink(x,line){
+    if(!x){return false;}var lab=String(x.label||"").trim(),plain=taccLegacyPlain(line);if(!lab||/^(?:x|\d+)$/i.test(lab)){return false;}if(/(?:^|\s)(?:~\s*)?vedi\s+anche\b/i.test(plain)||/\babout\b/i.test(plain)){return false;}if(taccLegacyIsTopicUrl(x.url)){return true;}return !String(x.url||"").trim()&&/\[URL=\]/i.test(String(line||""));
+  }
+  function taccLegacyRoleChunks(raw){
+    var s=String(raw||"");
+    s=s.replace(/<br\s*\/?>/gi,"\n").replace(/\[br\]/gi,"\n").replace(/<\/p\s*>/gi,"\n");
+    s=s.replace(/(<details\b[^>]*>|<\/details>|<summary\b[^>]*>|<\/summary>)/gi,"\n$1\n");
+    s=s.replace(/(<i\b[^>]*\bfa-(?:comment(?:-dots)?|users|people-group|dice|chess-knight|eye(?:-slash)?|book|magnifying-glass|calendar(?:-days)?|fort-awesome|tags|spinner|scroll|wand-sparkles|hourglass|user-secret|box-archive)\b[^>]*>\s*<\/i>)/gi,"\n$1");
+    s=s.replace(/([ \t]*[-•][ \t]+)(?=\[URL=[^\]]*\])/gi,"\n$1");
+    s=s.replace(/([ \t]*→[ \t]*)/g,"\n$1");
+    return s.split(/\r?\n/).map(function(x){return x.trim();}).filter(Boolean);
+  }
+  function taccLegacyDateFromLine(line){
+    var p=taccLegacyPlain(line),months={gennaio:"01",febbraio:"02",marzo:"03",aprile:"04",maggio:"05",giugno:"06",luglio:"07",agosto:"08",settembre:"09",ottobre:"10",novembre:"11",dicembre:"12"},m=p.match(/\b(\d{1,2})\s+(gennaio|febbraio|marzo|aprile|maggio|giugno|luglio|agosto|settembre|ottobre|novembre|dicembre)\s+(20\d{2})\b/i);if(!m){return "";}var d=parseInt(m[1],10);if(d<1||d>31){return "";}return m[3]+"-"+months[m[2].toLowerCase()]+"-"+String(d).padStart(2,"0");
+  }
+  function taccLegacyWithWhom(line,topicUrl){
+    var s=String(line||""),target=taccLegacyUrlKey(topicUrl),end=-1,m,re=/\[URL=([^\]]*)\]([\s\S]*?)\[\/URL\]/gi;
+    while((m=re.exec(s))){if((target&&taccLegacyUrlKey(m[1])===target)||(!target&&!String(m[1]||"").trim())){end=re.lastIndex;break;}}
+    if(end<0){re=/<a\b[^>]*href\s*=\s*["']([^"']*)["'][^>]*>([\s\S]*?)<\/a>/gi;while((m=re.exec(s))){if((target&&taccLegacyUrlKey(m[1])===target)||(!target&&!String(m[1]||"").trim())){end=re.lastIndex;break;}}}
+    if(end<0){return "";}var tail=s.slice(end),cut=tail.search(/<i\b[^>]*\bfa-|→/i);if(cut>=0){tail=tail.slice(0,cut);}var txt=taccLegacyPlain(tail).replace(/\(@[^\)]*\)/g,"").replace(/^\s*[|!·,:\/-]+\s*/i,"").replace(/^con\s+/i,"").trim();
+    txt=txt.replace(/\s*,?\s*\d{1,2}\s+(?:gennaio|febbraio|marzo|aprile|maggio|giugno|luglio|agosto|settembre|ottobre|novembre|dicembre)\s+20\d{2}\s*$/i,"").replace(/\s*,?\s*(?:inizio|fine)?\s*(?:gennaio|febbraio|marzo|aprile|maggio|giugno|luglio|agosto|settembre|ottobre|novembre|dicembre)(?:\s+circa)*\s+20\d{2}\s*$/i,"").trim();
+    if(/^(?:evento|quest|free|quidditch)$/i.test(txt)){return "";}if(txt.length>180){txt=txt.slice(0,180).trim();}return txt;
   }
   function taccLegacyAddCategory(cat){cat=String(cat||"").trim();if(!cat){return "Altro";}if(!TACCUINO.categories.some(function(x){return String(x).toLowerCase()===cat.toLowerCase();})){TACCUINO.categories.push(cat);}return TACCUINO.categories.find(function(x){return String(x).toLowerCase()===cat.toLowerCase();})||cat;}
-  function taccLegacyRoleExists(role){
-    var uk=taccLegacyUrlKey(role.url);return TACCUINO.roles.some(function(r){if(uk&&taccLegacyUrlKey(r&&r.url)===uk){return true;}return !uk&&!String(r&&r.url||"").trim()&&String(r&&r.title||"").trim().toLowerCase()===String(role.title||"").trim().toLowerCase()&&String(r&&r.period||"").trim().toLowerCase()===String(role.period||"").trim().toLowerCase()&&String(r&&r.category||"").trim().toLowerCase()===String(role.category||"").trim().toLowerCase();});
+  function taccLegacyFindExistingRole(role){
+    var uk=taccLegacyUrlKey(role.url);return TACCUINO.roles.find(function(r){if(uk&&taccLegacyUrlKey(r&&r.url)===uk){return true;}return !uk&&!String(r&&r.url||"").trim()&&String(r&&r.title||"").trim().toLowerCase()===String(role.title||"").trim().toLowerCase()&&String(r&&r.period||"").trim().toLowerCase()===String(role.period||"").trim().toLowerCase()&&String(r&&r.category||"").trim().toLowerCase()===String(role.category||"").trim().toLowerCase();})||null;
+  }
+  function taccLegacyRoleExists(role){return !!taccLegacyFindExistingRole(role);}
+  function taccLegacyRoleMetadata(lines,index){
+    var out=[];for(var j=index+1;j<Math.min(lines.length,index+5);j++){var x=String(lines[j]||""),links=taccLegacyLinks(x);if(links.some(function(a){return taccLegacyLooksLikeRoleLink(a,x);})){break;}if(taccLegacyCategoryFromLine(x)||taccLegacyPeriodFromLine(x)){break;}var p=taccLegacyPlain(x);if(!p||/^\[?(?:QUOTE|\/QUOTE|size|\/size)\]?$/i.test(p)){continue;}if(/^→/.test(p)||/^(?:Free|Quest|Evento|Quidditch)\b/i.test(p)){out.push(p);continue;}break;}return out;
+  }
+  function taccLegacyMergeExistingRole(existing,role,stats){
+    var changed=false;if(!existing||!role){return false;}
+    [["withWhom",role.withWhom],["period",role.period],["location",role.location],["closedAt",role.closedAt]].forEach(function(pair){if(!String(existing[pair[0]]||"").trim()&&String(pair[1]||"").trim()){existing[pair[0]]=pair[1];changed=true;}});
+    if((!existing.roleType||existing.roleType==="altro")&&role.roleType&&role.roleType!=="altro"){existing.roleType=role.roleType;changed=true;}
+    if(role.notes&&String(existing.notes||"").indexOf(role.notes)<0){existing.notes=(String(existing.notes||"").trim()?String(existing.notes||"").trim()+"\n":"")+role.notes;changed=true;}
+    if(changed){stats.rolesUpdated=(stats.rolesUpdated||0)+1;}return changed;
   }
   function taccLegacyParseRoles(section,isOpen,stats){
-    var lines=String(section.raw||"").split(/\r?\n/),category=isOpen?"Altro":"Altro",period="";
+    var lines=taccLegacyRoleChunks(section.raw),category="Altro",period="";
+    stats.rolesOpen=stats.rolesOpen||0;stats.rolesClosed=stats.rolesClosed||0;stats.rolesUpdated=stats.rolesUpdated||0;stats.roleCandidates=stats.roleCandidates||0;stats.roleUnparsed=stats.roleUnparsed||0;
     for(var i=0;i<lines.length;i++){
-      var line=lines[i],cat=taccLegacyCategoryFromLine(line);if(cat){category=taccLegacyAddCategory(cat);continue;}
-      var per=taccLegacyPeriodFromLine(line);if(per){period=per;continue;}
-      var links=taccLegacyLinks(line);if(!links.length){continue;}
-      var type=taccLegacyRoleType(line,section.raw);if(type==="altro"&&!/fa-(?:comment|dice|users|people-group|eye|book|magnifying|chess)/i.test(line)){continue;}
-      var meaningful=links.filter(function(x){return x.label&&!/^(?:x|\d+)$/i.test(x.label);});if(!meaningful.length){continue;}
-      var title=meaningful.map(function(x){return x.label;}).join(" ").replace(/\s+/g," ").trim();if(!title){continue;}
-      var inlinePer=taccLegacyOpenInlinePeriod(line),role={id:taccId("role"),title:title,url:links[0].url||"",withWhom:taccLegacyWithWhom(line),category:taccLegacyAddCategory(isOpen?"Altro":category),roleType:type,period:inlinePer||period||"",location:taccLegacyLocation(line),notes:"",openedAt:"",closedAt:isOpen?"":taccToday(),status:isOpen?"open":"closed",legacyImported:true,_legacyRaw:line};
-      if(taccLegacyRoleExists(role)){stats.duplicates++;continue;}TACCUINO.roles.push(role);stats.roles++;
+      var line=lines[i],cat=taccLegacyCategoryFromLine(line);if(cat){category=taccLegacyAddCategory(cat);}var per=taccLegacyPeriodFromLine(line);if(per){period=per;}
+      var links=taccLegacyLinks(line),topicLinks=links.filter(function(x){return taccLegacyLooksLikeRoleLink(x,line);});if(!topicLinks.length){continue;}var rolePer=taccLegacyRolePeriodFromLine(line);if(rolePer){period=rolePer;}
+      var topic=topicLinks[0];stats.roleCandidates++;var title=String(topic.label||"").replace(/\s+/g," ").trim();if(!title||/^(?:x|\d+)$/i.test(title)){stats.roleUnparsed++;continue;}
+      var meta=taccLegacyRoleMetadata(lines,i),context=line+(meta.length?"\n"+meta.join("\n"):""),type=taccLegacyRoleType(context,section.raw);if(type.indexOf("custom:")===0){taccRememberCustomRoleType(type.slice(7));}
+      var inlinePer=taccLegacyOpenInlinePeriod(line),notes=meta.join("\n"),role={id:taccId("role"),title:title,url:topic.url||"",withWhom:taccLegacyWithWhom(line,topic.url),category:taccLegacyAddCategory(isOpen?"Altro":category),roleType:type,period:inlinePer||rolePer||period||"",location:taccLegacyLocation(line),notes:notes,openedAt:"",closedAt:isOpen?"":taccLegacyDateFromLine(line),status:isOpen?"open":"closed",legacyImported:true,_legacyRaw:line};
+      var existing=taccLegacyFindExistingRole(role);if(existing){stats.duplicates++;taccLegacyMergeExistingRole(existing,role,stats);continue;}TACCUINO.roles.push(role);stats.roles++;if(isOpen){stats.rolesOpen++;}else{stats.rolesClosed++;}
     }
   }
   function taccLegacyParsePng(section,stats){
@@ -5397,22 +6274,181 @@
     String(section.raw||"").split(/\r?\n/).forEach(function(line){if(!/about|pinterest|scheda\s+png/i.test(taccLegacyPlain(line))){return;}taccLegacyLinks(line).forEach(function(x){if(!x.url||TACCUINO.links.some(function(y){return taccLegacyUrlKey(y&&y.url)===taccLegacyUrlKey(x.url);})){return;}TACCUINO.links.push({id:taccId("link"),label:x.label||"Link personale",url:x.url});stats.links++;});});
   }
   function taccLegacyMissionAliases(def){
-    var n=String(def&&def.name||"").replace(/\s*[—-].*$/,"").replace(/\s*\([^\)]*\)\s*$/,"").trim(),a=[n];
-    if(/Gli Amiconi/i.test(n)){a.push("Gli amiconi");}if(/I Compari/i.test(n)){a.push("I compari");}if(/Il Venditore/i.test(n)){a.push("Il venditore");}
+    var n=String(def&&def.name||"").replace(/\s*[—-].*$/," ").replace(/\s*\([^\)]*\)\s*$/," ").replace(/\s+/g," ").trim(),a=[n];
+    if(/Gli Amiconi/i.test(n)){a.push("Gli amiconi","I Compari");}
+    if(/I Compari/i.test(n)){a.push("I compari","Gli Amiconi");}
+    /* Passaggio VII anno → Adulto: il conteggio dei PG diversi è il secondo
+       progresso esplicitamente trasversale segnalato dal regolamento. */
+    if(def&&def.id==="fw_popolare"){a.push("Gli Estroversi","Gli estroversi");}
+    if(/Il Venditore/i.test(n)){a.push("Il venditore");}
     return a.filter(Boolean);
   }
-  function taccLegacyAppendMissionNote(state,line){var txt=taccLegacyPlain(line);if(!txt){return;}var marker="[Importato dal vecchio Taccuino] "+txt;var cur=String(state.notes||"");if(cur.indexOf(marker)<0){state.notes=(cur?cur+"\n":"")+marker;}}
-  function taccLegacyMergeRelation(name,links,stats){
-    name=String(name||"").trim();if(!name){return;}var rel=TACCUINO.relations.find(function(x){return String(x&&x.name||"").trim().toLowerCase()===name.toLowerCase();});if(!rel){rel={id:taccId("rel"),name:name,count:0,roles:[],notes:"Importato dal vecchio Taccuino"};TACCUINO.relations.push(rel);stats.relations++;}rel.roles=Array.isArray(rel.roles)?rel.roles:[];
-    links.forEach(function(x,idx){if(!x.url||rel.roles.some(function(r){return taccLegacyUrlKey(r&&r.url)===taccLegacyUrlKey(x.url);})){return;}rel.roles.push({id:taccId("relrole"),label:x.label&&!/^\d+$/.test(x.label)?x.label:("Role "+(rel.roles.length+1)),url:x.url});});
+  function taccLegacyMissionSourceMode(section){
+    var lab=String(section&&section.label||"").toLowerCase(),raw=String(section&&section.raw||"").toLowerCase();
+    /* Prima vengono i titoli espliciti della sezione: i nomi delle Missioni
+       trasversali possono infatti citare anche la loro controparte dell'altro modo. */
+    if(/fanta\s*hogwarts|fantahogwarts|(?:^|\W)fh(?:\W|$)/i.test(lab)){return "studente";}
+    if(/fanta\s*wiz|fantawiz|(?:^|\W)fw(?:\W|$)/i.test(lab)){return "adulto";}
+    if(/fanta\s*hogwarts|fantahogwarts|\(studente\)/i.test(raw)){return "studente";}
+    if(/fanta\s*wiz|fantawiz|\(adulto\)/i.test(raw)){return "adulto";}
+    var studentOnly=/gli\s+amiconi|gli\s+estroversi/i.test(raw),adultOnly=/i\s+compari|il\s+popolare/i.test(raw);
+    if(studentOnly&&!adultOnly){return "studente";}
+    if(adultOnly&&!studentOnly){return "adulto";}
+    return "";
+  }
+  function taccLegacyMissionImportDefs(section){
+    var source=taccLegacyMissionSourceMode(section);
+    if(!source||source===TACC_MODE){return taccMissionDefs();}
+    if(TACC_MODE==="adulto"&&source==="studente"){
+      /* Non trasformare Missioni FH in Missioni FW diverse. Importiamo soltanto
+         i due progressi che hanno continuità esplicita: Amiconi→Compari ed
+         Estroversi→Popolare. */
+      return TACC_MISSIONS_ADULTO.filter(function(d){return d.id==="fw_compari"||d.id==="fw_popolare";});
+    }
+    return [];
+  }
+  function taccLegacySectionLooksMissionLike(section){
+    var raw=String(section&&section.raw||""),lab=String(section&&section.label||"");
+    if(/fanta|mission/i.test(lab)||/fanta\s*hogwarts|fantahogwarts|fanta\s*wiz|fantawiz/i.test(raw)){return true;}
+    if(!/\d+(?:[\.,]\d+)?\s*(?:G|galeoni?)?\s*\/\s*\d+(?:[\.,]\d+)?|fa-bars-progress|fa-spinner|fa-check/i.test(raw)){return false;}
+    var plain=taccLegacyPlain(raw).toLowerCase(),defs=taccLegacyMissionImportDefs(section);
+    return defs.some(function(def){return taccLegacyMissionAliases(def).some(function(a){a=String(a||"").trim().toLowerCase();return a.length>=5&&plain.indexOf(a)>=0;});});
+  }
+  function taccLegacyApplyCrossStagePeopleCarry(section,stats){
+    if(TACC_MODE!=="adulto"||taccLegacyMissionSourceMode(section)!=="studente"){return 0;}
+    var raw=String(section&&section.raw||"").replace(/<br\s*\/?>/gi,"\n"),lines=raw.split(/\r?\n/),relevant=[];
+    lines.forEach(function(line){if(/gli\s+estroversi/i.test(taccLegacyPlain(line))){relevant.push(line);}});
+    if(!relevant.length){return 0;}
+    /* Se il vecchio Taccuino contiene più anni scolastici, al passaggio Adulto
+       interessa il progresso del VII anno. Se non è indicato alcun anno, usiamo
+       comunque il progresso riconoscibile invece di perderlo. */
+    var hasVII=relevant.some(function(line){return /\(\s*VII\s*\)/i.test(taccLegacyPlain(line));});
+    if(hasVII){relevant=relevant.filter(function(line){return /\(\s*VII\s*\)/i.test(taccLegacyPlain(line));});}
+    var thresholds=[5,10,15],best=0;
+    relevant.forEach(function(line){
+      var plain=taccLegacyPlain(line),idx=/difficile/i.test(plain)?2:(/medio/i.test(plain)?1:(/facile/i.test(plain)?0:-1));
+      if(idx<0){return;}
+      if(/fa-check/i.test(line)){
+        best=Math.max(best,thresholds[idx]);return;
+      }
+      if(!/fa-bars-progress|fa-spinner/i.test(line)){return;}
+      var base=idx>0?thresholds[idx-1]:0,limit=thresholds[idx],value=0;
+      var ratios=[],m,re=/(\d+(?:[\.,]\d+)?)\s*(?:G|galeoni?)?\s*\/\s*(\d+(?:[\.,]\d+)?)/gi;
+      while((m=re.exec(plain))){ratios.push([Number(String(m[1]).replace(",",".")),Number(String(m[2]).replace(",","."))]);}
+      ratios.forEach(function(r){var n=r[0],den=r[1];if(!isFinite(n)||!isFinite(den)){return;}if(den===limit){value=Math.max(value,n);}else if(den===limit-base){value=Math.max(value,base+n);}else{value=Math.max(value,n);}});
+      var refs=taccLegacyLinks(line).filter(function(x){return x&&x.url&&taccLegacyIsTopicUrl(x.url)&&/^(?:x|\d+)$/i.test(String(x.label||"").trim());});
+      if(refs.length){value=Math.max(value,base+refs.length);}
+      best=Math.max(best,Math.min(limit,Math.max(0,value)));
+    });
+    if(best<=0){return 0;}
+    var state=taccMissionState("fw_popolare"),before=(state.people||[]).length+Math.max(0,taccNum(state.peopleCountExtra));
+    state.people=Array.isArray(state.people)?state.people:[];
+    state.peopleCountExtra=Math.max(Math.max(0,taccNum(state.peopleCountExtra)),Math.max(0,best-state.people.length));
+    if(!state.active){state.active=true;if(stats){stats.missions=(stats.missions||0)+1;}}
+    if(stats&&best>before){stats.structuredProgress=(stats.structuredProgress||0)+1;}
+    return best;
+  }
+  function taccLegacyAppendMissionNote(state,line){var txt=taccLegacyPlain(line);if(!txt||/^\[?(?:QUOTE|\/QUOTE)\]?$/i.test(txt)){return;}var marker="[Importato dal vecchio Taccuino] "+txt;var cur=String(state.notes||"");if(cur.indexOf(marker)<0){state.notes=(cur?cur+"\n":"")+marker;}}
+  function taccLegacyRemoveMissionNote(state,line){
+    var txt=taccLegacyPlain(line);if(!txt){return;}var marker="[Importato dal vecchio Taccuino] "+txt,cur=String(state.notes||"");
+    if(cur.indexOf(marker)<0){return;}state.notes=cur.split("\n").filter(function(x){return x!==marker;}).join("\n").replace(/^\n+|\n+$/g,"");
+  }
+  function taccLegacyRatioNumerators(plain){var out=[],m,re=/(\d+(?:[\.,]\d+)?)\s*(?:G|galeoni?)?\s*\/\s*(\d+(?:[\.,]\d+)?)\s*(?:G|galeoni?)?/gi;while((m=re.exec(String(plain||"")))){var n=Number(String(m[1]).replace(",","."));if(isFinite(n)){out.push(n);}}return out;}
+  function taccLegacyCounterTarget(def,plain,den){
+    var counters=(def&&def.counters)||[],low=String(plain||"").toLowerCase(),candidates=counters.filter(function(c){
+      var targets=[];if(c.goal!=null){targets.push(Number(c.goal));}if(c.repeatEvery!=null){targets.push(Number(c.repeatEvery));}if(c.repeatAfter!=null){targets.push(Number(c.repeatAfter));}(c.thresholds||[]).forEach(function(x){if(typeof x==="number"){targets.push(Number(x));}});return targets.indexOf(Number(den))>=0;
+    });
+    if(!candidates.length){return null;}if(candidates.length===1){return candidates[0];}
+    if(def.id==="fw_commerciante_sinistro"){
+      if(/acquist/.test(low)&&/illegal/.test(low)){return counters.find(function(c){return c.key==="acqIllegali";})||null;}
+      if(/vendit|guadagno/.test(low)&&/illegal/.test(low)){return counters.find(function(c){return c.key==="vendIllegali";})||null;}
+      if(/acquist/.test(low)&&/legal/.test(low)&&!/illegal/.test(low)){return counters.find(function(c){return c.key==="acqLegali";})||null;}
+      if(/vendit|guadagno/.test(low)&&/legal/.test(low)&&!/illegal/.test(low)){return counters.find(function(c){return c.key==="vendLegali";})||null;}
+      if(/livello\s+facile/.test(low)&&Number(den)===500){return counters.find(function(c){return c.key==="vendLegali";})||null;}
+      if(/livello\s+medio/.test(low)&&Number(den)===300){return counters.find(function(c){return c.key==="vendIllegali";})||null;}
+    }
+    if(def.id==="fw_commerciante_virtuoso"){
+      if(/vendit|guadagno/.test(low)){return counters.find(function(c){return c.key==="vendite";})||null;}
+      if(/acquist/.test(low)){return counters.find(function(c){return c.key==="acquisti";})||null;}
+    }
+    var scored=candidates.map(function(c){var label=String(c.label||"").toLowerCase(),score=0;
+      [[/illegal/,/illegal/],[/(^|\W)legal/,/(^|\W)legal/],[/acquist/,/acquist/],[/vendit/,/vendit|guadagno/],[/post/,/post/],[/role/,/role/],[/ingredient/,/ingredient/],[/piant/,/piant/],[/creatur/,/creatur/],[/articol/,/articol/],[/partit/,/partit/],[/mission/,/mission/],[/tutor/,/tutor/]].forEach(function(p){if(p[0].test(label)&&p[1].test(low)){score++;}});return {c:c,score:score};
+    }).sort(function(a,b){return b.score-a.score;});
+    return scored.length&&scored[0].score>0&&(scored.length===1||scored[0].score>scored[1].score)?scored[0].c:null;
+  }
+  function taccLegacyAddCounterEvidence(state,key,line){
+    if(!state||!key){return;}state.entries=state.entries&&typeof state.entries==="object"?state.entries:{};state.entries[key]=Array.isArray(state.entries[key])?state.entries[key]:[];
+    taccLegacyLinks(line).filter(function(x){return x&&x.url&&taccLegacyIsTopicUrl(x.url);}).forEach(function(x){if(state.entries[key].some(function(e){return taccLegacyUrlKey(e&&e.url)===taccLegacyUrlKey(x.url);})){return;}state.entries[key].push({id:taccId("proof"),value:0,label:x.label&&!/^(?:x|\d+)$/i.test(x.label)?x.label:"Riferimento importato",url:x.url,legacyImported:true});});
+  }
+  function taccLegacyTryStructuredMissionProgress(def,state,line,stats){
+    if(!def||!state||!(def.kind==="counters"||def.kind==="countersFlags")){return false;}
+    var plain=taccLegacyPlain(line),re=/(\d+(?:[\.,]\d+)?)\s*(?:G|galeoni?)?\s*\/\s*(\d+(?:[\.,]\d+)?)\s*(?:G|galeoni?)?/gi,m,handled=false,handledKeys=[];
+    while((m=re.exec(plain))){var value=Number(String(m[1]).replace(",",".")),den=Number(String(m[2]).replace(",","."));if(!isFinite(value)||!isFinite(den)){continue;}var c=taccLegacyCounterTarget(def,plain,den);if(!c){continue;}var old=taccNum(state.counters[c.key]);if(value>old){state.counters[c.key]=value;if(stats){stats.structuredProgress=(stats.structuredProgress||0)+1;}}if(handledKeys.indexOf(c.key)<0){handledKeys.push(c.key);}handled=true;}
+    if(handled){handledKeys.forEach(function(k){taccLegacyAddCounterEvidence(state,k,line);});taccLegacyRemoveMissionNote(state,line);}return handled;
+  }
+  function taccLegacyTryLinkedMissionProgress(def,state,line,stats){
+    if(!def||!state||!(def.kind==="counters"||def.kind==="countersFlags")||!Array.isArray(def.counters)||def.counters.length!==1||!/fa-spinner|fa-bars-progress/i.test(String(line||""))){return false;}
+    var refs=taccLegacyLinks(line).filter(function(x){return x&&x.url&&taccLegacyIsTopicUrl(x.url)&&/^(?:x|\d+)$/i.test(String(x.label||""));});
+    if(!refs.length){return false;}var c=def.counters[0],value=refs.length,old=taccNum(state.counters[c.key]);
+    if(value>old){state.counters[c.key]=value;if(stats){stats.structuredProgress=(stats.structuredProgress||0)+1;}}
+    taccLegacyAddCounterEvidence(state,c.key,line);taccLegacyRemoveMissionNote(state,line);return true;
+  }
+  function taccLegacyEnsureRelation(name,stats){
+    name=String(name||"").replace(/^[-•\d\.\s]+/,"").trim();if(!name){return null;}var rel=TACCUINO.relations.find(function(x){return String(x&&x.name||"").trim().toLowerCase()===name.toLowerCase();});if(!rel){rel={id:taccId("rel"),name:name,count:0,roles:[],notes:"Importato dal vecchio Taccuino"};TACCUINO.relations.push(rel);if(stats){stats.relations++;}}rel.roles=Array.isArray(rel.roles)?rel.roles:[];rel.count=Math.max(0,taccNum(rel.count));return rel;
+  }
+  function taccLegacyMergeRelation(name,links,stats,targetTotal){
+    var rel=taccLegacyEnsureRelation(name,stats);if(!rel){return null;}targetTotal=Math.max(0,parseInt(targetTotal,10)||0);var topicLinks=(links||[]).filter(function(x){return x&&x.url&&taccLegacyIsTopicUrl(x.url);});
+    if(targetTotal>0){var cur=rel.count+rel.roles.length;if(cur<targetTotal){rel.count+=targetTotal-cur;}}
+    topicLinks.forEach(function(x){if(rel.roles.some(function(r){return taccLegacyUrlKey(r&&r.url)===taccLegacyUrlKey(x.url);})){return;}if(targetTotal>0){if(rel.count>0){rel.count--;}else if(rel.roles.length>=targetTotal){return;}}rel.roles.push({id:taccId("relrole"),label:x.label&&!/^(?:x|\d+)$/i.test(x.label)?x.label:("Role "+(rel.roles.length+1)),url:x.url,legacyImported:true});});
+    return rel;
+  }
+  function taccLegacyRelationNameFromMissionLine(plain,alias){
+    var esc=String(alias||"").replace(/[.*+?^${}()|[\]\\]/g,"\\$&"),m=String(plain||"").match(new RegExp(esc+"\\s*[,–—-]\\s*([^\\(\\[]+)","i"));return m?String(m[1]||"").trim():"";
+  }
+  function taccLegacyNameBeforeFirstLink(line){var links=taccLegacyLinks(line);if(!links.length||!links[0].raw){return "";}var pos=String(line||"").indexOf(links[0].raw);if(pos<0){return "";}var prefix=taccLegacyPlain(String(line||"").slice(0,pos));prefix=prefix.replace(/^[-•\s\d\.\)]+/,"").replace(/[\[\(\|,:;\s]+$/g,"").trim();return prefix.length<=90?prefix:"";}
+  function taccLegacyPeopleTarget(plain){var nums=taccLegacyRatioNumerators(plain);return nums.length?Math.max.apply(Math,nums.map(function(x){return Math.max(0,parseInt(x,10)||0);})) : 0;}
+  function taccLegacyPeoplePeriod(def,plain){if(!def||!def.periodLabel){return "";}var m=String(plain||"").match(/(?:19|20)\d{2}/g);if(!m||!m.length){return "";}return String(m[0]);}
+  function taccLegacyAddPerson(state,name,url){
+    name=String(name||"").replace(/^[-•\d\.\s]+/,"").trim();url=String(url||"").trim();if(!name){return false;}var existing=state.people.find(function(x){return String(x&&x.name||"").trim().toLowerCase()===name.toLowerCase();});if(existing){if(!String(existing.role||"").trim()&&url){existing.role=url;}return false;}state.people.push({id:taccId("person"),name:name,role:url,legacyImported:true});return true;
+  }
+  function taccLegacyPeopleEntry(line,state,target,stats){
+    var plain=taccLegacyPlain(line),links=taccLegacyLinks(line).filter(function(x){return x&&x.url&&taccLegacyIsTopicUrl(x.url);});if(!links.length){return false;}var first=links[0],name="";
+    if(first.label&&!/^(?:x|\d+)$/i.test(first.label)){name=first.label;}else{name=taccLegacyNameBeforeFirstLink(line);}
+    if(!name||/<del\b|\[del\]/i.test(String(line||""))){return false;}var added=taccLegacyAddPerson(state,name,first.url);if(added&&stats){stats.people=(stats.people||0)+1;}if(target>0){state.peopleCountExtra=Math.max(0,target-state.people.length);}return true;
   }
   function taccLegacyParseMissions(section,stats){
-    var lines=String(section.raw||"").split(/\r?\n/),defs=taccMissionDefs(),currentRelation=false;
+    var raw=String(section.raw||"").replace(/<br\s*\/?>/gi,"\n").replace(/<\/p\s*>/gi,"\n").replace(/<\/?details\b[^>]*>/gi,"\n").replace(/<\/?summary\b[^>]*>/gi,"\n"),lines=raw.split(/\r?\n/),defs=taccLegacyMissionImportDefs(section),allDefs=TACC_MISSIONS_STUDENTE.concat(TACC_MISSIONS_ADULTO),currentDef=null,currentState=null,currentRelationName="",currentRelationTarget=0,currentPeopleTarget=0;
+    function resetCurrent(){currentDef=null;currentState=null;currentRelationName="";currentRelationTarget=0;currentPeopleTarget=0;}
+    function matchIn(list,plain){var found=null,alias="",low=String(plain||"").toLowerCase();list.some(function(def){
+      if(/\(studente\)/i.test(plain)&&String(def.id||"").indexOf("fw_")===0){return false;}
+      if(/\(adulto\)/i.test(plain)&&String(def.id||"").indexOf("fh_")===0){return false;}
+      return taccLegacyMissionAliases(def).some(function(a){if(a&&low.indexOf(String(a).toLowerCase())>=0){found=def;alias=a;return true;}return false;});
+    });return {def:found,alias:alias};}
+    taccLegacyApplyCrossStagePeopleCarry(section,stats);
     for(var i=0;i<lines.length;i++){
-      var line=lines[i],plain=taccLegacyPlain(line),matched=null;
-      defs.some(function(def){return taccLegacyMissionAliases(def).some(function(a){if(a&&plain.toLowerCase().indexOf(a.toLowerCase())>=0){matched=def;return true;}return false;});});
-      if(matched){var st=taccMissionState(matched.id);if(!st.active){st.active=true;stats.missions++;}taccLegacyAppendMissionNote(st,line);currentRelation=matched.kind==="relations";continue;}
-      if(currentRelation){var mm=plain.match(/^[-•]\s*([^\[]+?)\s*\[/);if(mm){taccLegacyMergeRelation(mm[1].trim(),taccLegacyLinks(line),stats);continue;}if(plain&&/\[URL=|fa-(?:check|spinner|bars-progress)/i.test(line)){currentRelation=false;}}
+      var line=lines[i],plain=taccLegacyPlain(line);if(!plain||/^\[?(?:QUOTE|\/QUOTE)\]?$/i.test(plain)){continue;}var hit=matchIn(defs,plain),matched=hit.def,matchedAlias=hit.alias;
+      if(!matched){var any=matchIn(allDefs,plain);if(any.def||/fa-turn-up/i.test(line)){resetCurrent();continue;}}
+      if(matched){
+        var completedHistorical=/fa-check/i.test(line)&&!/fa-bars-progress|fa-spinner/i.test(line)&&!/(\d+(?:[\.,]\d+)?)\s*(?:G|galeoni?)?\s*\/\s*(\d+(?:[\.,]\d+)?)/i.test(plain);
+        if(completedHistorical){resetCurrent();continue;}
+        currentDef=matched;currentState=taccMissionState(matched.id);if(!currentState.active){currentState.active=true;stats.missions++;}currentRelationName="";currentRelationTarget=0;currentPeopleTarget=0;var handled=taccLegacyTryStructuredMissionProgress(currentDef,currentState,line,stats);if(!handled){handled=taccLegacyTryLinkedMissionProgress(currentDef,currentState,line,stats);}
+        if(matched.kind==="relations"){currentRelationName=taccLegacyRelationNameFromMissionLine(plain,matchedAlias);currentRelationTarget=taccLegacyPeopleTarget(plain);if(currentRelationName){taccLegacyMergeRelation(currentRelationName,[],stats,currentRelationTarget);}handled=true;}
+        if(matched.kind==="people"){currentPeopleTarget=taccLegacyPeopleTarget(plain);if(!currentPeopleTarget&&/fa-bars-progress/i.test(line)){var roleRefs=taccLegacyLinks(line).filter(function(x){return x&&x.url&&taccLegacyIsTopicUrl(x.url)&&/^(?:\d+|x)$/i.test(String(x.label||""));});currentPeopleTarget=roleRefs.length;}if(currentPeopleTarget>0){currentState.peopleCountExtra=Math.max(currentState.peopleCountExtra||0,Math.max(0,currentPeopleTarget-currentState.people.length));handled=true;}var mp=taccLegacyPeoplePeriod(matched,plain);if(mp&&!currentState.period){currentState.period=mp;handled=true;}}
+        var aliasOnly=String(plain||"").replace(new RegExp(String(matchedAlias||"").replace(/[.*+?^${}()|[\]\\]/g,"\\$&"),"i"),"").replace(/[\s:;,–—-]+/g,"").trim()==="";
+        if(!handled&&!aliasOnly&&(/\d+\s*\/\s*\d+/.test(plain)||/fa-bars-progress|fa-spinner/i.test(line))){taccLegacyAppendMissionNote(currentState,line);}else if(handled){taccLegacyRemoveMissionNote(currentState,line);}continue;
+      }
+      if(!currentDef||!currentState){continue;}var links=taccLegacyLinks(line);
+      if(currentDef.kind==="relations"){
+        var pref=taccLegacyNameBeforeFirstLink(line),named=pref&&/^[A-ZÀ-ÖØ-Ý]/.test(pref)?pref:"";if(named){currentRelationName=named;currentRelationTarget=taccLegacyPeopleTarget(plain);taccLegacyMergeRelation(currentRelationName,links,stats,currentRelationTarget);taccLegacyRemoveMissionNote(currentState,line);continue;}
+        if(currentRelationName&&links.some(function(x){return x&&x.url&&taccLegacyIsTopicUrl(x.url);})){taccLegacyMergeRelation(currentRelationName,links,stats,currentRelationTarget);taccLegacyRemoveMissionNote(currentState,line);continue;}
+      }
+      if(currentDef.kind==="people"&&taccLegacyPeopleEntry(line,currentState,currentPeopleTarget,stats)){taccLegacyRemoveMissionNote(currentState,line);continue;}
+      if(taccLegacyTryStructuredMissionProgress(currentDef,currentState,line,stats)){continue;}
+      if(taccLegacyTryLinkedMissionProgress(currentDef,currentState,line,stats)){continue;}
+      if(/fa-turn-up/i.test(line)){resetCurrent();continue;}
+      /* Se il dato non è abbastanza chiaro da finire in un campo strutturato, non va perso:
+         conserva nelle note anche progressi senza link (es. “Livello X - 4/10”). */
+      if(/\d+(?:[\.,]\d+)?\s*(?:G|galeoni?)?\s*\/\s*\d+(?:[\.,]\d+)?|livello|galeon|\bG\b|fa-spinner|fa-bars-progress/i.test(String(line||""))){taccLegacyAppendMissionNote(currentState,line);}
     }
   }
   function taccLegacyAppendNotes(label,raw,stats){
@@ -5420,18 +6456,19 @@
   }
   function taccLegacyImport(raw){
     raw=String(raw||"").trim();if(!raw){return {ok:false,error:"Incolla il codice completo del vecchio Taccuino."};}
-    TACCUINO.legacyImports=Array.isArray(TACCUINO.legacyImports)?TACCUINO.legacyImports:[];var hash=taccLegacyHash(raw);if(TACCUINO.legacyImports.some(function(x){return x&&x.hash===hash;})){return {ok:false,error:"Questo identico Taccuino è già stato importato: non ho duplicato nulla."};}
-    var sections=taccLegacySections(raw),stats={roles:0,png:0,media:0,links:0,missions:0,relations:0,notes:0,duplicates:0,sections:sections.length},nameMatch=raw.match(/Taccuino\s+di\s+([^<\[\r\n]+(?:\s+[^<\[\r\n]+)?)/i),legacyName=nameMatch?taccLegacyPlain(nameMatch[1]):"";
-    sections.forEach(function(sec){var lab=String(sec.label||"").toLowerCase();if(/role\s+aperte/.test(lab)){taccLegacyParseRoles(sec,true,stats);taccLegacyParsePersonalLinks(sec,stats);}else if(/cronologia/.test(lab)){taccLegacyParseRoles(sec,false,stats);}if(/png/.test(lab)){taccLegacyParsePng(sec,stats);}if(/banner|medagli/.test(lab)){taccLegacyParseMedia(sec,stats);}if(/fanta|mission/.test(lab)||/fantahogwarts|fantawiz/i.test(sec.raw)){taccLegacyParseMissions(sec,stats);}if(/appunt|note|promemoria/.test(lab)&&!/conti\s+e\s+promemoria/.test(lab)){taccLegacyAppendNotes(sec.label,sec.raw,stats);}});
-    TACCUINO.legacyImports.push({id:taccId("legacy"),hash:hash,importedAt:new Date().toISOString(),name:legacyName||"Vecchio Taccuino",stats:stats,sections:sections.map(function(s){return {label:s.label,raw:s.raw};}),raw:raw});
-    taccSave();return {ok:true,stats:stats,name:legacyName||"Vecchio Taccuino"};
+    TACCUINO.legacyImports=Array.isArray(TACCUINO.legacyImports)?TACCUINO.legacyImports:[];var hash=taccLegacyHash(raw),existing=TACCUINO.legacyImports.find(function(x){return x&&x.hash===hash;});
+    var sections=taccLegacySections(raw),stats={roles:0,rolesOpen:0,rolesClosed:0,rolesUpdated:0,roleCandidates:0,roleUnparsed:0,png:0,media:0,links:0,missions:0,relations:0,notes:0,duplicates:0,sections:sections.length,cronologiaDetected:false},nameMatch=raw.match(/Taccuino\s+di\s+([^<\[\r\n]+(?:\s+[^<\[\r\n]+)?)/i),legacyName=nameMatch?taccLegacyPlain(nameMatch[1]):"";
+    sections.forEach(function(sec){var lab=String(sec.label||"").toLowerCase();if(/role\s+aperte/.test(lab)){taccLegacyParseRoles(sec,true,stats);taccLegacyParsePersonalLinks(sec,stats);}else if(/cronologia/.test(lab)){stats.cronologiaDetected=true;taccLegacyParseRoles(sec,false,stats);}if(/png/.test(lab)){taccLegacyParsePng(sec,stats);}if(/banner|medagli/.test(lab)){taccLegacyParseMedia(sec,stats);}if(taccLegacySectionLooksMissionLike(sec)){taccLegacyParseMissions(sec,stats);}if(/appunt|note|promemoria|idee|conti\s+e\s+promemoria/.test(lab)){taccLegacyAppendNotes(sec.label,sec.raw,stats);}});
+    var rec={id:existing&&existing.id?existing.id:taccId("legacy"),hash:hash,importedAt:existing&&existing.importedAt?existing.importedAt:new Date().toISOString(),reanalyzedAt:existing?new Date().toISOString():"",name:legacyName||"Vecchio Taccuino",stats:stats,sections:sections.map(function(s){return {label:s.label,raw:s.raw};}),raw:raw};
+    if(existing){var ei=TACCUINO.legacyImports.indexOf(existing);if(ei>=0){TACCUINO.legacyImports[ei]=rec;}}else{TACCUINO.legacyImports.push(rec);}
+    taccSave();return {ok:true,stats:stats,name:legacyName||"Vecchio Taccuino",reprocessed:!!existing};
   }
   function renderTaccLegacyImport(container){
-    container.appendChild(el("h3",null,"Importazione vecchio Taccuino"));if(TACC_LEGACY_IMPORT_MESSAGE){container.appendChild(el("div","tacc-import-summary ok",TACC_LEGACY_IMPORT_MESSAGE));TACC_LEGACY_IMPORT_MESSAGE="";}var card=el("div","tacc-card tacc-legacy-import");card.appendChild(el("h4",null,"Incolla il Taccuino che usavi sul Forum"));card.appendChild(el("p","small-note","Incolla qui tutto il codice del vecchio Taccuino, dall’inizio alla fine. Non serve ripulirlo o renderlo uguale a quello di altri PG: l’Elfo riconosce le sezioni, aggiunge ciò che sa convertire e conserva integralmente anche ciò che è personalizzato. L’importazione fa sempre MERGE: non sostituisce né cancella ciò che hai già compilato nell’Elfo."));
-    var ta=el("textarea","tacc-legacy-paste");ta.placeholder='<div class="scheda..."><div data-label="Role aperte"> ... incolla qui TUTTO il vecchio Taccuino ...';card.appendChild(ta);var btn=el("button","action","📥 Analizza e importa");btn.type="button";var result=el("div");btn.addEventListener(EV,function(){var r=taccLegacyImport(ta.value);result.innerHTML="";if(!r.ok){result.appendChild(el("div","tacc-import-summary",r.error));return;}var s=r.stats;TACC_LEGACY_IMPORT_MESSAGE="✓ Importazione completata da «"+r.name+"». Aggiunti: "+s.roles+" Role, "+s.png+" PNG, "+s.media+" immagini/banner, "+s.links+" link personali, "+s.missions+" Missioni riconosciute, "+s.relations+" relazioni. Sezioni originali conservate: "+s.sections+". Elementi già presenti e non duplicati: "+s.duplicates+".";ta.value="";renderAll();});card.appendChild(btn);card.appendChild(result);container.appendChild(card);
-    var hist=el("div","tacc-card tacc-import-history");hist.appendChild(el("h4",null,"Importazioni conservate"));hist.appendChild(el("p","small-note","Questa è la rete di sicurezza: il codice originale resta conservato integralmente. Se una personalizzazione non ha un equivalente strutturato nell’Elfo, non viene persa."));var imports=Array.isArray(TACCUINO.legacyImports)?TACCUINO.legacyImports:[];if(!imports.length){hist.appendChild(el("div","tacc-empty","Nessun vecchio Taccuino importato."));}imports.slice().reverse().forEach(function(im){var d=document.createElement("details"),sum=document.createElement("summary"),st=im.stats||{};sum.textContent=(im.name||"Vecchio Taccuino")+" · "+(im.importedAt?new Date(im.importedAt).toLocaleString():"importato")+" · "+(st.sections||0)+" sezioni";d.appendChild(sum);(Array.isArray(im.sections)?im.sections:[]).forEach(function(sec){var sd=document.createElement("details"),ss=document.createElement("summary");ss.textContent=sec.label||"Sezione";sd.appendChild(ss);sd.appendChild(el("div","tacc-legacy-raw",String(sec.raw||"")));d.appendChild(sd);});hist.appendChild(d);});container.appendChild(hist);
+    container.appendChild(el("h3",null,"Importazione vecchio Taccuino"));if(TACC_LEGACY_IMPORT_MESSAGE){container.appendChild(el("div","tacc-import-summary ok",TACC_LEGACY_IMPORT_MESSAGE));TACC_LEGACY_IMPORT_MESSAGE="";}var card=el("div","tacc-card tacc-legacy-import");card.appendChild(el("h4",null,"Incolla il Taccuino che usavi sul Forum"));card.appendChild(el("p","small-note","Incolla qui tutto il codice del vecchio Taccuino, dall’inizio alla fine. L’Elfo riconosce anche Taccuini con impaginazioni differenti o codice compattato dal Forum, comprese Role senza icone, vecchie categorie scolastiche/adulte e dati FantaHogwarts/FantaWiz. Separa Role aperte e Role chiuse della Cronologia e fa sempre MERGE: non sostituisce né cancella ciò che hai già compilato."));
+    card.appendChild(el("p","small-note","Il parser cerca le Missioni anche quando il vecchio Taccuino usa titoli o impaginazioni non standard, purché siano riconoscibili nome della Missione e relativo progresso."));
+    var ta=el("textarea","tacc-legacy-paste");ta.placeholder='<div class="scheda..."><div data-label="Role aperte"> ... incolla qui TUTTO il vecchio Taccuino ...';card.appendChild(ta);var btn=el("button","action","📥 Analizza e importa");btn.type="button";var result=el("div");btn.addEventListener(EV,function(){var r=taccLegacyImport(ta.value);result.innerHTML="";if(!r.ok){result.appendChild(el("div","tacc-import-summary",r.error));return;}var s=r.stats,extra=(s.cronologiaDetected&&s.rolesClosed===0&&(s.rolesUpdated||0)===0)?" ⚠ Ho rilevato la Cronologia ma non ho trovato nuove Role chiuse convertibili: controlla i duplicati oppure usa «Rianalizza» nello storico.":"";TACC_LEGACY_IMPORT_MESSAGE="✓ "+(r.reprocessed?"Taccuino rianalizzato":"Importazione completata")+" da «"+r.name+"». Aggiunte: "+s.rolesOpen+" Role aperte · "+s.rolesClosed+" Role chiuse · "+s.png+" PNG · "+s.media+" immagini/banner · "+s.links+" link personali · "+s.missions+" Missioni · "+s.relations+" relazioni · "+(s.people||0)+" PG riconosciuti nelle Missioni · "+(s.structuredProgress||0)+" progressi strutturati recuperati. Duplicati non reinseriti: "+s.duplicates+"."+extra;ta.value="";renderAll();});card.appendChild(btn);card.appendChild(result);container.appendChild(card);
+    var hist=el("div","tacc-card tacc-import-history");hist.appendChild(el("h4",null,"Importazioni conservate"));hist.appendChild(el("p","small-note","Il codice originale resta conservato integralmente. Se una vecchia importazione aveva riconosciuto solo parte del Taccuino, puoi premere «Rianalizza»: il parser aggiornato recupera ciò che manca senza duplicare le voci già presenti."));var imports=Array.isArray(TACCUINO.legacyImports)?TACCUINO.legacyImports:[];if(!imports.length){hist.appendChild(el("div","tacc-empty","Nessun vecchio Taccuino importato."));}imports.slice().reverse().forEach(function(im){var d=document.createElement("details"),sum=document.createElement("summary"),st=im.stats||{};sum.textContent=(im.name||"Vecchio Taccuino")+" · "+(im.importedAt?new Date(im.importedAt).toLocaleString():"importato")+" · "+(st.sections||0)+" sezioni · "+(st.rolesOpen||0)+" aperte / "+(st.rolesClosed||0)+" chiuse";d.appendChild(sum);var reBtn=el("button","action small","↻ Rianalizza");reBtn.type="button";reBtn.addEventListener(EV,function(ev){if(ev){ev.preventDefault();ev.stopPropagation();}var rr=taccLegacyImport(im.raw||"");if(!rr.ok){alert(rr.error);return;}var rs=rr.stats;TACC_LEGACY_IMPORT_MESSAGE="✓ Rianalisi completata. Nuove voci aggiunte: "+rs.rolesOpen+" Role aperte · "+rs.rolesClosed+" Role chiuse; voci già presenti arricchite: "+(rs.rolesUpdated||0)+"; duplicati già presenti: "+rs.duplicates+".";renderAll();});d.appendChild(reBtn);(Array.isArray(im.sections)?im.sections:[]).forEach(function(sec){var sd=document.createElement("details"),ss=document.createElement("summary");ss.textContent=sec.label||"Sezione";sd.appendChild(ss);sd.appendChild(el("div","tacc-legacy-raw",String(sec.raw||"")));d.appendChild(sd);});hist.appendChild(d);});container.appendChild(hist);
   }
-
   function taccExport(){
     try{var blob=new Blob([JSON.stringify(TACCUINO,null,2)],{type:"application/json"}),url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download="taccuino-personale-v2-"+taccToday()+".json";document.body.appendChild(a);a.click();a.remove();setTimeout(function(){URL.revokeObjectURL(url);},800);}catch(e){console.error(e);alert("Non sono riuscito a creare il backup del Taccuino.");}
   }
@@ -5451,18 +6488,34 @@
 
   function renderTaccNoteBackup(container){
     container.appendChild(el("h3",null,"Appunti e Backup"));var card=el("div","tacc-card");card.appendChild(el("h4",null,"Appunti liberi"));var ta=el("textarea","tacc-note-area");ta.value=TACCUINO.notes||"";ta.placeholder="Tutto ciò che vuoi ricordare e che non rientra nelle altre sezioni…";ta.addEventListener("input",function(){TACCUINO.notes=ta.value;taccSave();});card.appendChild(ta);container.appendChild(card);
-    var bk=el("div","tacc-card");bk.appendChild(el("h4",null,"Backup e sincronizzazione"));bk.appendChild(el("p","small-note","Il Taccuino viene salvato subito in questo browser e, dopo il caricamento del PG, sincronizzato anche in una raccolta Firebase separata dal documento principale dell’Elfo. Se cambi dispositivo, carica lo stesso PG: verrà recuperata la copia cloud più recente."));var row=el("div","tacc-backup-row"),ex=el("button","action","Esporta backup .json");ex.type="button";ex.addEventListener(EV,taccExport);row.appendChild(ex);var im=el("button","action","Importa backup .json");im.type="button";var fi=document.createElement("input");fi.type="file";fi.accept="application/json,.json";fi.style.display="none";fi.addEventListener("change",function(){taccImportFile(fi.files&&fi.files[0]);fi.value="";});im.addEventListener(EV,function(){fi.click();});row.appendChild(im);var sync=el("button","action","Sincronizza ora");sync.type="button";sync.addEventListener(EV,function(){taccCloudPush(true);});row.appendChild(sync);row.appendChild(fi);bk.appendChild(row);
+    var bk=el("div","tacc-card");bk.appendChild(el("h4",null,"Backup e sincronizzazione"));bk.appendChild(el("p","small-note","Il Taccuino è pubblico in lettura: chi apre questo PG vede la copia cloud aggiornata. Le modifiche, il backup e la sincronizzazione restano disponibili soltanto dopo aver inserito la Password del PG. Sul dispositivo del proprietario viene mantenuta anche una copia locale di sicurezza."));var row=el("div","tacc-backup-row"),ex=el("button","action","Esporta backup .json");ex.type="button";ex.addEventListener(EV,taccExport);row.appendChild(ex);var im=el("button","action","Importa backup .json");im.type="button";var fi=document.createElement("input");fi.type="file";fi.accept="application/json,.json";fi.style.display="none";fi.addEventListener("change",function(){taccImportFile(fi.files&&fi.files[0]);fi.value="";});im.addEventListener(EV,function(){fi.click();});row.appendChild(im);var sync=el("button","action","Sincronizza ora");sync.type="button";sync.addEventListener(EV,function(){taccCloudPush(true);});row.appendChild(sync);row.appendChild(fi);bk.appendChild(row);
     var st=el("div","tacc-storage-status"+(TACC_STORAGE_OK?"":" error"),"Locale · "+(TACC_STATUS||(TACC_STORAGE_OK?"disponibile":"non disponibile")));bk.appendChild(st);var cloud=el("div","tacc-storage-status"+(TACC_CLOUD_ERROR?" error":""),TACC_CLOUD_TEXT);cloud.id="tacc-cloud-status-live";bk.appendChild(cloud);var dz=el("div","tacc-danger-zone"),clear=el("button","action danger","Svuota tutto il Taccuino");clear.type="button";clear.addEventListener(EV,function(){if(confirm("Svuotare completamente il Taccuino? La cancellazione verrà sincronizzata anche sul cloud. Questa operazione non può essere annullata senza un backup esportato.")){TACCUINO=taccDefault();taccSave();renderAll();}});dz.appendChild(clear);bk.appendChild(dz);container.appendChild(bk);
+  }
+
+
+  function taccApplyPublicReadOnly(root){
+    if(!root||EDIT_UNLOCKED){return;}
+    root.classList.add("tacc-readonly");
+    var note=el("div","tacc-public-readonly-note","🔒 Taccuino pubblico in sola visualizzazione. Tutti possono consultarlo; per modificarlo è necessario inserire la Password del PG.");
+    var h=root.querySelector("h2");
+    if(h&&h.parentNode){h.parentNode.insertBefore(note,h.nextSibling);}else{root.insertBefore(note,root.firstChild);}
+    root.querySelectorAll("textarea").forEach(function(x){x.readOnly=true;});
+    root.querySelectorAll("input").forEach(function(x){
+      var t=String(x.type||"text").toLowerCase();
+      if(t==="checkbox"||t==="radio"||t==="file"||t==="button"||t==="submit"){x.disabled=true;}else{x.readOnly=true;}
+    });
+    root.querySelectorAll("select").forEach(function(x){x.disabled=true;});
+    root.querySelectorAll("button.action").forEach(function(x){x.disabled=true;});
   }
 
   function renderTaccuinoStep(container){
     var p=el("div","panel");p.appendChild(el("h2",null,"Taccuino Personale"));
-    if(TACC_TAB==="guarigione"){TACC_TAB="role";}
-    var _tOpen=(TACCUINO.roles||[]).filter(function(r){return r&&r.status!=="closed";}).length,_tClosed=(TACCUINO.roles||[]).filter(function(r){return r&&r.status==="closed";}).length;var tabs=[{k:"role",l:"Role aperte"+(_tOpen?" ("+_tOpen+")":"")},{k:"cronologia",l:"Cronologia"+(_tClosed?" ("+_tClosed+")":"")},{k:"png",l:"Taccuino PNG"+((TACCUINO.png||[]).length?" ("+(TACCUINO.png||[]).length+")":"")},{k:"missioni",l:TACC_MODE==="studente"?"FantaHogwarts":"FantaWiz"},{k:"extra",l:"Extra"},{k:"import",l:"📥 Importazione"},{k:"note",l:"Appunti & Backup"}],bar=el("div","tacc-tabs");tabs.forEach(function(t){var b=el("button","tacc-tab"+(TACC_TAB===t.k?" active":""),t.l);b.type="button";b.addEventListener(EV,function(){TACC_TAB=t.k;renderAll();});bar.appendChild(b);});p.appendChild(bar);
-    if(TACC_TAB==="role"){renderTaccRole(p);}else if(TACC_TAB==="cronologia"){renderTaccCronologia(p);}else if(TACC_TAB==="png"){renderTaccPng(p);}else if(TACC_TAB==="missioni"){renderTaccMissioni(p);}else if(TACC_TAB==="extra"){renderTaccExtra(p);}else if(TACC_TAB==="import"){renderTaccLegacyImport(p);}else{renderTaccNoteBackup(p);}container.appendChild(p);
+    if(TACC_TAB==="guarigione"||(!EDIT_UNLOCKED&&TACC_TAB==="import")){TACC_TAB="role";}
+    var _tOpen=(TACCUINO.roles||[]).filter(function(r){return r&&r.status!=="closed";}).length,_tClosed=(TACCUINO.roles||[]).filter(function(r){return r&&r.status==="closed";}).length;var tabs=[{k:"role",l:"Role aperte"+(_tOpen?" ("+_tOpen+")":"")},{k:"cronologia",l:"Cronologia"+(_tClosed?" ("+_tClosed+")":"")},{k:"png",l:"Taccuino PNG"+((TACCUINO.png||[]).length?" ("+(TACCUINO.png||[]).length+")":"")},{k:"missioni",l:TACC_MODE==="studente"?"FantaHogwarts":"FantaWiz"},{k:"extra",l:"Extra"}];if(EDIT_UNLOCKED){tabs.push({k:"import",l:"📥 Importazione"});}tabs.push({k:"note",l:"Appunti & Backup"});var bar=el("div","tacc-tabs");tabs.forEach(function(t){var b=el("button","tacc-tab"+(TACC_TAB===t.k?" active":""),t.l);b.type="button";b.addEventListener(EV,function(){TACC_TAB=t.k;renderAll();});bar.appendChild(b);});p.appendChild(bar);
+    if(TACC_TAB==="role"){renderTaccRole(p);}else if(TACC_TAB==="cronologia"){renderTaccCronologia(p);}else if(TACC_TAB==="png"){renderTaccPng(p);}else if(TACC_TAB==="missioni"){renderTaccMissioni(p);}else if(TACC_TAB==="extra"){renderTaccExtra(p);}else if(TACC_TAB==="import"&&EDIT_UNLOCKED){renderTaccLegacyImport(p);}else{renderTaccNoteBackup(p);}if(!EDIT_UNLOCKED){taccApplyPublicReadOnly(p);}container.appendChild(p);
   }
   window.addEventListener("storage",function(e){if(e.key===TACC_STORAGE_KEY){TACCUINO=taccLoad();taccScheduleCloudSync();if(currentStep==="taccuino"){renderAll();}}});
-  window.addEventListener("online",function(){if(taccCurrentPgName()){taccCloudSyncAfterLogin(taccCurrentPgName());}});
+  window.addEventListener("online",function(){if(EDIT_UNLOCKED&&taccCurrentPgName()){taccCloudSyncAfterLogin(taccCurrentPgName());}});
   document.addEventListener("visibilitychange",function(){if(document.visibilityState==="hidden"&&TACC_CLOUD_TIMER){clearTimeout(TACC_CLOUD_TIMER);TACC_CLOUD_TIMER=null;taccCloudPush(false);}});
 
 
@@ -5553,6 +6606,7 @@
     if(currentStep === "esporta"){ renderEsportaStep(c); }
     attachContextHelp(c);
     enhanceLinkInputs(c);
+    protectFormControlsFromAncestorLinks(c);
     if(EDIT_UNLOCKED && currentStep !== "pg" && currentStep !== "taccuino"){ appendUndoRedoControls(c); }
     if(EDIT_UNLOCKED && currentStep !== "pg" && currentStep !== "taccuino"){ appendManualSave(c); }
     appendPageNavigation(c);
@@ -5720,7 +6774,7 @@
               if(LAST_PERSISTED_STATE){LAST_PERSISTED_STATE._editPasswordConfigured=true;LAST_PERSISTED_STATE._dbRevision=DB_REVISION;}
               if(LAST_AUDITED_STATE){LAST_AUDITED_STATE._editPasswordConfigured=true;LAST_AUDITED_STATE._dbRevision=DB_REVISION;}
               if(LOCKED_MIGRATION_PENDING){FORCE_PERSIST_SAVE=true;LOCKED_MIGRATION_PENDING=false;}
-              renderAll();if(FORCE_PERSIST_SAVE){scheduleSave(0,false);}return true;
+              renderAll();if(typeof taccCloudSyncAfterLogin==="function"){taccCloudSyncAfterLogin(nome);}if(FORCE_PERSIST_SAVE){scheduleSave(0,false);}return true;
             }
             if(!silent){alert("Non è stato possibile creare la Password di modifica. Verifica che le Rules Firebase aggiornate siano state pubblicate.");}
             renderAll();return true;
@@ -5730,7 +6784,7 @@
           if(res&&res.ok){
             EDIT_UNLOCKED=true;fbStatusText="Modifica autorizzata";showPasswordSessionNoticeOnce(nome);
             if(LOCKED_MIGRATION_PENDING){FORCE_PERSIST_SAVE=true;LOCKED_MIGRATION_PENDING=false;}
-            renderAll();if(FORCE_PERSIST_SAVE){scheduleSave(0,false);}return true;
+            renderAll();if(typeof taccCloudSyncAfterLogin==="function"){taccCloudSyncAfterLogin(nome);}if(FORCE_PERSIST_SAVE){scheduleSave(0,false);}return true;
           }
           if(!silent){alert("Password non corretta. L'Elfo resta comunque aperto in sola visualizzazione.");}
           renderAll();return true;
@@ -5769,25 +6823,58 @@
   function flushTaccuinoCloudBeforeLock(){
     if(!EDIT_UNLOCKED||!fbConnected||!window.fbReady||!taccCurrentPgName()){return Promise.resolve(true);}
     if(TACC_CLOUD_TIMER){clearTimeout(TACC_CLOUD_TIMER);TACC_CLOUD_TIMER=null;}
-    /* Il Taccuino ha comunque già una copia locale. Qui attendiamo/forziamo il cloud
-       prima di chiudere la sessione, ma un errore cloud non impedisce la disconnessione. */
-    return Promise.resolve(taccCloudPush(true)).catch(function(e){console.error(e);return false;}).then(function(){return true;});
+    /* Il Taccuino pubblico vive nel cloud: prima di Disconnetti/Cambia Elfo proviamo
+       sempre a pubblicare l'ultima copia. Se fallisce, non fingiamo che sia tutto
+       sincronizzato: l'utente può scegliere consapevolmente se restare in modifica
+       e riprovare oppure uscire comunque contando sulla copia locale del browser. */
+    return Promise.resolve(taccCloudPush(true)).catch(function(e){console.error(e);return false;}).then(function(ok){
+      if(ok){return true;}
+      return confirm("Il Taccuino non è stato sincronizzato nel cloud. Gli altri utenti potrebbero vedere ancora la versione precedente.\n\nLa copia locale in questo browser resta disponibile. Vuoi disconnetterti comunque?");
+    });
   }
   function saveEverythingBeforeLock(){
     if(!EDIT_UNLOCKED){return Promise.resolve(true);}
     if(fbSaveTimer){clearTimeout(fbSaveTimer);fbSaveTimer=null;}
     return serializedSaveLatest().then(function(ok){
       if(!ok){return false;}
-      return flushTaccuinoCloudBeforeLock().then(function(){return flushAuditNow().then(function(){return true;});});
+      return flushTaccuinoCloudBeforeLock().then(function(taccOk){
+        if(!taccOk){return false;}
+        return flushAuditNow().then(function(){return true;});
+      });
     });
   }
   function lockEditingKeepPg(btn){
-    if(!EDIT_UNLOCKED){return Promise.resolve(true);}
-    if(btn){btn.disabled=true;btn.textContent="Salvataggio…";}
-    return saveEverythingBeforeLock().then(function(ok){
-      if(!ok){if(btn){btn.disabled=false;btn.textContent="Disconnetti";}alert("Il salvataggio finale non è riuscito: la modifica resta sbloccata. Riprova prima di premere Disconnetti.");return false;}
-      return Promise.resolve(window.fbEndEditSession?window.fbEndEditSession():true).then(function(){clearPasswordSessionNotice(STUDENTE.nome);EDIT_UNLOCKED=false;fbStatusText="Sola visualizzazione";renderAll();return true;});
-    }).catch(function(e){console.error(e);if(btn){btn.disabled=false;btn.textContent="Disconnetti";}alert("Il salvataggio finale non è riuscito: la modifica resta sbloccata.");return false;});
+    if(!EDIT_UNLOCKED||EDIT_DISCONNECT_PENDING){return Promise.resolve(true);}
+    EDIT_DISCONNECT_PENDING=true;
+    if(fbSaveTimer){clearTimeout(fbSaveTimer);fbSaveTimer=null;}
+    if(TACC_CLOUD_TIMER){clearTimeout(TACC_CLOUD_TIMER);TACC_CLOUD_TIMER=null;}
+    if(btn){btn.disabled=true;btn.textContent="Disconnessione…";}
+    /* Il salvataggio normale è già automatico. Qui facciamo un ultimo tentativo
+       best-effort, ma non permettiamo più a rete/Taccuino/strutture condivise di
+       intrappolare l'utente in modifica. Dopo 4,5 s si procede comunque al logout. */
+    var finalSave=Promise.all([serializedSaveLatest(),Promise.resolve(taccCloudPush(true)).catch(function(e){console.error(e);return false;})]).then(function(vals){
+      return vals.every(function(v){return v!==false;});
+    }).catch(function(e){console.error(e);return false;});
+    var boundedSave=Promise.race([
+      finalSave,
+      new Promise(function(resolve){setTimeout(function(){resolve(false);},4500);})
+    ]);
+    return boundedSave.then(function(saveOk){
+      return Promise.resolve(window.fbEndEditSession?window.fbEndEditSession():true).catch(function(e){console.error(e);return false;}).then(function(){
+        clearPasswordSessionNotice(STUDENTE.nome);
+        EDIT_UNLOCKED=false;
+        EDIT_DISCONNECT_PENDING=false;
+        fbStatusText=saveOk?"Sola visualizzazione":"Sola visualizzazione · ultimo salvataggio cloud non confermato";
+        renderAll();
+        return true;
+      });
+    }).catch(function(e){
+      console.error(e);
+      /* Anche un errore inatteso del salvataggio non deve lasciare attiva la UI di modifica. */
+      return Promise.resolve(window.fbEndEditSession?window.fbEndEditSession():true).catch(function(_e){console.error(_e);}).then(function(){
+        clearPasswordSessionNotice(STUDENTE.nome);EDIT_UNLOCKED=false;EDIT_DISCONNECT_PENDING=false;fbStatusText="Sola visualizzazione · ultimo salvataggio cloud non confermato";renderAll();return true;
+      });
+    });
   }
   function changeCurrentPg(btn){
     if(btn){btn.disabled=true;}
@@ -5823,18 +6910,22 @@
     if(!fbConnected){
 
       ensurePublicDirectory(false);
-      p.appendChild(el("div","guide-text","Se il tuo PG è già registrato, <b>selezionalo dall’elenco</b> oppure scrivi il suo nome esatto e premi <b>«Apri Elfo»</b>. Lo aprirai in sola visualizzazione, senza password. Se invece non è ancora registrato, dopo aver premuto «Apri Elfo» comparirà qui la procedura per crearlo e scegliere la sua password di modifica."));
-      var d1=el("div");d1.appendChild(el("label",null,"Cerca o scrivi il nome del Personaggio"));
+      p.appendChild(el("div","guide-text","Se il tuo PG è già registrato, <b>selezionalo dall’elenco</b> oppure scrivi <b>Nome e Cognome completi</b> esattamente come sono stati registrati e premi <b>«Apri Elfo»</b>. Lo aprirai in sola visualizzazione, senza password. Se invece è un nuovo PG, usa sempre Nome + Cognome: questo testo diventa il suo identificativo univoco negli Elfi."));
+      var d1=el("div");d1.appendChild(el("label",null,"Cerca o scrivi NOME E COGNOME del Personaggio"));
       var picker=el("div","pg-picker"),line=el("div","pg-picker-line"),i1=el("input");
-      i1.type="text";i1.value=STUDENTE.nome;i1.placeholder="";
+      i1.type="text";i1.value=STUDENTE.nome;i1.placeholder="Nome Cognome";
       var arrow=el("button","action pg-picker-arrow elfo-readonly-safe","▾");arrow.type="button";arrow.setAttribute("aria-label","Apri elenco Personaggi");
       var menu=el("div","pg-picker-menu");menu.hidden=true;
       function setName(v){STUDENTE.nome=v;}
       function clearPendingNewPg(){NEW_PG_PENDING=false;NEW_PG_PASSWORD_DRAFT="";}
       function drawMenu(open){
+        if(!PUBLIC_DIRECTORY_LOADED&&!PUBLIC_DIRECTORY_LOADING){ensurePublicDirectory(false);}
         menu.innerHTML="";menu.classList.remove("pg-picker-pass-through");var matches=prefixPgMatches(i1.value);
         if(PUBLIC_DIRECTORY_LOADING){menu.appendChild(el("div","pg-picker-empty","Caricamento elenco…"));}
-        else if(!PUBLIC_DIRECTORY_LOADED){menu.classList.add("pg-picker-pass-through");menu.appendChild(el("div","pg-picker-empty","Elenco non disponibile: puoi comunque scrivere il nome esatto e premere «Apri Elfo»."));}
+        else if(!PUBLIC_DIRECTORY_LOADED){
+          menu.appendChild(el("div","pg-picker-empty","Elenco cloud non disponibile"+(PUBLIC_DIRECTORY_ERROR?" ("+PUBLIC_DIRECTORY_ERROR+")":"")+". Puoi comunque scrivere Nome e Cognome esatti."));
+          var retry=el("button","pg-picker-option","↻ Ricarica elenco PG");retry.type="button";retry.addEventListener(EV,function(ev){if(ev){ev.preventDefault();ev.stopPropagation();}ensurePublicDirectory(true);drawMenu(true);});menu.appendChild(retry);
+        }
         else if(!matches.length){menu.classList.add("pg-picker-pass-through");menu.appendChild(el("div","pg-picker-empty","Nessun Personaggio che inizi con «"+String(i1.value||"").trim()+"». Premi «Apri Elfo» per verificare il nome e, se è nuovo, crearlo."));}
         else{
           for(var mi=0;mi<matches.length;mi++){
@@ -5851,8 +6942,10 @@
       /* Scrivere un nome serve solo a sceglierlo: la password viene chiesta dopo,
          e solo se il PG esiste già ed entra in modalità modifica. */
       i1.addEventListener("input",function(){clearPendingNewPg();setName(i1.value);drawMenu(true);});
-      arrow.addEventListener(EV,function(e){e.preventDefault();drawMenu(menu.hidden);});
+      arrow.addEventListener(EV,function(e){e.preventDefault();if(!PUBLIC_DIRECTORY_LOADED&&!PUBLIC_DIRECTORY_LOADING){ensurePublicDirectory(true);}drawMenu(menu.hidden);});
       line.appendChild(i1);line.appendChild(arrow);picker.appendChild(line);picker.appendChild(menu);d1.appendChild(picker);p.appendChild(d1);
+      p.appendChild(el("p","small-note","L’elenco dei PG viene caricato dal database condiviso: <b>non dipende dal browser o dal dispositivo</b>. Cambiare browser influisce soltanto sul ricordo dell’ultimo Elfo aperto, non sull’elenco."));
+      p.appendChild(el("p","small-note","I vecchi Elfi già registrati con un identificativo di una sola parola restano apribili per non perdere collegamenti o password; <b>per i nuovi PG sono invece obbligatori Nome e Cognome</b>."));
       var openBtn=el("button","action elfo-readonly-safe","Apri Elfo");openBtn.type="button";
       openBtn.addEventListener(EV,function(){
         var nome=normalizePgName(STUDENTE.nome);var nameErr=validatePgName(nome);
@@ -5865,13 +6958,13 @@
 
 
       if(NEW_PG_PENDING){
-        p.appendChild(el("div","guide-text","<b>Nuovo Personaggio.</b> Il PG <b>"+STUDENTE.nome+"</b> non risulta ancora registrato. Per creare il suo Elfo, crea adesso una password di modifica e ripetila nel secondo campo. La password protegge le modifiche; l’Elfo resterà consultabile in sola visualizzazione come gli altri."));
+        p.appendChild(el("div","guide-text","<b>Nuovo Personaggio.</b> Il PG <b>"+STUDENTE.nome+"</b> non risulta ancora registrato. Prima di crearlo controlla che l’identificativo contenga <b>Nome e Cognome completi</b>: servirà a distinguerlo da eventuali omonimi. Poi crea la password di modifica."));
         var pr=el("div","row"),pa=el("div"),pb=el("div");
         pa.appendChild(el("label",null,"Crea una password di modifica"));var p1=el("input");p1.type="password";p1.autocomplete="new-password";p1.value=NEW_PG_PASSWORD_DRAFT;pa.appendChild(p1);
         pb.appendChild(el("label",null,"Ripeti password"));var p2=el("input");p2.type="password";p2.autocomplete="new-password";pb.appendChild(p2);
         pr.appendChild(pa);pr.appendChild(pb);p.appendChild(pr);p.appendChild(el("p","small-note","Conserva questa password: dopo la creazione non potrai cambiarla direttamente. Se la dimentichi, rivolgiti allo Staff."));
         var create=el("button","action","Crea nuovo Elfo");create.type="button";
-        create.addEventListener(EV,function(){if(!p1.value){alert("Scegli una password.");return;}if(p1.value!==p2.value){alert("Le due password non coincidono.");return;}create.disabled=true;create.textContent="Creazione…";createNewPgAccess(STUDENTE.nome,p1.value,create);});
+        create.addEventListener(EV,function(){var fullNameErr=validateNewPgFullName(STUDENTE.nome);if(fullNameErr){alert(fullNameErr);return;}if(!p1.value){alert("Scegli una password.");return;}if(p1.value!==p2.value){alert("Le due password non coincidono.");return;}create.disabled=true;create.textContent="Creazione…";createNewPgAccess(STUDENTE.nome,p1.value,create);});
         p.appendChild(create);
       }
 
@@ -5947,10 +7040,12 @@
       p.appendChild(el("p","small-note","L’Anno Scolastico può essere modificato in qualsiasi momento. Ogni agosto il Tool mostra un promemoria finché non confermi di averlo verificato o aggiornato."));
       p.appendChild(el("div","divider"));p.appendChild(el("h4",null,"Sezioni e strutture disponibili"));
       p.appendChild(el("p","small-note","Seleziona soltanto ciò che vuoi usare: le sezioni opzionali compariranno nella barra in alto. Se le deselezioni spariranno dal menu senza perdere i dati già salvati; riattivandole torneranno nella posizione che avevano e potrai sempre trascinarle dove preferisci."));
-      var struttRow=el("div","row"),struttOpts=[{key:"taccuino",label:"Taccuino personale"},{key:"dispensa",label:"Dispensa degli Ingredienti"},{key:"postazione",label:"Postazione di Pozioni"},{key:"cubicolo",label:"Cubicolo della Serra n°7"},{key:"recinto",label:"Recinto di Cura delle Creature Magiche"}];
+      var struttRow=el("div","row"),struttOpts=[{key:"taccuino",label:"Taccuino personale"},{key:"dispensa",label:"Dispensa degli Ingredienti"},{key:"postazione",label:"Postazione di Pozioni"},{key:"cubicolo",label:"Cubicolo della Serra n°7"},{key:"recinto",label:"Recinto di Cura delle Creature Magiche"},{key:"esporta",label:"Diventa Adulto → Esporta"}];
       for(var so=0;so<struttOpts.length;so++){(function(o){var w=el("div","chk-line"),box=el("input");box.type="checkbox";box.checked=STRUTTURE[o.key];box.addEventListener("change",function(){STRUTTURE[o.key]=box.checked;DATA_DIRTY=true;scheduleSave(0,false);renderAll();});w.appendChild(box);w.appendChild(el("span",null,o.label));struttRow.appendChild(w);})(struttOpts[so]);}
       p.appendChild(struttRow);
-      var change=el("button","action elfo-readonly-safe","Cambia Elfo");change.type="button";change.addEventListener(EV,function(){changeCurrentPg(change);});p.appendChild(change);
+      p.appendChild(el("p","small-note","«Diventa Adulto → Esporta» è facoltativo: normalmente può restare nascosto e va attivato soltanto quando il PG è arrivato alla fine del VII anno e deve preparare il passaggio all’Elfo Adulto. Nasconderlo non cancella alcun dato."));
+      /* «Cambia Elfo» è gestito dal footer globale: dopo «Disconnetti» compare
+         nello stesso punto, centrato, in qualunque pagina. Evitiamo un duplicato qui. */
       if(EDIT_UNLOCKED){
         p.appendChild(el("div","divider"));p.appendChild(el("h4",null,"Rimozione dal Tool"));
         if(DELETE_REQUESTED){p.appendChild(el("div","warning-alert","⚠ <b>Richiesta di eliminazione inviata al Narratore.</b>"));var bc=el("button","action","Annulla richiesta di eliminazione");bc.type="button";bc.addEventListener(EV,function(){setDeletionRequestFromTool(false,bc);});p.appendChild(bc);}
@@ -6161,14 +7256,17 @@
         iLink.addEventListener("paste",function(){
           setTimeout(function(){
             if(blockIfMonthReadOnly(mese)){return;}
-            var candidate=iLink.value,hit=findDuplicateGeneralPostLink(candidate,post);
+            var candidate=iLink.value;
+            if(staffTokenIsUsed(post,mese)&&!isValidPostLink(candidate)){iLink.value=lastAcceptedPostLink;alert("Questo Post usa uno Staff Token. Rimuovi prima lo Staff Token, poi potrai eliminare il link.");refreshInlineGlobal();return;}
+            var hit=findDuplicateGeneralPostLink(candidate,post);
             if(hit){rejectDuplicatePostLink(candidate,hit);return;}
-            post.link=candidate;lastAcceptedPostLink=candidate;ensurePostGlobalNo(post);refreshInlineGlobal();scheduleSave(0);
+            post.link=candidate;lastAcceptedPostLink=candidate;ensurePostGlobalNo(post);refreshInlineGlobal();scheduleSave(0);if(staffTokenIsUsed(post,mese)){syncStaffTokenReference(post,mese);}
           },0);
         });
         iLink.addEventListener("input", function(){
           if(blockIfMonthReadOnly(mese)){return;}
           var candidate=iLink.value;
+          if(staffTokenIsUsed(post,mese)&&!isValidPostLink(candidate)){iLink.value=lastAcceptedPostLink;refreshInlineGlobal();return;}
           if(refLabels.length && isValidPostLink(post.link) && !isValidPostLink(candidate)){refreshInlineGlobal();return;}
           var hit=findDuplicateGeneralPostLink(candidate,post);
           if(hit&&isValidPostLink(candidate)){return;}
@@ -6177,12 +7275,15 @@
         iLink.addEventListener("change", function(){
           if(blockIfMonthReadOnly(mese)){return;}
           var candidate=iLink.value;
+          if(staffTokenIsUsed(post,mese)&&!isValidPostLink(candidate)){
+            iLink.value=post.link;alert("Questo Post usa uno Staff Token. Rimuovi prima lo Staff Token, poi potrai eliminare il link.");return;
+          }
           if(refLabels.length && isValidPostLink(post.link) && !isValidPostLink(candidate)){
             iLink.value=post.link; alert("Il Post globale n° "+post.globalNo+" è ancora usato da una lavorazione attiva ("+refLabels.join("; ")+"). Il link non può essere cancellato o reso non valido finché quel riferimento è in uso."); return;
           }
           var hit=findDuplicateGeneralPostLink(candidate,post);
           if(hit){rejectDuplicatePostLink(candidate,hit);return;}
-          post.link=candidate;lastAcceptedPostLink=candidate;ensurePostGlobalNo(post);refreshInlineGlobal();scheduleSave(0);
+          post.link=candidate;lastAcceptedPostLink=candidate;ensurePostGlobalNo(post);refreshInlineGlobal();scheduleSave(0);if(staffTokenIsUsed(post,mese)){syncStaffTokenReference(post,mese);}
         });
         tdLink.appendChild(iLink);
         var existingDuplicate=findDuplicateGeneralPostLink(post.link,post);
@@ -6265,7 +7366,7 @@
     function addPostAfterChecks(){
       if(blockIfMonthReadOnly(mese)){return;}
       postCounter = postCounter + 1;
-      mese.posts.push({ id: postCounter, globalNo:null, link: "", nota: "", pp: "", eventoBonusEscluso:false, bonusUtilizzi:{} });
+      mese.posts.push({ id: postCounter, globalNo:null, link: "", nota: "", pp: "", eventoBonusEscluso:false, bonusUtilizzi:{}, staffTokenUsato:false, staffTokenStaffId:"", staffTokenStaffName:"", staffTokenUsedAt:"" });
       scheduleSave(0); renderAll();
     }
     addBtn.addEventListener(EV, function(){
@@ -6555,6 +7656,7 @@
       for(var i=0;i<limit;i++)tot+=bonusPPOnPost(bonuses[b],posts[i]);
       if(endExclusive>=posts.length)tot+=bonusManualPPTotal(bonuses[b]);
     }
+    tot+=staffTokenCountForPosts(posts,endExclusive,mese);
     return tot;
   }
   function eventBonusGaleoniTotal(mese,posts,endExclusive){
@@ -6570,6 +7672,7 @@
     window.__ELFO_CURRENT_BONUS_POSTS=Array.isArray(mese&&mese.posts)?mese.posts:[];
     var bonuses=activeMonthBonuses(mese),tot=0;
     for(var i=0;i<bonuses.length;i++)tot+=bonusPPOnPost(bonuses[i],post);
+    if(staffTokenIsUsed(post,mese)&&isValidPostLink(post&&post.link))tot+=1;
     return tot;
   }
   function bonusGForPost(mese,post){
@@ -6923,9 +8026,10 @@
   var meseSelezionatoBlindataIdx = -1;
 
   function renderBlindataStep(container){
+    staffTokenEnsureWatcher();
     var p = el("div", "panel");
     p.appendChild(el("h2", null, "Camera Blindata (Studente)"));
-    p.appendChild(el("div", "guide-text", "Un blocco per ogni Mese creato allo Step 2. Qui controlli <b>Link, Galeoni, N. globale e Bonus</b>. I Bonus si impostano nel riquadro qui sotto e compaiono automaticamente nella colonna Bonus dei post a cui si applicano. Scala Galeoni: 30-20-15-10-8-6-4-3-2-2, poi 1 G ciascuno."));
+    p.appendChild(el("div", "guide-text", "Un blocco per ogni Mese creato allo Step 2. Qui controlli <b>Link, Galeoni, N. globale e Bonus</b>. Se questo PG è associato a uno Staffer ancora attivo, compare anche il comando <b>ST</b>: 1 Staff Token vale +1 PP su quel Post. Se lo Staffer viene segnato come «Non è più Staffer», i tasti spariscono subito; gli ST già usati restano consumati e vengono mostrati soltanto come storico. I Bonus si impostano nel riquadro qui sotto e compaiono automaticamente nella colonna Bonus dei post a cui si applicano. Scala Galeoni: 30-20-15-10-8-6-4-3-2-2, poi 1 G ciascuno."));
 
     if(MESI.length === 0){
       p.appendChild(el("div", "guide-text", "Non hai ancora creato nessun Mese. Torna allo Step 2.")); container.appendChild(p); return;
@@ -6968,6 +8072,28 @@
         : "<b style=\"color:#8c2f2f\">\u23f3 In attesa di accredito dal Narratore</b>";
     }
     p.appendChild(accBadge);
+    appendStaffTokenLiveCard(p);
+
+    /* Lo stesso comando presente in “I tuoi Post” è disponibile anche qui:
+       Camera Blindata e lista Post agiscono sul medesimo Mese. */
+    var blindataArchiveActions=el("div","month-header-actions");
+    var blindataArchiveLocked=!!(meseObj.chiuso&&archiveLocked(meseObj));
+    var blindataAccreditato=monthIsAccredited(meseObj);
+    var blindataToggleBlocked=blindataArchiveLocked||(meseObj.chiuso&&blindataAccreditato)||(fbConnected&&!accreditiVerified());
+    var blindataArchiveBtn=el("button","action small",blindataArchiveLocked?"🔒 Archivio consolidato":(meseObj.chiuso?"Riapri":"Archivia questo Mese"));
+    blindataArchiveBtn.type="button";
+    blindataArchiveBtn.disabled=blindataToggleBlocked;
+    if(meseObj.chiuso&&blindataAccreditato){blindataArchiveBtn.title="Revoca prima l'accredito del Narratore per riaprire questo Mese.";}
+    blindataArchiveBtn.addEventListener(EV,function(){
+      if(fbConnected&&!accreditiVerified()){alert("Non posso verificare lo stato dell'accredito: per sicurezza l'archivio non viene modificato.");return;}
+      if(meseObj.chiuso&&monthIsAccredited(meseObj)){alert("Questo Mese è accreditato: può restare archiviato, ma per riaprirlo il Narratore deve prima revocare l'accredito.");return;}
+      if(blockIfArchiveLocked(meseObj)){return;}
+      if(!meseObj.chiuso){meseObj.chiuso=true;archiveStamp(meseObj);}
+      else{meseObj.chiuso=false;meseObj._archivedAt="";}
+      scheduleSave(0);renderAll();
+    });
+    blindataArchiveActions.appendChild(blindataArchiveBtn);
+    p.appendChild(blindataArchiveActions);
 
     if(meseObj.chiuso){
       var deleteBox=el("div","archived-month-delete-box");
@@ -7078,10 +8204,12 @@
       p.appendChild(el("div",bagWarnings[bwi].kind==="remove"?"bag-remove-warning":"bag-update-warning",bagWarnings[bwi].text));
     }
 
+    var staffTokenHistorical=staffTokenMonthHasHistory(postiDelMese,meseObj);
     var totals = el("div", "totals");
     totals.appendChild(el("div", "box", "Totale Post<br><b>" + totFilled + "</b>"));
     totals.appendChild(el("div", "box", "Totale Galeoni<br><b>" + totG + " G</b>"));
     totals.appendChild(el("div", "box", "Totale PP<br><b>" + totPP + " PP</b>"));
+    if(STAFF_TOKEN_STATE.associated||staffTokenHistorical){totals.appendChild(el("div","box","Staff Token usati<br><b>"+staffTokenCountForPosts(postiDelMese,postiDelMese.length,meseObj)+"</b>"));}
     p.appendChild(totals);
     var bonusItems=activeMonthBonuses(meseObj);
     for(var bsi=0;bsi<bonusItems.length;bsi++){
@@ -7122,7 +8250,10 @@
     }
 
     var tblLive = el("table", "posts");
-    tblLive.appendChild(el("tr", null, "<th>N.</th><th>Link</th><th>Galeoni accumulati</th><th>N. globale</th><th>Bonus</th><th>Totale Bonus</th>"));
+    staffTokenHistorical=staffTokenMonthHasHistory(postiDelMese,meseObj);
+    var staffTokenColumn=STAFF_TOKEN_STATE.associated||staffTokenHistorical;
+    var staffTokenHead=staffTokenColumn?"<th>ST</th>":"";
+    tblLive.appendChild(el("tr", null, "<th>N.</th><th>Link</th><th>Galeoni accumulati</th><th>N. globale</th><th>Bonus</th>"+staffTokenHead+"<th>Totale Bonus</th>"));
 
     var showUpToLive = postiDelMese.length;
     if(showUpToLive < 1){ showUpToLive = 0; }
@@ -7157,6 +8288,11 @@
       tr.appendChild(globalTd);
 
       tr.appendChild(makeEventBonusExclusionCell(lp,meseObj,bonusLocked));
+      if(staffTokenColumn){
+        tr.appendChild(STAFF_TOKEN_STATE.associated
+          ? makeStaffTokenCell(lp,meseObj,bonusLocked)
+          : makeStaffTokenHistoricalCell(lp,meseObj));
+      }
 
       /* Totale Bonus del singolo post: somma tutti i bonus applicati
          (PP, Galeoni e Altro), inclusi eventuali vecchi PP manuali salvati. */
@@ -7562,6 +8698,7 @@
       prog.appendChild(el("div","dispensa-progress","<strong>"+cf[0]+" — "+cf[1].replace("Vendita ","")+"</strong>"+val+" / "+cf[2]+" G"));
     }
     salesDet.appendChild(prog);
+    salesDet.appendChild(el("div","guide-text","<b>Soglie della Missione FantaHogwarts «Il Venditore».</b> I totali della Dispensa sono solo un promemoria: raggiungere 100 G di vendite legali o 50 G di vendite illegali <b>non rende automaticamente riscattabile la Missione</b>. Per il riscatto contano soltanto le vendite allo Zoppo ruolate in una o più role di almeno 5 post; le vendite esclusivamente OFFGame non valgono. Verifica quindi il requisito ONGame prima di riportare il progresso nel Taccuino FantaHogwarts."));
 
     /* I conteggi dello Zoppo sono una leggenda interna, non una seconda tendina. */
     var zlegend=el("div","dispensa-sales-legend");
@@ -7580,12 +8717,9 @@
     var fni=function(m,r){return m.tipo==="Vendita illegale"&&!!r.illegale;};
     fni.archiveKey="*||Vendita illegale||ILLEGAL";
     zlines.push("Illegali venduti: "+movementDoseCount(fni)+" / 10");
-    var fns=function(m,r){return m.tipo==="Scarto"&&!!r.illegale;};
-    fns.archiveKey="*||Scarto||ILLEGAL";
-    zlines.push("Illegali scartati: "+movementDoseCount(fns)+" / 10");
     zbody.textContent=zlines.join(" · ");
     zlegend.appendChild(zbody);
-    zlegend.appendChild(el("p","small-note","Ricompense di riferimento: X/XX/XXX → +0,5 Bontà o Malvagità; XXXX/XXXXX → +1; Esseri, Non-Esseri e Spiriti → +1 per Ingrediente. Illegali venduti → +1 Malvagità; illegali scartati → +2 Bontà."));
+    zlegend.appendChild(el("p","small-note","Ricompense di riferimento aggiornate: X/XX/XXX → +0,5 Bontà o Malvagità; XXXX/XXXXX → +1; Esseri, Non-Esseri e Spiriti → +1 per Ingrediente; illegali venduti → +1 Malvagità. <b>Scartare Ingredienti non assegna più ricompense né fa avanzare alcuna soglia</b>: lo Scarto resta disponibile soltanto come movimento di inventario/storico."));
     salesDet.appendChild(zlegend);
 
     var quick=el("div","dispensa-quick"); quick.appendChild(el("div","dispensa-subtitle","Aggiunta manuale"));
@@ -7959,8 +9093,11 @@
     var distMax=POSTAZIONE_FAC.distillatoriMax>0?POSTAZIONE_FAC.distillatoriMax:"?";
     p.appendChild(el("h2", null, "Dati della Postazione — "+CALDERONI.length+"/"+ANNO_POSTI[STUDENTE.anno]+" Calderoni · "+postazioneDistillatoriUsati()+"/"+distMax+" Distillatori"));
 
+    var generalDetails=el("details","facility-general-details");
+    keepDetailsState(generalDetails,"postazione:generali",false);
+    generalDetails.appendChild(el("summary",null,"Dati generali della Postazione"));
     var general=el("div","structure-general-block");
-    general.appendChild(el("div","structure-block-head","Dati generali della Postazione"));
+    general.appendChild(el("div","structure-block-head","Impostazioni e capienza"));
 
     var capRow=el("div","row");
     var dCaldMax=el("div");dCaldMax.appendChild(el("label",null,"Calderoni disponibili"));
@@ -7976,7 +9113,8 @@
     general.appendChild(el("p","lab-capacity-note","I Calderoni massimi dipendono dall'Anno scolastico. Il conteggio dei Distillatori considera le Pozioni attive per cui è stata selezionata la Distillazione. Classificazione consentita: X–XXX."));
 
     var d7=el("div");d7.appendChild(el("label",null,"Link descrizione"));var i7=el("input");i7.type="text";i7.value=POSTAZIONE_FAC.descrizione||"";i7.placeholder="https://...";i7.addEventListener("input",function(){POSTAZIONE_FAC.descrizione=i7.value;});d7.appendChild(i7);general.appendChild(d7);
-    p.appendChild(general);
+    generalDetails.appendChild(general);
+    p.appendChild(generalDetails);
     p.appendChild(buildPotionImportBox());
 
     p.appendChild(el("h4","structure-section-title","Pozioni / lavorazioni presenti"));
@@ -8000,14 +9138,21 @@
   function buildCalderoneCard(postaz){
     ensureEntityIllegalState(postaz);
     var potionClass=String(postaz.classificazione||"X").toLowerCase();
+    var potionName=postaz.nomePozione!==""?postaz.nomePozione:"Pozione da definire";
+    var work=el("details","working-entity-details potion-work-details potion-class-"+potionClass);
+    keepDetailsState(work,"postazione:pozione:"+postaz.id,false);
+    var workSummary=potionName+" — Postazione n°"+postaz.numero+" · "+String(postaz.classificazione||"X");
+    if(isIllegalEntity(postaz)){workSummary+=" · ILLEGALE";}
+    work.appendChild(el("summary",null,workSummary));
     var card=el("div","card entity-card potion-card potion-class-"+potionClass);
-    var h=el("h3"); var titleWrap=el("span","entity-heading-main"); var potionName=postaz.nomePozione!==""?postaz.nomePozione:"Pozione da definire";
+    var h=el("h3"); var titleWrap=el("span","entity-heading-main");
     titleWrap.appendChild(el("span","entity-title potion-title",potionName)); if(isIllegalEntity(postaz)){titleWrap.appendChild(el("span","illegal-badge","ILLEGALE"));} titleWrap.appendChild(el("span","entity-title-meta","Postazione n°"+postaz.numero)); h.appendChild(titleWrap);
     var actionWrap=el("div","structure-actions");
     var archP=el("button","action small","Archivia Pozione conclusa"); archP.addEventListener(EV,function(){CALDERONI=CALDERONI.filter(function(x){return x.id!==postaz.id;});archiveStamp(postaz);ARCHIVIO_CALDERONI.push(postaz);scheduleSave(0);renderAll();}); actionWrap.appendChild(archP);
     var rm=el("button","action danger small","Rimuovi"); rm.addEventListener(EV,function(){CALDERONI=CALDERONI.filter(function(x){return x.id!==postaz.id;});scheduleSave(0);renderAll();}); actionWrap.appendChild(rm); h.appendChild(actionWrap); card.appendChild(h);
 
     var row0=el("div","row"); var dNum=el("div"); dNum.appendChild(el("label",null,"Numero Postazione")); var iNum=el("input"); iNum.type="text"; iNum.value=postaz.numero; iNum.addEventListener("change",function(){postaz.numero=iNum.value;renderAll();}); dNum.appendChild(iNum); row0.appendChild(dNum);
+    var dGlobalStart=el("div"); dGlobalStart.appendChild(el("label",null,"Dal post globale n°")); var iGlobalStart=el("input"); iGlobalStart.type="number"; iGlobalStart.min="1"; iGlobalStart.step="1"; iGlobalStart.value=Math.max(1,num(postaz.startIndex,nextGlobalPostNumber())); iGlobalStart.addEventListener("change",function(){var proposed=Math.max(1,num(iGlobalStart.value,1));if(!validateGlobalIntervalOrAlert(proposed,Math.max(0,num(postaz.postRichiesti,0)))){iGlobalStart.value=postaz.startIndex;return;}postaz.startIndex=proposed;scheduleSave(0);renderAll();}); dGlobalStart.appendChild(iGlobalStart); row0.appendChild(dGlobalStart);
     card.appendChild(row0);
 
     var row1=el("div","row"); var dDataT=el("div"); dDataT.appendChild(el("label",null,"Data di creazione (GG/MM/AAAA)")); var iDataT=buildDateInput(postaz.dataTesto,function(v){postaz.dataTesto=v;}); dDataT.appendChild(iDataT); row1.appendChild(dDataT);
@@ -8059,7 +9204,8 @@
 
     bottling.appendChild(bottlingBody);
     card.appendChild(bottling);
-    return card;
+    work.appendChild(card);
+    return work;
   }
   function buildFaseRow(postaz, prefix, label, hasValore){
     var wrap = el("div");
@@ -8149,7 +9295,7 @@
     var dPost=el("div"); dPost.appendChild(el("label",null,"N° di post d'attesa"));
     var iPost=el("input"); iPost.type="number"; iPost.min="0"; iPost.step="1";
     iPost.value=Math.max(0,num(postaz.postRichiesti,0));
-    iPost.addEventListener("change",function(){postaz.postRichiesti=Math.max(0,num(iPost.value,0));renderAll();});
+    iPost.addEventListener("change",function(){var proposed=Math.max(0,num(iPost.value,0));if(!validateGlobalIntervalOrAlert(postaz.startIndex,proposed)){iPost.value=postaz.postRichiesti;return;}postaz.postRichiesti=proposed;scheduleSave(0);renderAll();});
     dPost.appendChild(iPost); row.appendChild(dPost);
 
     wrap.appendChild(row);
@@ -8816,11 +9962,39 @@
     return wrap;
   }
 
+  function buildCurrentPhaseCountStarter(occupant, stages, config){
+    ensureOccupantStageData(occupant,stages);
+    var stage=null;for(var si=0;si<stages.length;si++){if(stages[si].label===occupant.faseAttuale){stage=stages[si];break;}}
+    if(!stage){return null;}
+    var data=occupant.cicli[stage.key]||{},targets=[];
+    if(stage.type==="passaggio"&&data.evento&&!subEntryFilled(data.evento)){targets.push({label:"Passaggio alla Germinazione",sub:data.evento});}
+    else if(stage.type==="gestazione"&&data.evento&&!subEntryFilled(data.evento)){targets.push({label:"Gestazione / Schiusa",sub:data.evento});}
+    else if(stage.type==="cicli"||stage.type==="ripro"){
+      var nextProd=nextIncompleteProductionCycle(occupant,stage);if(nextProd){targets.push({label:"Ciclo di Produzione "+(nextProd.index+1)+"/"+nextProd.total,sub:nextProd.sub});}
+      if(stage.type==="ripro"&&data.evento&&!subEntryFilled(data.evento)){targets.push({label:"Ciclo di Riproduzione 1/1",sub:data.evento});}
+    }
+    if(!targets.length){return null;}
+    var box=el("div","guide-text current-global-counter");
+    box.appendChild(el("div","structure-block-head","Avvio conteggi — "+stage.label));
+    box.appendChild(el("p","small-note","Imposta qui il numero del primo Post globale da conteggiare. Le stesse caselle restano disponibili anche dentro il dettaglio del singolo Ciclo."));
+    targets.forEach(function(t){
+      var sub=normalizeSubEntry(t.sub),row=el("div","row");
+      var dName=el("div");dName.appendChild(el("label",null,"Conteggio"));dName.appendChild(el("div","shared-responsible-name","<b>"+t.label+"</b>"));row.appendChild(dName);
+      var dPost=el("div");dPost.appendChild(el("label",null,"Post necessari"));var iPost=el("input");iPost.type="number";iPost.min="0";iPost.step="1";iPost.value=Math.max(0,num(sub.postRichiesti,0));iPost.addEventListener("change",function(){var proposed=Math.max(0,num(iPost.value,0));if(!validateGlobalIntervalOrAlert(sub.startIndex,proposed)){iPost.value=sub.postRichiesti;return;}sub.postRichiesti=proposed;scheduleSave(0);renderAll();});dPost.appendChild(iPost);row.appendChild(dPost);
+      var dStart=el("div");dStart.appendChild(el("label",null,"Dal post globale n°"));var iStart=el("input");iStart.type="number";iStart.min="1";iStart.step="1";iStart.value=Math.max(1,num(sub.startIndex,nextGlobalPostNumber()));iStart.addEventListener("change",function(){var proposed=Math.max(1,num(iStart.value,1));if(!validateGlobalIntervalOrAlert(proposed,Math.max(0,num(sub.postRichiesti,0)))){iStart.value=sub.startIndex;return;}sub.startIndex=proposed;scheduleSave(0);renderAll();});dStart.appendChild(iStart);row.appendChild(dStart);
+      box.appendChild(row);
+      var pr=subEntryProgress(sub);if(pr.pending){box.appendChild(el("div","small-note","Caricamento dei Post del PG responsabile…"));}else if(pr.total>0){box.appendChild(progressStatusNode(t.label,pr.filled,pr.total));}
+    });
+    return box;
+  }
+
   function buildOccupantCard(occupant, stages, config, listRef, archivioRef){
     ensureOccupantStageData(occupant,stages);ensureEntityIllegalState(occupant);
     var isPlant=config.tipoLabel==="Pianta";
+    var work=el("details","working-entity-details entity-work-details "+(isPlant?"plant-work-details":"creature-work-details"));
+    keepDetailsState(work,(isPlant?"cubicolo:pianta:":"recinto:creatura:")+occupant.id,false);
+    work.id=entityCardAnchorId(occupant,config);
     var card=el("div","card entity-card "+(isPlant?"plant-card":"creature-card"));
-    card.id=entityCardAnchorId(occupant,config);
     if(isPlant){var cc=String(occupant.classificazione||"").toLowerCase();if(cc==="x"||cc==="xx"||cc==="xxx"||cc==="xxxx"||cc==="xxxxx"){card.classList.add("plant-class-"+cc);}}
     var h=el("h3");
     var headingMain=el("span","entity-heading-main");
@@ -8832,6 +10006,11 @@
     if(occupant.classificazione){metaParts.push("Classificazione "+occupant.classificazione);}
     if(String(occupant.specieSesso||"").trim()){metaParts.push(String(occupant.specieSesso).trim());}
     headingMain.appendChild(el("span","entity-title-meta",metaParts.join(" · ")||config.tipoLabel));
+    var entitySummaryParts=metaParts.slice();
+    if(String(occupant.faseAttuale||"").trim()){entitySummaryParts.push(String(occupant.faseAttuale).trim());}
+    var entitySummary=titoloCard+(entitySummaryParts.length?" — "+entitySummaryParts.join(" · "):"");
+    if(isIllegalEntity(occupant)){entitySummary+=" · ILLEGALE";}
+    work.appendChild(el("summary",null,entitySummary));
     h.appendChild(headingMain);
 
     var actionWrap=el("div","structure-actions");
@@ -8862,6 +10041,7 @@
     var row3=el("div","row"); var dFase=el("div"); dFase.appendChild(el("label",null,"Fase vitale attuale")); var stageLabels=[]; for(var si=0;si<stages.length;si++){stageLabels.push(stages[si].label);} dFase.appendChild(buildSelect(stageLabels,occupant.faseAttuale,function(v){occupant.faseAttuale=canonicalStageLabel(stages,v);occupant.faseHistory=[];openStageDetails(occupant,stages,config,occupant.faseAttuale);renderAll();})); row3.appendChild(dFase);
     var dFaseL=el("div"); dFaseL.appendChild(el("label",null,"Link Fase vitale")); var iFaseL=el("input"); iFaseL.type="text"; iFaseL.value=occupant.faseLink; iFaseL.addEventListener("input",function(){occupant.faseLink=iFaseL.value;}); dFaseL.appendChild(iFaseL); row3.appendChild(dFaseL);
     var dFaseData=el("div"); dFaseData.appendChild(el("label",null,"Data inizio fase attuale (GG/MM/AAAA)")); var iFaseData=buildDateInput(occupant.faseDataInizio,function(v){occupant.faseDataInizio=v;}); dFaseData.appendChild(iFaseData); row3.appendChild(dFaseData); card.appendChild(row3);
+    var currentCounter=buildCurrentPhaseCountStarter(occupant,stages,config);if(currentCounter){card.appendChild(currentCounter);}
 
     card.appendChild(buildEntityLegalityBlock(occupant,isPlant?"pianta":"creatura"));
 
@@ -8880,7 +10060,8 @@
       var historyDet=buildPhaseHistoryDetails(occupant,stages,config,currentStageIdx);
       if(historyDet){card.appendChild(historyDet);}
     }
-    return card;
+    work.appendChild(card);
+    return work;
   }
   function nextStageLabel(stages, currentLabel){
     for(var i=0;i<stages.length;i++){
@@ -9538,11 +10719,14 @@
     p.appendChild(el("h2", null, "Dati del " + titolo));
     var pendingHarvestBox=buildFacilityPendingHarvests(LIST,stages,config);if(pendingHarvestBox){p.appendChild(pendingHarvestBox);}
 
+    var generalDetails=el("details","facility-general-details");
+    keepDetailsState(generalDetails,(isCubicolo?"cubicolo:generali":"recinto:generali"),false);
+    generalDetails.appendChild(el("summary",null,"Dati generali del "+titolo));
     var general=el("div","structure-general-block");
-    general.appendChild(el("div","structure-block-head","Dati generali del "+titolo));
+    general.appendChild(el("div","structure-block-head","Impostazioni e capienza"));
     general.appendChild(el("p",null,"<b>Posti disponibili:</b> "+ANNO_POSTI[STUDENTE.anno]+" (Anno "+STUDENTE.anno+") — Classificazione sempre fra X e XXX."));
     if(!isCubicolo){var artiglBox=el("div","guide-text");artiglBox.innerHTML="<b>Rischio Artigliatite</b> — se un tuo PG subisce ONGame una ferita da taglio per via di una Creatura Magica, tira questo dado: la contrae se 1-3.";general.appendChild(artiglBox);}
-    var d7=el("div");d7.appendChild(el("label",null,"Link descrizione"));var i7=el("input");i7.type="text";i7.value=FAC.descrizione||"";i7.placeholder="https://...";i7.addEventListener("input",function(){FAC.descrizione=i7.value;});d7.appendChild(i7);general.appendChild(d7);p.appendChild(general);
+    var d7=el("div");d7.appendChild(el("label",null,"Link descrizione"));var i7=el("input");i7.type="text";i7.value=FAC.descrizione||"";i7.placeholder="https://...";i7.addEventListener("input",function(){FAC.descrizione=i7.value;});d7.appendChild(i7);general.appendChild(d7);generalDetails.appendChild(general);p.appendChild(generalDetails);
 
     var capienzaStud=ANNO_POSTI[STUDENTE.anno];
     if(isCubicolo){
@@ -9693,7 +10877,13 @@
 
   installUniversalAutosave();
   renderAll();
-  if(window.fbReady){ensurePublicDirectory(false);restoreBrowserPgSession();}
+  function bootPublicPgDirectoryAndRestore(){ensurePublicDirectory(false);restoreBrowserPgSession();}
+  var previousFbOnReady=window.fbOnReady;
+  window.fbOnReady=function(){
+    if(typeof previousFbOnReady==="function"){try{previousFbOnReady();}catch(e){console.error(e);}}
+    bootPublicPgDirectoryAndRestore();
+  };
+  if(window.fbReady){bootPublicPgDirectoryAndRestore();}
 
   var ffLastSentHeight=0;
   var ffHeightTimer=0;
