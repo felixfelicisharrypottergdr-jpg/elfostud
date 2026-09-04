@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+<!-- v122 — fix restituzione Staff Token: uso autorevole dal record Firebase + percorso Rules v46 dedicato al rimborso, 04/09/2026 -->
 <!-- v121 — conflitti non bloccanti: revisioni/accrediti vengono ricaricati automaticamente dal cloud senza overlay; il popup resta solo come fallback se la rilettura automatica fallisce, 04/09/2026 -->
 <!-- v120 — fix accrediti/conflitti: le CB accreditate restano autoritative su Firebase ma non bloccano modifiche ad altre sezioni; conflitto solo se si modifica davvero il Mese accreditato, 04/09/2026 -->
 <!-- v112 — fix creazione PG: Nome e Cognome obbligatori appena il nome risulta nuovo + doppia protezione prima del salvataggio, 04/09/2026 -->
@@ -2383,7 +2384,10 @@
         if(!sessionOk)throw new Error("edit-session-missing");
       }
       var staffRef=doc(fbDb,"staff_token",staffId);
-      var usageId=staffTokenUsageId(payload);
+      /* v46: quando si restituisce un ST usiamo l’ID del record Firebase già
+         esistente, se il livello UI lo ha risolto. Questo evita che una
+         rinumerazione del Post faccia puntare il rimborso a un usage diverso. */
+      var usageId=String(payload.usageId||staffTokenUsageId(payload));
       var usageRef=doc(fbDb,"staff_token_usi",usageId);
       var logRef=doc(collection(fbDb,"staff_token_log"));
       var result=await runTransaction(fbDb,async function(tx){
@@ -2485,10 +2489,11 @@
           ultimoMovimentoId:logRef.id,
           ultimoAggiornamento:serverTimestamp()
         },{merge:true});
+        /* Restituire lo ST cambia soltanto lo stato del consumo. Link e numero
+           globale restano quelli registrati nello storico di spesa: meno campi
+           coinvolti = transazione più stabile e audit più fedele. */
         tx.set(usageRef,{
           active:false,
-          link:refLink,
-          globalNo:parseInt(payload.globalNo||usage.globalNo,10)||null,
           refundLogId:logRef.id,
           refundedAt:serverTimestamp(),
           updatedAt:serverTimestamp()
@@ -2529,7 +2534,7 @@
 
   window.fbUpdateStaffTokenUsageReference=async function(payload){
     payload=Object.assign({},payload||{});
-    var usageId=staffTokenUsageId(payload);
+    var usageId=String(payload.usageId||staffTokenUsageId(payload));
     try{
       await ensurePlayerAuth();
       if(window.fbHasEditSession){
@@ -2613,11 +2618,46 @@
     if(!window.fbStaffTokenUsageId)return "";
     try{return window.fbStaffTokenUsageId(staffTokenPayload(post,mese,true));}catch(e){return "";}
   }
+  /* Risolve il consumo dal record Firebase, non soltanto dall’hash locale.
+     L’hash contiene anche globalNo: se quel numero viene normalizzato in seguito,
+     l’uso storico deve comunque poter essere trovato e restituito. */
+  function staffTokenUsageRecordForPost(post,mese,activeOnly){
+    var exactId=staffTokenUsageIdForPost(post,mese);
+    if(STAFF_TOKEN_STATE.usageLoaded&&exactId&&STAFF_TOKEN_STATE.usageById[exactId]){
+      var exact=STAFF_TOKEN_STATE.usageById[exactId];
+      if(!activeOnly||exact.active===true)return exact;
+    }
+    if(!STAFF_TOKEN_STATE.usageLoaded)return null;
+    var monthId=String(mese&&mese.id!=null?mese.id:"");
+    var postId=String(post&&post.id!=null?post.id:"");
+    var pgId=staffTokenCurrentPgName();
+    var link=String(post&&post.link||"").trim();
+    var candidates=[];
+    Object.keys(STAFF_TOKEN_STATE.usageById||{}).forEach(function(id){
+      var rec=STAFF_TOKEN_STATE.usageById[id];
+      if(!rec)return;
+      if(activeOnly&&rec.active!==true)return;
+      if(String(rec.pgId||"").trim()!==pgId)return;
+      if(String(rec.pgKind||"")!==STAFF_TOKEN_KIND)return;
+      if(String(rec.monthId==null?"":rec.monthId)!==monthId)return;
+      if(String(rec.postId==null?"":rec.postId)!==postId)return;
+      candidates.push(Object.assign({id:id},rec));
+    });
+    if(candidates.length===1)return candidates[0];
+    if(candidates.length>1&&link){
+      for(var i=0;i<candidates.length;i++){if(String(candidates[i].link||"").trim()===link)return candidates[i];}
+    }
+    return candidates.length?candidates[0]:null;
+  }
   function staffTokenIsUsed(post,mese){
     if(!post)return false;
     var id=staffTokenUsageIdForPost(post,mese);
     if(STAFF_TOKEN_STATE.usageLoaded&&id&&Object.prototype.hasOwnProperty.call(STAFF_TOKEN_STATE.usageById,id)){
       return STAFF_TOKEN_STATE.usageById[id]&&STAFF_TOKEN_STATE.usageById[id].active===true;
+    }
+    if(STAFF_TOKEN_STATE.usageLoaded){
+      var rec=staffTokenUsageRecordForPost(post,mese,true);
+      if(rec)return true;
     }
     return post.staffTokenUsato===true;
   }
@@ -2627,9 +2667,12 @@
     for(var i=0;i<limit;i++){if(posts[i]&&isValidPostLink(posts[i].link)&&staffTokenIsUsed(posts[i],mese))n++;}
     return n;
   }
-  function staffTokenErrorText(code){
+  function staffTokenErrorText(code,operation){
     code=String(code||"");
-    if(code.indexOf("permission-denied")>=0)return "Firebase non consente all’Elfo di aggiornare il saldo Staff Token. Verifica di avere pubblicato le Rules v44 e di essere entrato in modifica con la Password del PG.";
+    if(code.indexOf("permission-denied")>=0){
+      if(operation==="refund")return "Firebase ha rifiutato la restituzione dello Staff Token. Pubblica le Rules v46 e riprova: l’uso resta registrato e il saldo non viene alterato finché il rimborso non riesce.";
+      return "Firebase non consente all’Elfo di aggiornare gli Staff Token. Verifica di avere pubblicato le Rules v46 e di essere entrato in modifica con la Password del PG.";
+    }
     if(code==="edit-session-missing")return "Entra prima in modifica con la Password del PG.";
     if(code==="staff-token-empty")return "Non ci sono Staff Token disponibili.";
     if(code==="staff-token-staffer-inactive")return "Questo Staffer è segnato come «Non è più Staffer»: gli ST già usati restano consumati, ma non sono consentiti nuovi utilizzi o restituzioni dagli Elfi.";
@@ -2660,7 +2703,7 @@
       for(var pi=0;pi<posts.length;pi++){
         var post=posts[pi],id=staffTokenUsageIdForPost(post,mese);
         if(!id)continue;
-        var rec=STAFF_TOKEN_STATE.usageById[id]||null;
+        var rec=STAFF_TOKEN_STATE.usageById[id]||staffTokenUsageRecordForPost(post,mese,false)||null;
         var active=!!(rec&&rec.active===true);
         if(post.staffTokenUsato!==active){post.staffTokenUsato=active;changed=true;}
         if(rec){
@@ -2757,19 +2800,26 @@
     if(enabled&&STAFF_TOKEN_STATE.balance<=0){if(!opts.silent)alert("Non ci sono Staff Token disponibili.");return false;}
     if(!window.fbSetStaffTokenUsage){if(!opts.silent)alert("Il collegamento Staff Token con Firebase non è ancora disponibile.");return false;}
     var payload=staffTokenPayload(post,mese,enabled);
+    var authoritativeUsage=!enabled?staffTokenUsageRecordForPost(post,mese,true):null;
+    if(authoritativeUsage){
+      payload.usageId=String(authoritativeUsage.id||"");
+      staffId=String(authoritativeUsage.staffId||staffId);
+      payload.staffName=String(authoritativeUsage.staffName||payload.staffName||"");
+    }
     payload.staffId=staffId;
-    var key=staffTokenUsageIdForPost(post,mese)||[mese.id,post.id].join(":");
+    var key=String(payload.usageId||staffTokenUsageIdForPost(post,mese)||[mese.id,post.id].join(":"));
     if(STAFF_TOKEN_BUSY[key])return false;
     STAFF_TOKEN_BUSY[key]=true;
     try{
       var res=await window.fbSetStaffTokenUsage(payload);
       if(!res||!res.ok){
-        if(!opts.silent)alert(staffTokenErrorText(res&&res.code));
+        if(!opts.silent)alert(staffTokenErrorText(res&&res.code,enabled?"spend":"refund"));
         return false;
       }
       post.staffTokenUsato=enabled===true;
-      if(STAFF_TOKEN_STATE.usageLoaded&&key){
-        STAFF_TOKEN_STATE.usageById[key]=Object.assign({},STAFF_TOKEN_STATE.usageById[key]||{},payload,{id:key,active:enabled===true,staffId:staffId,staffName:String(STAFF_TOKEN_STATE.staffName||post.staffTokenStaffName||"")});
+      var savedUsageId=String(res.usageId||key);
+      if(STAFF_TOKEN_STATE.usageLoaded&&savedUsageId){
+        STAFF_TOKEN_STATE.usageById[savedUsageId]=Object.assign({},STAFF_TOKEN_STATE.usageById[savedUsageId]||{},payload,{id:savedUsageId,active:enabled===true,staffId:staffId,staffName:String(STAFF_TOKEN_STATE.staffName||post.staffTokenStaffName||"")});
       }
       if(enabled){
         post.staffTokenStaffId=staffId;
@@ -2789,7 +2839,9 @@
   async function syncStaffTokenReference(post,mese){
     if(!post||!mese||!staffTokenIsUsed(post,mese)||!window.fbUpdateStaffTokenUsageReference)return true;
     var payload=staffTokenPayload(post,mese,true);
-    payload.staffId=String(post.staffTokenStaffId||STAFF_TOKEN_STATE.staffId||"");
+    var authoritativeUsage=staffTokenUsageRecordForPost(post,mese,true);
+    if(authoritativeUsage){payload.usageId=String(authoritativeUsage.id||"");}
+    payload.staffId=String((authoritativeUsage&&authoritativeUsage.staffId)||post.staffTokenStaffId||STAFF_TOKEN_STATE.staffId||"");
     var res=await window.fbUpdateStaffTokenUsageReference(payload);
     if(!res||!res.ok){alert(staffTokenErrorText(res&&res.code));return false;}
     return true;
