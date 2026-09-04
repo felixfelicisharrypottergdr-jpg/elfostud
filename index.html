@@ -1,4 +1,6 @@
 <!DOCTYPE html>
+<!-- v124 — protezione Taccuino universale: copie locali, coda pendente e recupero per ogni profilo/PG, anche prima della registrazione Firebase, 04/09/2026 -->
+<!-- v123 — Taccuino anti-perdita: coda locale persistente, recupero automatico delle modifiche non sincronizzate, retry cloud e stato salvataggio sempre visibile, 04/09/2026 -->
 <!-- v122 — fix restituzione Staff Token: uso autorevole dal record Firebase + percorso Rules v46 dedicato al rimborso, 04/09/2026 -->
 <!-- v121 — conflitti non bloccanti: revisioni/accrediti vengono ricaricati automaticamente dal cloud senza overlay; il popup resta solo come fallback se la rilettura automatica fallisce, 04/09/2026 -->
 <!-- v120 — fix accrediti/conflitti: le CB accreditate restano autoritative su Firebase ma non bloccano modifiche ad altre sezioni; conflitto solo se si modifica davvero il Mese accreditato, 04/09/2026 -->
@@ -5535,14 +5537,19 @@
   var TACC_STATUS = "";
   var TACC_CLOUD_COLLECTION = "taccuini_personali";
   var TACC_CLOUD_TIMER = null;
+  var TACC_CLOUD_RETRY_TIMER = null;
+  var TACC_CLOUD_RETRY_COUNT = 0;
   var TACC_CLOUD_BUSY = false;
   var TACC_CLOUD_PENDING = false;
   var TACC_CLOUD_IN_FLIGHT = null;
   var TACC_CLOUD_APPLYING = false;
+  var TACC_CLOUD_DIRTY = false;
   var TACC_CLOUD_TEXT = "Cloud non ancora sincronizzato";
   var TACC_CLOUD_ERROR = false;
   var TACC_CLOUD_LOGIN_PG = "";
   var TACC_CLOUD_MAX_BYTES = 780000;
+  var TACC_PENDING_PREFIX = "felix_taccuino_pending_cloud_v1::";
+  var TACC_RECOVERY_PREFIX = "felix_taccuino_recovery_cloud_v1::";
   var TACC_LEGACY_IMPORT_MESSAGE = "";
 
   function taccId(prefix){ return String(prefix||"x")+"_"+Date.now().toString(36)+"_"+Math.random().toString(36).slice(2,8); }
@@ -5563,7 +5570,7 @@
       media:[],
       notes:"",
       legacyImports:[],
-      meta:{createdAt:new Date().toISOString(),updatedAt:null}
+      meta:{createdAt:new Date().toISOString(),updatedAt:null,localRevision:0}
     };
   }
   function taccNum(v){ v=Number(v); return Number.isFinite(v)&&v>=0?v:0; }
@@ -5601,6 +5608,7 @@
     d.legacyImports=Array.isArray(raw.legacyImports)?raw.legacyImports.filter(function(x){return x&&typeof x==="object";}):[];
     d.meta=(raw.meta&&typeof raw.meta==="object")?raw.meta:d.meta;
     if(!d.meta.createdAt){d.meta.createdAt=new Date().toISOString();}
+    d.meta.localRevision=Math.max(0,parseInt(d.meta.localRevision,10)||0);
     return d;
   }
   function taccLoad(){
@@ -6043,10 +6051,59 @@
   function taccCurrentPgName(){
     try{ return normalizePgName(STUDENTE.nome||""); }catch(e){ return ""; }
   }
+  function taccProtectionProfile(pg){
+    pg=normalizePgName(pg||""); if(pg){return pg;}
+    var key=String(TACC_STORAGE_KEY||""),prefix=TACC_STORAGE_BASE_KEY+"::";
+    if(key.indexOf(prefix)===0){
+      try{var decoded=normalizePgName(decodeURIComponent(key.slice(prefix.length)));if(decoded){return decoded;}}catch(e){}
+    }
+    /* Anche una bozza creata prima che il PG esista su Firebase ha una propria
+       area di sicurezza locale. Quando il nome viene scelto, viene migrata sul profilo. */
+    return "__bozza_locale__";
+  }
+  function taccMigrateProtectionProfile(fromPg,toPg){
+    fromPg=taccProtectionProfile(fromPg);toPg=normalizePgName(toPg||"");
+    if(!toPg||fromPg===toPg){return;}
+    try{
+      var srcPending=taccPendingLoad(fromPg),dstPending=taccPendingLoad(toPg);
+      if(srcPending&&(!dstPending||srcPending.revision>=dstPending.revision)){taccPendingStore(toPg,srcPending.data);}
+      localStorage.removeItem(taccPendingKey(fromPg));
+      var merged=taccRecoveryLoad(fromPg).concat(taccRecoveryLoad(toPg)),seen={},out=[];
+      merged.sort(function(a,b){return (Date.parse(b&&b.savedAt||"")||0)-(Date.parse(a&&a.savedAt||"")||0);});
+      merged.forEach(function(x){if(!x||!x.data){return;}var k=String(x.revision||0)+"|"+String(x.updatedAt||"");if(seen[k]){return;}seen[k]=1;out.push(x);});
+      if(out.length){localStorage.setItem(taccRecoveryKey(toPg),JSON.stringify(out.slice(0,3)));}
+      localStorage.removeItem(taccRecoveryKey(fromPg));
+    }catch(e){console.warn("Migrazione protezioni locali Taccuino fallita",e);}
+  }
+  function taccPendingKey(pg){ return TACC_PENDING_PREFIX+encodeURIComponent(String(pg||"").trim().toLowerCase()); }
+  function taccPendingLoad(pg){
+    pg=taccProtectionProfile(pg);
+    try{var raw=localStorage.getItem(taccPendingKey(pg));if(!raw){return null;}var rec=JSON.parse(raw);if(!rec||typeof rec!=="object"){return null;}var data=taccNormalize(rec.data||rec);return {data:data,revision:Math.max(0,parseInt((data.meta&&data.meta.localRevision)||rec.revision,10)||0),updatedAt:String((data.meta&&data.meta.updatedAt)||rec.updatedAt||"")};}catch(e){console.warn("Recupero coda Taccuino fallito",e);return null;}
+  }
+  function taccPendingStore(pg,data){
+    pg=taccProtectionProfile(pg);
+    try{var frozen=taccNormalize(JSON.parse(JSON.stringify(data||TACCUINO)));localStorage.setItem(taccPendingKey(pg),JSON.stringify({revision:Math.max(0,parseInt(frozen.meta&&frozen.meta.localRevision,10)||0),updatedAt:String(frozen.meta&&frozen.meta.updatedAt||""),data:frozen}));}catch(e){console.warn("Coda locale Taccuino non salvata",e);}
+  }
+  function taccPendingClearIfSaved(pg,savedRevision){
+    pg=taccProtectionProfile(pg);
+    try{var rec=taccPendingLoad(pg);if(!rec||rec.revision<=Math.max(0,parseInt(savedRevision,10)||0)){localStorage.removeItem(taccPendingKey(pg));}}catch(e){}
+  }
+  function taccRecoveryKey(pg){return TACC_RECOVERY_PREFIX+encodeURIComponent(String(pg||"").trim().toLowerCase());}
+  function taccRecoveryLoad(pg){try{var raw=localStorage.getItem(taccRecoveryKey(pg)),arr=raw?JSON.parse(raw):[];return Array.isArray(arr)?arr:[];}catch(e){return [];}}
+  function taccRecoveryStore(pg,data,label){
+    pg=taccProtectionProfile(pg);
+    try{var frozen=taccNormalize(JSON.parse(JSON.stringify(data||TACCUINO))),rev=Math.max(0,parseInt(frozen.meta&&frozen.meta.localRevision,10)||0),updated=String(frozen.meta&&frozen.meta.updatedAt||"");var arr=taccRecoveryLoad(pg);if(arr.some(function(x){return x&&x.revision===rev&&String(x.updatedAt||"")===updated;})){return;}arr.unshift({savedAt:new Date().toISOString(),label:String(label||"Copia locale di sicurezza"),revision:rev,updatedAt:updated,data:frozen});localStorage.setItem(taccRecoveryKey(pg),JSON.stringify(arr.slice(0,3)));}catch(e){console.warn("Backup locale di recupero Taccuino fallito",e);}
+  }
+  function taccCurrentRevision(){return Math.max(0,parseInt(TACCUINO&&TACCUINO.meta&&TACCUINO.meta.localRevision,10)||0);}
+  function taccScheduleCloudRetry(){
+    if(TACC_CLOUD_RETRY_TIMER){clearTimeout(TACC_CLOUD_RETRY_TIMER);TACC_CLOUD_RETRY_TIMER=null;}
+    if(!EDIT_UNLOCKED||!fbConnected||!window.fbReady||!taccCurrentPgName()||(typeof navigator!=="undefined"&&navigator.onLine===false)){return;}
+    var delays=[1500,4000,10000,30000],delay=delays[Math.min(TACC_CLOUD_RETRY_COUNT,delays.length-1)];TACC_CLOUD_RETRY_COUNT++;
+    TACC_CLOUD_RETRY_TIMER=setTimeout(function(){TACC_CLOUD_RETRY_TIMER=null;taccCloudPush(false);},delay);
+  }
   function taccCloudSetStatus(text,isError){
     TACC_CLOUD_TEXT=String(text||""); TACC_CLOUD_ERROR=!!isError;
-    var node=document.getElementById("tacc-cloud-status-live");
-    if(node){ node.textContent=TACC_CLOUD_TEXT; node.className="tacc-storage-status"+(TACC_CLOUD_ERROR?" error":""); }
+    ["tacc-cloud-status-live","tacc-cloud-status-top"].forEach(function(id){var node=document.getElementById(id);if(node){node.textContent=TACC_CLOUD_TEXT;node.className="tacc-storage-status"+(TACC_CLOUD_ERROR?" error":"");}});
   }
   function taccCloudIsMeaningful(data){
     data=data&&typeof data==="object"?data:{};
@@ -6079,6 +6136,8 @@
     var nextKey=taccProfileStorageKey(pg);
     if(TACC_STORAGE_KEY===nextKey){try{localStorage.setItem(TACC_LAST_PROFILE_KEY,pg);}catch(e){} return;}
     var oldKey=TACC_STORAGE_KEY,oldData=TACCUINO,raw=null;
+    /* Prima di cambiare profilo conserva comunque una copia locale dello stato precedente. */
+    if(taccCloudIsMeaningful(oldData)){taccRecoveryStore(taccProtectionProfile(""),oldData,"Copia automatica prima del cambio Personaggio");}
     try{raw=localStorage.getItem(nextKey);}catch(e){}
     if(raw){
       try{TACCUINO=taccNormalize(JSON.parse(raw));}catch(e){TACCUINO=taccDefault();}
@@ -6090,6 +6149,7 @@
       try{localStorage.setItem(nextKey,JSON.stringify(TACCUINO));}catch(e){}
     }
     TACC_STORAGE_KEY=nextKey;
+    if(oldKey===TACC_STORAGE_BASE_KEY){taccMigrateProtectionProfile("__bozza_locale__",pg);}
     try{localStorage.setItem(TACC_LAST_PROFILE_KEY,pg);}catch(e){}
   }
 
@@ -6142,14 +6202,20 @@
     var frozen;
     try{frozen=taccNormalize(JSON.parse(JSON.stringify(TACCUINO)));}catch(e){frozen=TACCUINO;}
     var updated=(frozen.meta&&frozen.meta.updatedAt)||new Date().toISOString();
+    var frozenRevision=Math.max(0,parseInt(frozen.meta&&frozen.meta.localRevision,10)||0);
     var payload={schemaVersion:1,pgId:pg,mode:TACC_MODE,updatedAt:updated,data:frozen};
-    if(typeof window.fbTaccCloudSave!=="function"){TACC_CLOUD_BUSY=false;taccCloudSetStatus("Cloud non disponibile: helper Firebase non inizializzato",true);return Promise.resolve(false);}
+    if(typeof window.fbTaccCloudSave!=="function"){TACC_CLOUD_BUSY=false;taccCloudSetStatus("Cloud non disponibile: helper Firebase non inizializzato",true);taccScheduleCloudRetry();return Promise.resolve(false);}
     var work=window.fbTaccCloudSave(TACC_CLOUD_COLLECTION,pg,payload).then(function(){
-      TACC_CLOUD_LOGIN_PG=pg; taccCloudSetStatus("Cloud sincronizzato · "+new Date().toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"}),false);
+      TACC_CLOUD_LOGIN_PG=pg; TACC_CLOUD_RETRY_COUNT=0; if(TACC_CLOUD_RETRY_TIMER){clearTimeout(TACC_CLOUD_RETRY_TIMER);TACC_CLOUD_RETRY_TIMER=null;}
+      taccPendingClearIfSaved(pg,frozenRevision);
+      var samePg=taccCurrentPgName()===pg,currentRevision=samePg?taccCurrentRevision():frozenRevision;
+      if(samePg&&currentRevision>frozenRevision){TACC_CLOUD_DIRTY=true;taccCloudSetStatus("Ultime modifiche ancora in sincronizzazione…",false);}
+      else{if(samePg){TACC_CLOUD_DIRTY=false;}taccCloudSetStatus("Cloud sincronizzato · "+new Date().toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"}),false);}
       return true;
     }).catch(function(e){
       console.error("Sincronizzazione Taccuino Firebase fallita",e);
-      taccCloudSetStatus("Cloud non sincronizzato: "+((e&&e.code)?e.code:"controlla le regole Firebase o la connessione"),true);
+      TACC_CLOUD_DIRTY=true;taccCloudSetStatus("Cloud non sincronizzato: "+((e&&e.code)?e.code:"controlla le regole Firebase o la connessione")+" · nuovo tentativo automatico",true);
+      taccScheduleCloudRetry();
       return false;
     });
     TACC_CLOUD_IN_FLIGHT=work.finally(function(){TACC_CLOUD_BUSY=false;TACC_CLOUD_IN_FLIGHT=null;});
@@ -6159,10 +6225,11 @@
     if(TACC_CLOUD_APPLYING){return;}
     if(fbConnected && !EDIT_UNLOCKED){return;}
     var pg=taccCurrentPgName();
-    if(!pg||!fbConnected||!window.fbReady){taccCloudSetStatus("Copia locale aggiornata · cloud in attesa del caricamento PG",false);return;}
+    TACC_CLOUD_DIRTY=true;
+    if(!pg||!fbConnected||!window.fbReady){taccCloudSetStatus("Copia locale salvata · cloud in attesa del caricamento PG",false);return;}
     clearTimeout(TACC_CLOUD_TIMER);
-    taccCloudSetStatus("Modifiche locali in attesa di sincronizzazione…",false);
-    TACC_CLOUD_TIMER=setTimeout(function(){taccCloudPush(false);},1800);
+    taccCloudSetStatus("Salvato nel browser · sincronizzazione cloud in corso…",false);
+    TACC_CLOUD_TIMER=setTimeout(function(){taccCloudPush(false);},650);
   }
   function taccCloudSyncAfterLogin(pgName){
     var pg=normalizePgName(pgName||"");
@@ -6171,11 +6238,20 @@
     /* In sola visualizzazione mostriamo sempre la copia cloud pubblica e non la
        salviamo sopra l'eventuale copia locale del proprietario. Quando la Password
        viene sbloccata, ricarichiamo invece la copia locale e la confrontiamo col cloud. */
-    if(EDIT_UNLOCKED){taccReloadLocalForEditing(pg);}
+    var pendingRecovery=null;
+    if(EDIT_UNLOCKED){
+      taccReloadLocalForEditing(pg);
+      pendingRecovery=taccPendingLoad(pg);
+      if(pendingRecovery&&pendingRecovery.data){TACC_CLOUD_APPLYING=true;taccCloudStoreLocal(pendingRecovery.data);TACC_CLOUD_APPLYING=false;TACC_CLOUD_DIRTY=true;}
+    }
     TACC_CLOUD_LOGIN_PG=pg; clearTimeout(TACC_CLOUD_TIMER); TACC_CLOUD_TIMER=null;
-    taccCloudSetStatus(EDIT_UNLOCKED?"Controllo della copia cloud…":"Caricamento del Taccuino pubblico…",false);
+    taccCloudSetStatus(pendingRecovery?"Recupero modifiche locali non ancora sincronizzate…":(EDIT_UNLOCKED?"Controllo della copia cloud…":"Caricamento del Taccuino pubblico…"),false);
     if(typeof window.fbTaccCloudLoad!=="function"){taccCloudSetStatus("Cloud non disponibile: helper Firebase non inizializzato",true);return Promise.resolve(false);}
     return window.fbTaccCloudLoad(TACC_CLOUD_COLLECTION,pg).then(function(remote){
+      if(EDIT_UNLOCKED&&pendingRecovery){
+        taccCloudSetStatus("Recupero copia locale pendente nel cloud…",false);
+        return taccCloudPush(true);
+      }
       if(!remote||!remote.exists){
         if(!EDIT_UNLOCKED){
           TACC_CLOUD_APPLYING=true; TACCUINO=taccDefault(); TACC_CLOUD_APPLYING=false;
@@ -6198,8 +6274,9 @@
       }
       if(localMeaning&&!cloudMeaning){return taccCloudPush(true);}
       if(ct>lt){
+        try{if(JSON.stringify(taccNormalize(TACCUINO))!==JSON.stringify(cloud)){taccRecoveryStore(pg,TACCUINO,"Copia locale precedente all'allineamento cloud");}}catch(e){}
         TACC_CLOUD_APPLYING=true; taccCloudStoreLocal(cloud); TACC_CLOUD_APPLYING=false;
-        taccCloudSetStatus("Copia cloud più recente recuperata",false); renderAll(); return true;
+        taccCloudSetStatus("Copia cloud più recente recuperata · eventuale copia locale precedente conservata",false); renderAll(); return true;
       }
       if(lt>ct){return taccCloudPush(true);}
       taccCloudSetStatus("Locale e cloud sono già allineati",false); return true;
@@ -6210,17 +6287,25 @@
     });
   }
   function taccSave(){
-    if(taccCurrentPgName()&&!EDIT_UNLOCKED){taccCloudSetStatus("Sola visualizzazione: inserisci la Password per modificare il Taccuino.",false);return false;}
-    TACCUINO.meta=TACCUINO.meta||{}; TACCUINO.meta.updatedAt=new Date().toISOString();
+    var pg=taccCurrentPgName(),protectionPg=taccProtectionProfile(pg);
+    if(pg&&fbConnected&&!EDIT_UNLOCKED){taccCloudSetStatus("Sola visualizzazione: inserisci la Password per modificare il Taccuino.",false);return false;}
+    TACCUINO.meta=TACCUINO.meta||{};
+    TACCUINO.meta.localRevision=Math.max(0,parseInt(TACCUINO.meta.localRevision,10)||0)+1;
+    TACCUINO.meta.updatedAt=new Date().toISOString();
     var ok=true;
     try{
+      /* Recovery rotante universale: prima di sovrascrivere il file locale conserva
+         la versione precedente, anche se il PG non è ancora registrato su Firebase. */
+      var previousRaw=localStorage.getItem(TACC_STORAGE_KEY);
+      if(previousRaw){try{var previous=taccNormalize(JSON.parse(previousRaw));if(JSON.stringify(previous)!==JSON.stringify(TACCUINO)){taccRecoveryStore(protectionPg,previous,"Copia automatica precedente alla modifica");}}catch(e){}}
       localStorage.setItem(TACC_STORAGE_KEY,JSON.stringify(TACCUINO));
-      TACC_STORAGE_OK=true; TACC_STATUS="Salvato automaticamente in questo browser";
+      taccPendingStore(protectionPg,TACCUINO);
+      TACC_STORAGE_OK=true; TACC_STATUS="Salvato immediatamente in questo browser";
     }catch(e){
       console.warn("Salvataggio Taccuino fallito",e);
       TACC_STORAGE_OK=false; TACC_STATUS="Salvataggio locale non riuscito: la copia cloud può comunque funzionare, ma esporta anche un backup JSON."; ok=false;
     }
-    taccScheduleCloudSync();
+    TACC_CLOUD_DIRTY=true;taccScheduleCloudSync();
     return ok;
   }
   function taccMissionState(id){
@@ -6917,7 +7002,7 @@
 
   function renderTaccNoteBackup(container){
     container.appendChild(el("h3",null,"Appunti e Backup"));var card=el("div","tacc-card");card.appendChild(el("h4",null,"Appunti liberi"));var ta=el("textarea","tacc-note-area");ta.value=TACCUINO.notes||"";ta.placeholder="Tutto ciò che vuoi ricordare e che non rientra nelle altre sezioni…";ta.addEventListener("input",function(){TACCUINO.notes=ta.value;taccSave();});card.appendChild(ta);container.appendChild(card);
-    var bk=el("div","tacc-card");bk.appendChild(el("h4",null,"Backup e sincronizzazione"));bk.appendChild(el("p","small-note","Il Taccuino è pubblico in lettura: chi apre questo PG vede la copia cloud aggiornata. Le modifiche, il backup e la sincronizzazione restano disponibili soltanto dopo aver inserito la Password del PG. Sul dispositivo del proprietario viene mantenuta anche una copia locale di sicurezza."));var row=el("div","tacc-backup-row"),ex=el("button","action","Esporta backup .json");ex.type="button";ex.addEventListener(EV,taccExport);row.appendChild(ex);var im=el("button","action","Importa backup .json");im.type="button";var fi=document.createElement("input");fi.type="file";fi.accept="application/json,.json";fi.style.display="none";fi.addEventListener("change",function(){taccImportFile(fi.files&&fi.files[0]);fi.value="";});im.addEventListener(EV,function(){fi.click();});row.appendChild(im);var sync=el("button","action","Sincronizza ora");sync.type="button";sync.addEventListener(EV,function(){taccCloudPush(true);});row.appendChild(sync);row.appendChild(fi);bk.appendChild(row);
+    var bk=el("div","tacc-card");bk.appendChild(el("h4",null,"Backup e sincronizzazione"));bk.appendChild(el("p","small-note","Il Taccuino è pubblico in lettura: chi apre questo PG vede la copia cloud aggiornata. Ogni modifica conserva subito anche copie locali di sicurezza e una coda pendente per questo profilo, per tutti i PG e anche prima della registrazione Firebase. Quando il cloud è disponibile, la sincronizzazione riprende automaticamente al primo accesso autorizzato."));var row=el("div","tacc-backup-row"),ex=el("button","action","Esporta backup .json");ex.type="button";ex.addEventListener(EV,taccExport);row.appendChild(ex);var im=el("button","action","Importa backup .json");im.type="button";var fi=document.createElement("input");fi.type="file";fi.accept="application/json,.json";fi.style.display="none";fi.addEventListener("change",function(){taccImportFile(fi.files&&fi.files[0]);fi.value="";});im.addEventListener(EV,function(){fi.click();});row.appendChild(im);var sync=el("button","action","Sincronizza ora");sync.type="button";sync.addEventListener(EV,function(){taccCloudPush(true);});row.appendChild(sync);var recovery=taccRecoveryLoad(taccProtectionProfile(taccCurrentPgName()));if(recovery.length){var recBtn=el("button","action","Recupera copia locale precedente");recBtn.type="button";recBtn.addEventListener(EV,function(){var copies=taccRecoveryLoad(taccProtectionProfile(taccCurrentPgName()));if(!copies.length){alert("Non ci sono copie locali precedenti da recuperare.");return;}var rec=copies[0];if(confirm("Ripristinare la copia locale di sicurezza del "+new Date(rec.savedAt||Date.now()).toLocaleString()+"? Verrà poi sincronizzata nel cloud.")){TACCUINO=taccNormalize(rec.data||{});taccSave();renderAll();taccCloudPush(true);}});row.appendChild(recBtn);}row.appendChild(fi);bk.appendChild(row);
     var st=el("div","tacc-storage-status"+(TACC_STORAGE_OK?"":" error"),"Locale · "+(TACC_STATUS||(TACC_STORAGE_OK?"disponibile":"non disponibile")));bk.appendChild(st);var cloud=el("div","tacc-storage-status"+(TACC_CLOUD_ERROR?" error":""),TACC_CLOUD_TEXT);cloud.id="tacc-cloud-status-live";bk.appendChild(cloud);var dz=el("div","tacc-danger-zone"),clear=el("button","action danger","Svuota tutto il Taccuino");clear.type="button";clear.addEventListener(EV,function(){if(confirm("Svuotare completamente il Taccuino? La cancellazione verrà sincronizzata anche sul cloud. Questa operazione non può essere annullata senza un backup esportato.")){TACCUINO=taccDefault();taccSave();renderAll();}});dz.appendChild(clear);bk.appendChild(dz);container.appendChild(bk);
   }
 
@@ -6939,13 +7024,20 @@
 
   function renderTaccuinoStep(container){
     var p=el("div","panel");p.appendChild(el("h2",null,"Taccuino Personale"));
+    if(EDIT_UNLOCKED){var topSync=el("div","tacc-storage-status"+(TACC_CLOUD_ERROR?" error":""),TACC_CLOUD_TEXT);topSync.id="tacc-cloud-status-top";p.appendChild(topSync);}
     if(TACC_TAB==="guarigione"||(!EDIT_UNLOCKED&&TACC_TAB==="import")){TACC_TAB="role";}
     var _tOpen=(TACCUINO.roles||[]).filter(function(r){return r&&r.status!=="closed";}).length,_tClosed=(TACCUINO.roles||[]).filter(function(r){return r&&r.status==="closed";}).length;var tabs=[{k:"role",l:"Role aperte"+(_tOpen?" ("+_tOpen+")":"")},{k:"cronologia",l:"Cronologia"+(_tClosed?" ("+_tClosed+")":"")},{k:"png",l:"Taccuino PNG"+((TACCUINO.png||[]).length?" ("+(TACCUINO.png||[]).length+")":"")},{k:"missioni",l:TACC_MODE==="studente"?"FantaHogwarts":"FantaWiz"},{k:"extra",l:"Extra"}];if(EDIT_UNLOCKED){tabs.push({k:"import",l:"📥 Importazione"});}tabs.push({k:"note",l:"Appunti & Backup"});var bar=el("div","tacc-tabs");tabs.forEach(function(t){var b=el("button","tacc-tab"+(TACC_TAB===t.k?" active":""),t.l);b.type="button";b.addEventListener(EV,function(){TACC_TAB=t.k;renderAll();});bar.appendChild(b);});p.appendChild(bar);
     if(TACC_TAB==="role"){renderTaccRole(p);}else if(TACC_TAB==="cronologia"){renderTaccCronologia(p);}else if(TACC_TAB==="png"){renderTaccPng(p);}else if(TACC_TAB==="missioni"){renderTaccMissioni(p);}else if(TACC_TAB==="extra"){renderTaccExtra(p);}else if(TACC_TAB==="import"&&EDIT_UNLOCKED){renderTaccLegacyImport(p);}else{renderTaccNoteBackup(p);}if(!EDIT_UNLOCKED){taccApplyPublicReadOnly(p);}container.appendChild(p);
   }
   window.addEventListener("storage",function(e){if(e.key===TACC_STORAGE_KEY){TACCUINO=taccLoad();taccScheduleCloudSync();if(currentStep==="taccuino"){renderAll();}}});
   window.addEventListener("online",function(){if(EDIT_UNLOCKED&&taccCurrentPgName()){taccCloudSyncAfterLogin(taccCurrentPgName());}});
-  document.addEventListener("visibilitychange",function(){if(document.visibilityState==="hidden"&&TACC_CLOUD_TIMER){clearTimeout(TACC_CLOUD_TIMER);TACC_CLOUD_TIMER=null;taccCloudPush(false);}});
+  function taccFlushPendingBestEffort(){
+    if(!EDIT_UNLOCKED||!fbConnected||!window.fbReady||!taccCurrentPgName()){return;}
+    if(TACC_CLOUD_TIMER){clearTimeout(TACC_CLOUD_TIMER);TACC_CLOUD_TIMER=null;}
+    if(TACC_CLOUD_DIRTY||taccPendingLoad(taccCurrentPgName())){taccCloudPush(false);}
+  }
+  document.addEventListener("visibilitychange",function(){if(document.visibilityState==="hidden"){taccFlushPendingBestEffort();}});
+  window.addEventListener("pagehide",taccFlushPendingBestEffort);
 
 
 
@@ -7195,6 +7287,7 @@
       if(!data){
         var fullNameErr=validateNewPgFullName(nome);
         resetDataState();STUDENTE.nome=nome;NEW_PG_PASSWORD_DRAFT=editPassword;EDIT_UNLOCKED=false;EDIT_PASSWORD_CONFIGURED=false;fbConnected=false;rememberBrowserPg("");
+        if(typeof taccSwitchLocalProfile==="function"){taccSwitchLocalProfile(nome);}
         if(fullNameErr){
           NEW_PG_PENDING=false;
           if(!silent){alert(fullNameErr);}
@@ -7306,6 +7399,12 @@
       new Promise(function(resolve){setTimeout(function(){resolve(false);},4500);})
     ]);
     return boundedSave.then(function(saveOk){
+      if(!saveOk){
+        EDIT_DISCONNECT_PENDING=false;if(btn){btn.disabled=false;btn.textContent="Disconnetti";}
+        fbStatusText="Modifica ancora attiva · ultimo salvataggio cloud non confermato";updateFbIndicator();
+        if(!confirm("Il salvataggio del Taccuino non è ancora stato confermato dal cloud. La copia locale è stata conservata e verrà recuperata automaticamente al prossimo accesso.\n\nVuoi disconnetterti comunque?")){return false;}
+        EDIT_DISCONNECT_PENDING=true;if(btn){btn.disabled=true;btn.textContent="Disconnessione…";}
+      }
       return Promise.resolve(window.fbEndEditSession?window.fbEndEditSession():true).catch(function(e){console.error(e);return false;}).then(function(){
         clearPasswordSessionNotice(STUDENTE.nome);
         EDIT_UNLOCKED=false;
