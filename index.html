@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+<!-- v121 — conflitti non bloccanti: revisioni/accrediti vengono ricaricati automaticamente dal cloud senza overlay; il popup resta solo come fallback se la rilettura automatica fallisce, 04/09/2026 -->
 <!-- v120 — fix accrediti/conflitti: le CB accreditate restano autoritative su Firebase ma non bloccano modifiche ad altre sezioni; conflitto solo se si modifica davvero il Mese accreditato, 04/09/2026 -->
 <!-- v112 — fix creazione PG: Nome e Cognome obbligatori appena il nome risulta nuovo + doppia protezione prima del salvataggio, 04/09/2026 -->
 <!-- v111 — stato Staffer attivo/non attivo: stop nuovi ST negli Elfi, consumi storici invariati, 04/09/2026 -->
@@ -3425,6 +3426,7 @@
   var ACCREDITI_UNSUB = null;
   var ACCREDITI_WATCH_ACTIVE = false;
   var SAVE_CONFLICT_LOCKED = false;
+  var AUTO_CONFLICT_RELOAD_PROMISE = null;
   var LAST_MODIFIED_AT = null;
   var LAST_MODIFIED_BY = "";
   var LAST_SESSION_ID = "";
@@ -4133,7 +4135,51 @@
       })(controls[i]);
     }
   }
-  function lockAfterRevisionConflict(code){
+
+  /* v121: un normale conflitto di revisione/accredito non richiede più un'azione
+     manuale. Il comportamento equivale a premere automaticamente «Carica versione
+     più recente»: Firebase resta autoritativo, la pagina non viene ricaricata e
+     l'utente può continuare. L'overlay rimane soltanto come fallback se la lettura
+     automatica del cloud non riesce davvero. */
+  function autoReloadLatestAfterConflict(code){
+    if(AUTO_CONFLICT_RELOAD_PROMISE){return AUTO_CONFLICT_RELOAD_PROMISE;}
+    var nome=String(STUDENTE&&STUDENTE.nome||"").trim(),wasUnlocked=!!EDIT_UNLOCKED;
+    if(!nome||!window.fbLoadState){return Promise.resolve(false);}
+    SAVE_CONFLICT_LOCKED=true;
+    if(fbSaveTimer){clearTimeout(fbSaveTimer);fbSaveTimer=null;}
+    document.querySelectorAll("#revision-conflict-overlay").forEach(function(x){if(x&&x.parentNode){x.remove();}});
+    fbStatusText=code==="accredited-month-conflict"?"Stato di accredito aggiornato · sincronizzazione automatica…":"Dati più recenti trovati · sincronizzazione automatica…";
+    updateFbIndicator();
+    AUTO_CONFLICT_RELOAD_PROMISE=Promise.resolve(window.fbLoadState(nome)).then(function(data){
+      if(!data||data._deleted||data._archiviato){return false;}
+      applyState(data);
+      STUDENTE.nome=nome;PG_DOC_EXISTS=true;fbConnected=true;NEW_PG_PENDING=false;NEW_PG_PASSWORD_DRAFT="";
+      EDIT_PASSWORD_CONFIGURED=data._editPasswordConfigured===true;
+      EDIT_UNLOCKED=wasUnlocked;
+      accreditiCache=null;
+      var loadedState=collectState();
+      LAST_PERSISTED_STATE=cloneHistoryState(persistenceComparableState(loadedState));
+      LAST_AUDITED_STATE=cloneHistoryState(historyComparableState(loadedState));
+      PENDING_AUDIT_STATE=null;SESSION_SNAPSHOT_DONE=false;LAST_SNAPSHOT_MS=0;
+      DATA_DIRTY=false;FORCE_PERSIST_SAVE=false;LOCKED_MIGRATION_PENDING=false;SAVE_CONFLICT_LOCKED=false;
+      window.fbLastSaveError=null;window.fbLastSavedRevision=DB_REVISION;
+      SAVE_FORCE_AGAIN=false;
+      rememberBrowserPg(nome);resetUndoRedoHistory();
+      if(typeof taccSwitchLocalProfile==="function"){taccSwitchLocalProfile(nome);}
+      startAccreditiWatch(nome,true);
+      document.querySelectorAll("#revision-conflict-overlay").forEach(function(x){if(x&&x.parentNode){x.remove();}});
+      fbStatusText=wasUnlocked?"Aggiornato automaticamente dal cloud · modifica autorizzata":"Aggiornato automaticamente dal cloud · sola visualizzazione";
+      renderAll({skipAutoSave:true});updateFbIndicator();
+      return true;
+    }).catch(function(e){console.error("Ricaricamento automatico dopo conflitto non riuscito",e);return false;}).then(function(ok){
+      AUTO_CONFLICT_RELOAD_PROMISE=null;
+      if(!ok){SAVE_CONFLICT_LOCKED=false;}
+      return ok;
+    });
+    return AUTO_CONFLICT_RELOAD_PROMISE;
+  }
+
+  function lockAfterRevisionConflict(code, forceOverlay){
     /* Un callback appartenente a un vecchio tentativo può arrivare dopo che abbiamo
        già caricato/raggiunto una revisione più nuova. In quel caso NON deve riaprire
        l'overlay né aggiungere un altro strato scuro. */
@@ -4143,6 +4189,12 @@
       if(Number.isFinite(oldExpected)&&Number.isFinite(oldRemote)&&oldExpected<DB_REVISION&&oldRemote<=DB_REVISION){
         window.fbLastSaveError=null;return;
       }
+    }
+    if(!forceOverlay&&(code==="revision-conflict"||code==="accredited-month-conflict")){
+      autoReloadLatestAfterConflict(code).then(function(ok){
+        if(!ok){lockAfterRevisionConflict(code,true);}
+      });
+      return;
     }
     var overlays=document.querySelectorAll("#revision-conflict-overlay");
     var existingOverlay=overlays.length?overlays[0]:null;
@@ -5035,7 +5087,7 @@
     DISPENSA = { ingredienti:[], movimenti:[], archivioTotali:{ galeoniVendite:0, perCommercianteTipo:{}, conteggiMovimenti:{} } }; ingredienteCounter = 0; movimentoCounter = 0; resetDispensaBatch(); PG_ARCHIVIATO = false; DELETE_REQUESTED = false; PG_DOC_EXISTS = false; DB_REVISION = 0;
     PARAMETRI_SOCIALI = {popolarita:null,stima:null,bonta:null,malvagita:null}; VERIFICHE_PARAMETRI_SOCIALI = {}; SOCIAL_SYNC_META = { lastStaffFingerprint:"" };
     TUTORIAL_STATE = { completedVersion:0, dismissedVersion:0, pendingVersion:0 }; TUTORIAL_RUNTIME = { active:false, index:0 };
-    OPEN_DETAILS = {}; stopAccreditiWatch(); accreditiCache = null; ACCREDITI_LOAD_STATE="idle"; ACCREDITI_WATCH_ACTIVE=false; SAVE_CONFLICT_LOCKED=false; var conflictOverlay=document.getElementById("revision-conflict-overlay");if(conflictOverlay){conflictOverlay.remove();} LAST_MODIFIED_AT=null; LAST_MODIFIED_BY=""; LAST_SESSION_ID=""; LAST_NARRATOR_AT=null; LAST_NARRATOR_ACTION=""; DATA_DIRTY=false; FORCE_PERSIST_SAVE=false; ARCHIVE_UNLOCK_UNTIL=null; LAST_PERSISTED_STATE=null; LAST_AUDITED_STATE=null; PENDING_AUDIT_STATE=null; SESSION_SNAPSHOT_DONE=false; LAST_SNAPSHOT_MS=0; SAVE_IN_FLIGHT_PROMISE=null; SAVE_FORCE_AGAIN=false;
+    OPEN_DETAILS = {}; stopAccreditiWatch(); accreditiCache = null; ACCREDITI_LOAD_STATE="idle"; ACCREDITI_WATCH_ACTIVE=false; SAVE_CONFLICT_LOCKED=false; var conflictOverlay=document.getElementById("revision-conflict-overlay");if(conflictOverlay){conflictOverlay.remove();} LAST_MODIFIED_AT=null; LAST_MODIFIED_BY=""; LAST_SESSION_ID=""; LAST_NARRATOR_AT=null; LAST_NARRATOR_ACTION=""; DATA_DIRTY=false; FORCE_PERSIST_SAVE=false; ARCHIVE_UNLOCK_UNTIL=null; LAST_PERSISTED_STATE=null; LAST_AUDITED_STATE=null; PENDING_AUDIT_STATE=null; SESSION_SNAPSHOT_DONE=false; LAST_SNAPSHOT_MS=0; SAVE_IN_FLIGHT_PROMISE=null; SAVE_FORCE_AGAIN=false; AUTO_CONFLICT_RELOAD_PROMISE=null;
   }
 
   function collectState(){
