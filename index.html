@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+<!-- v115 — fix loop revision-conflict: il caricamento della versione più recente e la sola navigazione non avviano più salvataggi passivi; i salvataggi ripartono solo da modifiche effettive, 04/09/2026 -->
 <!-- v112 — fix creazione PG: Nome e Cognome obbligatori appena il nome risulta nuovo + doppia protezione prima del salvataggio, 04/09/2026 -->
 <!-- v111 — stato Staffer attivo/non attivo: stop nuovi ST negli Elfi, consumi storici invariati, 04/09/2026 -->
 <!-- v110 — correzione semantica ST: eliminare un Mese NON rimborsa gli Staff Token già usati; consumo e storico restano validi, 04/09/2026 -->
@@ -3972,8 +3973,12 @@
         if(typeof taccSwitchLocalProfile==="function"){taccSwitchLocalProfile(nome);}
         startAccreditiWatch(nome,true);
         fbStatusText=wasUnlocked?"Versione più recente caricata · modifica autorizzata":"Versione più recente caricata · sola visualizzazione";
+        SAVE_FORCE_AGAIN=false;
+        window.fbLastSavedRevision=DB_REVISION;
         if(overlay&&overlay.parentNode){overlay.remove();}
-        renderAll();updateFbIndicator();
+        /* Il recupero da conflitto è una LETTURA autoritativa: non deve generare subito
+           un nuovo salvataggio soltanto perché la pagina viene ricostruita. */
+        renderAll({skipAutoSave:true});updateFbIndicator();
         return true;
       }).catch(function(e){
         console.error(e);b.disabled=false;b.textContent="Riprova caricamento";
@@ -4271,7 +4276,7 @@
     var ordered=navVisibleSteps();if(!ordered.length){tutorialClose(false);return;}
     var base=tutorialIndexForStep(currentStep,ordered);if(base<0){base=TUTORIAL_RUNTIME.index||0;}
     var idx=Math.max(0,Math.min(ordered.length-1,base+delta));
-    TUTORIAL_RUNTIME.index=idx;currentStep=ordered[idx].key;renderAll();
+    TUTORIAL_RUNTIME.index=idx;currentStep=ordered[idx].key;renderAll({skipAutoSave:true});
     setTimeout(function(){window.scrollTo({top:0,behavior:'smooth'});var t=document.querySelector('.step-btn.tutorial-target');if(t&&t.scrollIntoView){t.scrollIntoView({behavior:'smooth',block:'nearest',inline:'center'});}},0);
   }
   function tutorialLauncherSync(){
@@ -4445,7 +4450,7 @@
       navClearDropMarkers(nav);
       NAV_DRAG_JUST_DROPPED=!!moved;
       NAV_DRAG_KEY="";
-      if(moved){renderAll();setTimeout(function(){NAV_DRAG_JUST_DROPPED=false;},80);}
+      if(moved){renderAll({skipAutoSave:true});setTimeout(function(){NAV_DRAG_JUST_DROPPED=false;},80);}
     });
   }
   function renderNav(){
@@ -4467,7 +4472,7 @@
           b.setAttribute("aria-disabled","true");
           b.tabIndex=-1;
         } else {
-          b.addEventListener(EV, function(){if(NAV_DRAG_JUST_DROPPED){return;} currentStep = s.key; renderAll(); });
+          b.addEventListener(EV, function(){if(NAV_DRAG_JUST_DROPPED){return;} currentStep = s.key; renderAll({skipAutoSave:true}); });
         }
         makeNavButtonDraggable(nav,b,s,index);
         nav.appendChild(b);
@@ -4499,14 +4504,14 @@
     prev.disabled = idx <= 0;
     if(idx > 0){
       prev.title = "Vai a: " + labelForStep(enabled[idx-1]);
-      prev.addEventListener(EV, function(){ currentStep = enabled[idx-1].key; renderAll(); window.scrollTo({top:0, behavior:"smooth"}); });
+      prev.addEventListener(EV, function(){ currentStep = enabled[idx-1].key; renderAll({skipAutoSave:true}); window.scrollTo({top:0, behavior:"smooth"}); });
     }
     var next = el("button", "page-nav-btn next", idx < enabled.length-1 ? labelForStep(enabled[idx+1]) + " →" : "Successiva →");
     next.type = "button";
     next.disabled = idx >= enabled.length-1;
     if(idx < enabled.length-1){
       next.title = "Vai a: " + labelForStep(enabled[idx+1]);
-      next.addEventListener(EV, function(){ currentStep = enabled[idx+1].key; renderAll(); window.scrollTo({top:0, behavior:"smooth"}); });
+      next.addEventListener(EV, function(){ currentStep = enabled[idx+1].key; renderAll({skipAutoSave:true}); window.scrollTo({top:0, behavior:"smooth"}); });
     }
     footer.appendChild(prev);
     footer.appendChild(next);
@@ -5596,7 +5601,7 @@
       var imp=el("button","action ghost small","Controlla invii da Medimagia");imp.type="button";imp.addEventListener(EV,async function(){imp.disabled=true;imp.textContent="Controllo…";await consumeHealingImportsForCurrentPg(true);imp.disabled=false;imp.textContent="Controlla invii da Medimagia";renderAll();});medCheck.appendChild(imp);body.appendChild(medCheck);
     }else{
       var lockBox=el("div","elfo-access-state view","🔒 <b>Importazione e inserimento manuale sono disponibili dopo aver inserito la Password di modifica.</b><br>Stai visualizzando il profilo in sola lettura: entra in modifica per importare da Medimagia, aggiungere una guarigione o modificare le role valide.");
-      var unlockBtn=el("button","action","Inserisci la Password di modifica");unlockBtn.type="button";unlockBtn.style.marginTop="10px";unlockBtn.addEventListener(EV,function(){currentStep="pg";renderAll();setTimeout(function(){var panel=document.querySelector(".elfo-password-panel");if(panel){try{panel.scrollIntoView({behavior:"smooth",block:"center"});}catch(e){panel.scrollIntoView();}var inp=panel.querySelector('input[type="password"]');if(inp){try{inp.focus();}catch(e){}}}},0);});lockBox.appendChild(unlockBtn);body.appendChild(lockBox);
+      var unlockBtn=el("button","action","Inserisci la Password di modifica");unlockBtn.type="button";unlockBtn.style.marginTop="10px";unlockBtn.addEventListener(EV,function(){currentStep="pg";renderAll({skipAutoSave:true});setTimeout(function(){var panel=document.querySelector(".elfo-password-panel");if(panel){try{panel.scrollIntoView({behavior:"smooth",block:"center"});}catch(e){panel.scrollIntoView();}var inp=panel.querySelector('input[type="password"]');if(inp){try{inp.focus();}catch(e){}}}},0);});lockBox.appendChild(unlockBtn);body.appendChild(lockBox);
     }
     if(!active.length){body.appendChild(el("div","tacc-empty","Nessuna guarigione in corso."));}
     active.forEach(function(h){
@@ -5658,7 +5663,7 @@
       var targetVisible=navCanOpenStepKey(it.step);
       var b=el("button","action small",targetVisible?"Vai alla sezione":"Gestisci sezioni");b.type="button";
       b.title=targetVisible?"Apri la sezione interessata":"La sezione interessata è nascosta: apri le Strutture per riattivarla";
-      b.addEventListener(EV,function(){currentStep=navResolvedTargetKey(it.step);renderAll();});
+      b.addEventListener(EV,function(){currentStep=navResolvedTargetKey(it.step);renderAll({skipAutoSave:true});});
       row.appendChild(b);box.appendChild(row);
     });return box;
   }
@@ -6620,7 +6625,7 @@
       var targetVisible=navCanOpenStepKey(n.step);
       var go=el("button","action small",targetVisible?"Vai alla sezione":"Gestisci sezioni");go.type="button";
       go.title=targetVisible?"Apri la sezione dell’importazione":"La sezione dell’importazione è nascosta: apri le Strutture per riattivarla";
-      go.addEventListener(EV,function(){currentStep=navResolvedTargetKey(n.step);renderAll();window.scrollTo({top:0,behavior:"smooth"});});
+      go.addEventListener(EV,function(){currentStep=navResolvedTargetKey(n.step);renderAll({skipAutoSave:true});window.scrollTo({top:0,behavior:"smooth"});});
       actions.appendChild(go);
     }
     var ack=el("button","action ghost small","✓ Visualizzato");ack.type="button";
@@ -6635,7 +6640,8 @@
     return box;
   }
 
-  function renderAll(){
+  function renderAll(options){
+    options=options||{};
     ensureCurrentStepVisible();
     recomputePosts();
     updateElfoIdentityHeader();
@@ -6664,7 +6670,7 @@
     appendPageNavigation(c);
     if(EDIT_UNLOCKED && currentStep !== "taccuino"){ appendAuditFooter(c); }
     appendGlobalDisconnect(c);
-    if(currentStep !== "taccuino"){ scheduleSave(undefined, false); }
+    if(currentStep !== "taccuino" && options.skipAutoSave!==true){ scheduleSave(undefined, false); }
     applyReadOnlyMode(c);
     updateFbIndicator();
     if(fbConnected&&EDIT_UNLOCKED){setTimeout(function(){consumeHealingImportsForCurrentPg(false);},0);}
