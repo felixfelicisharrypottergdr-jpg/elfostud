@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- v115 — fix loop revision-conflict: il caricamento della versione più recente e la sola navigazione non avviano più salvataggi passivi; i salvataggi ripartono solo da modifiche effettive, 04/09/2026 -->
+<!-- v120 — fix accrediti/conflitti: le CB accreditate restano autoritative su Firebase ma non bloccano modifiche ad altre sezioni; conflitto solo se si modifica davvero il Mese accreditato, 04/09/2026 -->
 <!-- v112 — fix creazione PG: Nome e Cognome obbligatori appena il nome risulta nuovo + doppia protezione prima del salvataggio, 04/09/2026 -->
 <!-- v111 — stato Staffer attivo/non attivo: stop nuovi ST negli Elfi, consumi storici invariati, 04/09/2026 -->
 <!-- v110 — correzione semantica ST: eliminare un Mese NON rimborsa gli Staff Token già usati; consumo e storico restano validi, 04/09/2026 -->
@@ -2115,35 +2115,109 @@
     for(var i=0;i<oldPosts.length;i++){if(!txAccreditedPostEquivalent(oldPosts[i],newPosts[i])){return false;}}
     return true;
   }
-  function txAssertAccreditedMonthsUnchanged(remoteData,proposedData,accData){
-    remoteData=remoteData||{};proposedData=proposedData||{};accData=accData||{};var activeIds={},activeNames={};
+  /* v120/v124: le Camere Blindate accreditate sono protette senza bloccare
+     salvataggi estranei. La versione remota di ogni Mese accreditato resta autoritativa.
+     Se il Player NON ha modificato quel Mese dalla propria baseline, la transazione
+     conserva silenziosamente la copia Firebase e salva normalmente il resto del PG.
+     Il conflitto viene sollevato solo se la modifica locale riguarda davvero un Mese
+     che nel frattempo risulta accreditato. */
+  function txAccreditedSelectors(accData){
+    accData=accData||{};var activeIds={},activeNames={};
     Object.keys(accData).forEach(function(k){if(/^\d+$/.test(k)&&accData[k]===true){activeIds[String(k)]=true;}});
-    var sm=accData._staffMonths||{};Object.keys(sm).forEach(function(k){var r=sm[k];if(!r||r.applied===false)return;if(r.meseId!=null&&String(r.meseId)!==""){activeIds[String(r.meseId)]=true;}var n=txNormMonth(r.monthNorm||r.monthName);if(n){activeNames[n]=true;}});
-    var remote=Array.isArray(remoteData.MESI)?remoteData.MESI:[],proposed=Array.isArray(proposedData.MESI)?proposedData.MESI:[],remoteById={};
-    for(var ri=0;ri<remote.length;ri++){if(remote[ri]&&remote[ri].id!=null){remoteById[String(remote[ri].id)]=remote[ri];}}
-    for(var i=0;i<remote.length;i++){var rm=remote[i]||{},rid=String(rm.id==null?"":rm.id),rn=txNormMonth(rm.nome);if(activeIds[rid]||activeNames[rn]){var pm=null;for(var j=0;j<proposed.length;j++){if(String(proposed[j]&&proposed[j].id)===rid){pm=proposed[j];break;}}if(!pm||!txAccreditedMonthEquivalent(rm,pm)){throw new Error("accredited-month-conflict");}}}
-    for(var pi=0;pi<proposed.length;pi++){var p=proposed[pi]||{},pid=String(p.id==null?"":p.id),pn=txNormMonth(p.nome);if(activeIds[pid]||activeNames[pn]){var rr=remoteById[pid];if(!rr||!txAccreditedMonthEquivalent(rr,p)){throw new Error("accredited-month-conflict");}}}
+    var sm=accData._staffMonths||{};
+    Object.keys(sm).forEach(function(k){
+      var r=sm[k];if(!r||r.applied===false)return;
+      if(r.meseId!=null&&String(r.meseId)!==""){activeIds[String(r.meseId)]=true;}
+      var n=txNormMonth(r.monthNorm||r.monthName);if(n){activeNames[n]=true;}
+    });
+    return {ids:activeIds,names:activeNames};
   }
-  window.fbSaveState = function(pgId, dataObj, sessionId, mustAlreadyExist, auditObj){
+  function txMonthProtected(month,selectors){
+    month=month||{};selectors=selectors||{ids:{},names:{}};
+    var id=String(month.id==null?"":month.id),name=txNormMonth(month.nome);
+    return !!((id&&selectors.ids[id])||(name&&selectors.names[name]));
+  }
+  function txFindMonth(list,month){
+    list=Array.isArray(list)?list:[];month=month||{};
+    var id=String(month.id==null?"":month.id),name=txNormMonth(month.nome),i;
+    if(id){for(i=0;i<list.length;i++){if(String((list[i]&&list[i].id!=null)?list[i].id:"")===id){return list[i];}}}
+    if(name){for(i=0;i<list.length;i++){if(txNormMonth(list[i]&&list[i].nome)===name){return list[i];}}}
+    return null;
+  }
+  function txFindMonthIndex(list,month){
+    list=Array.isArray(list)?list:[];month=month||{};
+    var id=String(month.id==null?"":month.id),name=txNormMonth(month.nome),i;
+    if(id){for(i=0;i<list.length;i++){if(String((list[i]&&list[i].id!=null)?list[i].id:"")===id){return i;}}}
+    if(name){for(i=0;i<list.length;i++){if(txNormMonth(list[i]&&list[i].nome)===name){return i;}}}
+    return -1;
+  }
+  function txProtectAccreditedMonths(remoteData,proposedData,accData,baselineData){
+    remoteData=remoteData||{};proposedData=proposedData||{};baselineData=baselineData||{};
+    var selectors=txAccreditedSelectors(accData),remote=Array.isArray(remoteData.MESI)?remoteData.MESI:[],out=Array.isArray(proposedData.MESI)?proposedData.MESI.slice():[],baseline=Array.isArray(baselineData.MESI)?baselineData.MESI:[];
+    for(var i=0;i<remote.length;i++){
+      var rm=remote[i]||{};if(!txMonthProtected(rm,selectors)){continue;}
+      var pidx=txFindMonthIndex(out,rm),pm=pidx>=0?out[pidx]:null,bm=txFindMonth(baseline,rm);
+      if(pm){
+        var changedLocally=bm?!txAccreditedMonthEquivalent(bm,pm):!txAccreditedMonthEquivalent(rm,pm);
+        var alreadyRemote=txAccreditedMonthEquivalent(rm,pm);
+        if(changedLocally&&!alreadyRemote){throw new Error("accredited-month-conflict");}
+        /* Anche se la copia locale contiene vecchi default/migrazioni tecniche,
+           il Mese accreditato scritto nel documento resta quello già presente nel cloud. */
+        out[pidx]=rm;
+      }else{
+        /* Se la baseline conteneva il Mese ma la proposta no, è una vera rimozione locale. */
+        if(bm){throw new Error("accredited-month-conflict");}
+        /* Mese remoto comparso dopo la baseline: preservalo senza bloccare salvataggi estranei. */
+        out.push(rm);
+      }
+    }
+    /* Se un record Accrediti punta a un Mese che non esiste più nel documento remoto,
+       non permettiamo che una nuova/modificata copia locale lo ricrei di nascosto. */
+    for(var j=0;j<out.length;j++){
+      var om=out[j]||{};if(!txMonthProtected(om,selectors)){continue;}
+      var rr=txFindMonth(remote,om);if(rr){continue;}
+      var bb=txFindMonth(baseline,om);
+      if(!bb||!txAccreditedMonthEquivalent(bb,om)){throw new Error("accredited-month-conflict");}
+    }
+    proposedData.MESI=out;
+    return proposedData;
+  }
+  window.fbSaveState = function(pgId, dataObj, sessionId, mustAlreadyExist, auditObj, baselineObj){
     var ref = doc(fbDb, PERSON_COLLECTION, pgId);
     var accCollection = PERSON_COLLECTION === "personaggi_adulti" ? "accrediti_adulti" : "accrediti_studenti";
     var accRef = doc(fbDb, accCollection, pgId);
     var auditRef = auditObj ? doc(collection(fbDb, PERSON_COLLECTION, pgId, "audit")) : null;
     var expectedRevision = Math.max(0, parseInt(dataObj && dataObj._dbRevision,10) || 0);
-    window.fbLastSaveError = null; window.fbLastSavedRevision = null;
+    window.fbLastSaveError = null; window.fbLastSavedRevision = null; window.fbLastCommittedState = null;
     return runTransaction(fbDb, async function(tx){
       var snap = await tx.get(ref), accSnap = await tx.get(accRef);
+      var next = Object.assign({}, dataObj || {});
       if(mustAlreadyExist && !snap.exists()){ throw new Error("not-found"); }
       if(snap.exists()){
         var remoteData=snap.data()||{};
         if(remoteData._deleted){ throw new Error("deleted-pg"); }
         var remoteRevision = Math.max(0, parseInt(remoteData._dbRevision,10) || 0);
-        if(remoteRevision !== expectedRevision){ throw new Error("revision-conflict"); }
-        txAssertAccreditedMonthsUnchanged(remoteData,dataObj,accSnap.exists()?accSnap.data():{});
+        if(remoteRevision !== expectedRevision){
+          /* In anteprima (e durante alcuni rerender asincroni) due istanze dello stesso
+             Elfo possono condividere la medesima SESSION_ID. Se l'ultima revisione è
+             stata scritta proprio da QUESTA sessione, non è un conflitto esterno:
+             assorbiamo la revisione corrente e continuiamo nella stessa transazione. */
+          var remoteSession=String(remoteData._lastSessionId||"");
+          if(remoteSession && remoteSession===String(sessionId||"")){
+            expectedRevision=remoteRevision;
+          }else{
+            var revErr=new Error("revision-conflict");
+            revErr.expectedRevision=expectedRevision;revErr.remoteRevision=remoteRevision;
+            revErr.remoteSessionId=remoteSession;revErr.localSessionId=String(sessionId||"");
+            throw revErr;
+          }
+        }
+        next=txProtectAccreditedMonths(remoteData,next,accSnap.exists()?accSnap.data():{},baselineObj||{});
       } else if(expectedRevision !== 0){
-        throw new Error("revision-conflict");
+        var missingRevErr=new Error("revision-conflict");
+        missingRevErr.expectedRevision=expectedRevision;missingRevErr.remoteRevision=0;
+        throw missingRevErr;
       }
-      var next = Object.assign({}, dataObj || {});
       next._dbRevision = expectedRevision + 1;
       next._lastModifiedAt = serverTimestamp();
       next._lastModifiedBy = "pg";
@@ -2158,8 +2232,12 @@
         ev.at = serverTimestamp();
         tx.set(auditRef, ev);
       }
-      return next._dbRevision;
-    }).then(function(revision){ window.fbLastSavedRevision=revision; return true; }).catch(function(e){
+      return {revision:next._dbRevision,committedState:next};
+    }).then(function(result){
+      window.fbLastSavedRevision=result&&result.revision;
+      window.fbLastCommittedState=result&&result.committedState?result.committedState:null;
+      return true;
+    }).catch(function(e){
       var code=(e&&e.code)?e.code:((e&&e.message)?e.message:"error");
       window.fbLastSaveError={code:code, raw:e}; console.error(e); return false;
     });
@@ -2562,7 +2640,7 @@
   function staffTokenScheduleRender(){
     if(currentStep!=="blindata")return;
     if(staffTokenRenderTimer)clearTimeout(staffTokenRenderTimer);
-    staffTokenRenderTimer=setTimeout(function(){staffTokenRenderTimer=null;renderAll();},70);
+    staffTokenRenderTimer=setTimeout(function(){staffTokenRenderTimer=null;renderAll({skipAutoSave:true});},70);
   }
   function staffTokenRefreshDom(){
     var nodes=document.querySelectorAll("[data-staff-token-balance]");
@@ -2595,7 +2673,7 @@
         }
       }
     }
-    if(changed&&EDIT_UNLOCKED)scheduleSave(500);
+    if(changed&&EDIT_UNLOCKED){DATA_DIRTY=true;} /* cache ST derivata: niente scrittura passiva del PG */
     return changed;
   }
   function staffTokenStopWatchers(){
@@ -2817,6 +2895,114 @@
     });
     return persistenceComparableState(projected);
   }
+  /* v117: se Firebase ha avanzato soltanto la revisione tecnica,
+     senza cambiare alcun dato dell'Elfo rispetto alla nostra ultima baseline, il
+     salvataggio viene riallineato automaticamente. Un vero cambiamento concorrente
+     resta invece protetto dal normale avviso di conflitto. */
+  function revisionConflictComparable(v){
+    var c=cloneHistoryState(v||{});
+    ["_schemaVersion","_dbRevision","_pgName","_editPasswordConfigured","_lastModifiedAt","_lastModifiedBy","_lastSessionId","_archiveUnlockUntil","_tutorialState","_dispensaBatchDraft"].forEach(function(k){delete c[k];});
+    return c;
+  }
+  /* Confronta la baseline solo sulla forma realmente presente nel documento remoto.
+     I salvataggi più vecchi possono non avere ancora campi/default introdotti da versioni
+     successive del tool: quelle assenze non sono una modifica concorrente. */
+  function revisionProjectToRemoteShape(base,remote){
+    if(Array.isArray(remote)){
+      if(!Array.isArray(base)){return base;}
+      var out=[];
+      for(var i=0;i<remote.length;i++){
+        var r=remote[i],b=null;
+        if(r&&typeof r==="object"&&r.id!=null){
+          for(var j=0;j<base.length;j++){if(base[j]&&typeof base[j]==="object"&&String(base[j].id)===String(r.id)){b=base[j];break;}}
+        }
+        if(b===null||b===undefined){b=base[i];}
+        out.push(revisionProjectToRemoteShape(b,r));
+      }
+      return out;
+    }
+    if(remote&&typeof remote==="object"){
+      var o={};base=(base&&typeof base==="object")?base:{};
+      Object.keys(remote).forEach(function(k){o[k]=revisionProjectToRemoteShape(base[k],remote[k]);});
+      return o;
+    }
+    return base;
+  }
+  function revisionTopLevelDiffKeys(base,other){
+    var b=revisionConflictComparable(base),o=revisionConflictComparable(other),keys={},out=[];
+    Object.keys(b).forEach(function(k){keys[k]=1;});Object.keys(o).forEach(function(k){keys[k]=1;});
+    Object.keys(keys).forEach(function(k){if(stableComparableJson(b[k])!==stableComparableJson(o[k]))out.push(k);});
+    return out;
+  }
+  function applyRemoteTopLevelValues(remoteProjection,keys){
+    keys.forEach(function(k){var v=cloneHistoryState(remoteProjection&&remoteProjection[k]);switch(k){
+      case "RICHIESTA_ELIMINAZIONE": DELETE_REQUESTED=!!(remoteProjection&&remoteProjection[k]); break;
+      case "STUDENTE": STUDENTE=v; break;
+      case "MESI": MESI=Array.isArray(v)?v:[]; break;
+      case "meseCounter": meseCounter=parseInt(remoteProjection[k],10)||0; break;
+      case "postCounter": postCounter=parseInt(remoteProjection[k],10)||0; break;
+      case "globalPostCounter": globalPostCounter=parseInt(remoteProjection[k],10)||0; break;
+      case "ARCHIVIO_DB": ARCHIVIO_DB=v; break;
+      case "PARAMETRI_SOCIALI": PARAMETRI_SOCIALI=normalizeSocialValues(v); break;
+      case "VERIFICHE_PARAMETRI_SOCIALI": VERIFICHE_PARAMETRI_SOCIALI=v; break;
+      case "SOCIAL_SYNC_META": SOCIAL_SYNC_META=v; break;
+      case "STRUTTURE": STRUTTURE=v; break;
+      case "DISPENSA": DISPENSA=v; break;
+      case "ingredienteCounter": ingredienteCounter=parseInt(remoteProjection[k],10)||0; break;
+      case "movimentoCounter": movimentoCounter=parseInt(remoteProjection[k],10)||0; break;
+      case "POSTAZIONE_FAC": POSTAZIONE_FAC=v; break;
+      case "CALDERONI": CALDERONI=Array.isArray(v)?v:[]; break;
+      case "calderoneCounter": calderoneCounter=parseInt(remoteProjection[k],10)||0; break;
+      case "ARCHIVIO_CALDERONI": ARCHIVIO_CALDERONI=Array.isArray(v)?v:[]; break;
+      case "CUBICOLO_FAC": CUBICOLO_FAC=v; break;
+      case "PIANTE": PIANTE=Array.isArray(v)?v:[]; break;
+      case "piantaCounter": piantaCounter=parseInt(remoteProjection[k],10)||0; break;
+      case "ARCHIVIO_PIANTE": ARCHIVIO_PIANTE=Array.isArray(v)?v:[]; break;
+      case "RECINTO_FAC": RECINTO_FAC=v; break;
+      case "CREATURE": CREATURE=Array.isArray(v)?v:[]; break;
+      case "creaturaCounter": creaturaCounter=parseInt(remoteProjection[k],10)||0; break;
+      case "ARCHIVIO_CREATURE": ARCHIVIO_CREATURE=Array.isArray(v)?v:[]; break;
+      case "MEDICHERIA": MEDICHERIA=v; break;
+      case "EXTERNAL_IMPORT_NOTICE": EXTERNAL_IMPORT_NOTICE=remoteProjection[k]||null; break;
+    }});
+  }
+  function tryAutoRebaseRevisionConflict(baseState,localState){
+    if(!baseState||!window.fbLoadState||!fbConnected){return Promise.resolve(false);}
+    var pg=String(STUDENTE.nome||"").trim();
+    if(!pg){return Promise.resolve(false);}
+    return Promise.resolve(window.fbLoadState(pg)).then(function(remote){
+      if(!remote||remote._deleted||remote._archiviato){return false;}
+      localState=localState||collectState();
+      var remoteProjection=loadedPersistenceProjection(remote,localState);
+      var remoteCmp=revisionConflictComparable(remoteProjection);
+      var baseCmp=revisionConflictComparable(baseState);
+      var baseOnRemote=revisionProjectToRemoteShape(baseCmp,remoteCmp);
+      var remoteRevision=Math.max(0,parseInt(remote._dbRevision,10)||0);
+      if(remoteRevision<DB_REVISION){return false;}
+      var merged=cloneStateForSave(localState),remoteKeys=[];
+      if(stableComparableJson(remoteCmp)!==stableComparableJson(baseOnRemote)){
+        remoteKeys=revisionTopLevelDiffKeys(baseOnRemote,remoteCmp);
+        var localKeys=revisionTopLevelDiffKeys(baseCmp,revisionConflictComparable(localState));
+        var localMap={};localKeys.forEach(function(k){localMap[k]=1;});
+        for(var i=0;i<remoteKeys.length;i++){if(localMap[remoteKeys[i]]){return false;}}
+        remoteKeys.forEach(function(k){if(Object.prototype.hasOwnProperty.call(remoteProjection,k)){merged[k]=cloneStateForSave(remoteProjection[k]);}});
+        /* Le sezioni cambiate solo sul server vengono assorbite anche nella memoria
+           locale. Poiché sono disgiunte dalla modifica in corso, non si perdono input. */
+        applyRemoteTopLevelValues(remoteProjection,remoteKeys);
+      }
+      DB_REVISION=remoteRevision;
+      LAST_MODIFIED_AT=remote._lastModifiedAt||LAST_MODIFIED_AT;
+      LAST_MODIFIED_BY=remote._lastModifiedBy||LAST_MODIFIED_BY;
+      LAST_SESSION_ID=remote._lastSessionId||LAST_SESSION_ID;
+      merged._dbRevision=remoteRevision;
+      if(LAST_PERSISTED_STATE){LAST_PERSISTED_STATE._dbRevision=remoteRevision;}
+      if(LAST_AUDITED_STATE){LAST_AUDITED_STATE._dbRevision=remoteRevision;}
+      window.fbLastSaveError=null;window.fbLastSavedRevision=remoteRevision;
+      SAVE_CONFLICT_LOCKED=false;
+      return {ok:true,state:merged,remoteKeys:remoteKeys};
+    }).catch(function(e){console.error("Riallineamento revisione non riuscito",e);return false;});
+  }
+
   function historyComparableState(v){
     var c=persistenceComparableState(v);
     delete c._dispensaBatchDraft;
@@ -3300,6 +3486,26 @@
     else if(n > globalPostCounter){ globalPostCounter = n; }
   }
   function nextGlobalPostNumber(){ return Math.max(0,num(globalPostCounter,0)) + 1; }
+  function isDraftGeneralPost(post){ return !!(post && /^draft_/.test(String(post.id||""))); }
+  function ensurePersistentGeneralPostId(post){
+    if(!post){return;}
+    if(post.id==null || isDraftGeneralPost(post)){ postCounter++; post.id=postCounter; }
+  }
+  function generalPostHasPersistenceContent(post){
+    if(!post){return false;}
+    if(String(post.link||"").trim() || String(post.nota||"").trim() || String(post.pp||"").trim()){return true;}
+    if((parseInt(post.globalNo,10)||0)>0 || post.eventoBonusEscluso===true || post.staffTokenUsato===true){return true;}
+    if(post.bonusUtilizzi && typeof post.bonusUtilizzi==="object" && Object.keys(post.bonusUtilizzi).length){return true;}
+    return false;
+  }
+  function mesiForPersistence(){
+    return MESI.map(function(mese){
+      var copy=cloneStateForSave(mese||{});
+      var posts=Array.isArray(mese&&mese.posts)?mese.posts:[];
+      copy.posts=posts.filter(generalPostHasPersistenceContent).map(function(p){return cloneStateForSave(p);});
+      return copy;
+    });
+  }
   function getPostByGlobalNo(n){
     n = parseInt(n,10);
     if(isNaN(n) || n <= 0){ return null; }
@@ -3581,7 +3787,11 @@
   function acceptAccreditiRemote(acc){
     accreditiCache=acc||{}; ACCREDITI_LOAD_STATE="ok";
     syncAccreditiAudit(accreditiCache);
-    var changed=syncSocialFromNarratorIfNew(); if(changed){scheduleSave(0,false);}
+    /* Il listener degli Accrediti è una LETTURA remota, non un'azione del Player.
+       Aggiorna in memoria i Parametri Sociali derivati ma non deve mai aprire da solo
+       una scrittura sul documento PG mentre l'utente sta compilando un'altra sezione.
+       I valori verranno persistiti insieme alla prossima vera modifica del Player. */
+    syncSocialFromNarratorIfNew();
   }
   function startAccreditiWatch(pg,preserveCache){
     stopAccreditiWatch();
@@ -3595,13 +3805,13 @@
     }
     try{
       ACCREDITI_UNSUB=window.fbWatchAccrediti(pg,function(acc){
-        ACCREDITI_WATCH_ACTIVE=true;acceptAccreditiRemote(acc);renderAll();
+        ACCREDITI_WATCH_ACTIVE=true;acceptAccreditiRemote(acc);renderAll({skipAutoSave:true});
       },function(){
         ACCREDITI_WATCH_ACTIVE=false;
         /* Mantieni la cache ottenuta con fbGetAccrediti: il realtime è accessorio. */
         if(accreditiCache!==null){ACCREDITI_LOAD_STATE="ok";}
         else{ACCREDITI_LOAD_STATE="error";}
-        renderAll();
+        renderAll({skipAutoSave:true});
       });
       ACCREDITI_WATCH_ACTIVE=typeof ACCREDITI_UNSUB==="function";
       if(!ACCREDITI_WATCH_ACTIVE){
@@ -3924,16 +4134,28 @@
     }
   }
   function lockAfterRevisionConflict(code){
-    if(SAVE_CONFLICT_LOCKED){return;}
+    /* Un callback appartenente a un vecchio tentativo può arrivare dopo che abbiamo
+       già caricato/raggiunto una revisione più nuova. In quel caso NON deve riaprire
+       l'overlay né aggiungere un altro strato scuro. */
+    if(code==="revision-conflict"&&window.fbLastSaveError&&window.fbLastSaveError.raw){
+      var rawConflict=window.fbLastSaveError.raw;
+      var oldExpected=parseInt(rawConflict.expectedRevision,10),oldRemote=parseInt(rawConflict.remoteRevision,10);
+      if(Number.isFinite(oldExpected)&&Number.isFinite(oldRemote)&&oldExpected<DB_REVISION&&oldRemote<=DB_REVISION){
+        window.fbLastSaveError=null;return;
+      }
+    }
+    var overlays=document.querySelectorAll("#revision-conflict-overlay");
+    var existingOverlay=overlays.length?overlays[0]:null;
+    for(var oi=1;oi<overlays.length;oi++){if(overlays[oi]&&overlays[oi].parentNode){overlays[oi].remove();}}
+    if(SAVE_CONFLICT_LOCKED||existingOverlay){SAVE_CONFLICT_LOCKED=true;return;}
     SAVE_CONFLICT_LOCKED=true;
     if(fbSaveTimer){clearTimeout(fbSaveTimer);fbSaveTimer=null;}
-    var deleted=(code==="deleted-pg"||code==="not-found");
-    fbStatusText=deleted?"Salvataggio bloccato: questo PG è stato eliminato dal Narratore":"Salvataggio bloccato: sono disponibili dati più recenti"; updateFbIndicator();
-    var old=document.getElementById("revision-conflict-overlay");if(old){return;}
+    var deleted=(code==="deleted-pg"||code==="not-found"),accredited=(code==="accredited-month-conflict");
+    fbStatusText=deleted?"Salvataggio bloccato: questo PG è stato eliminato dal Narratore":(accredited?"Salvataggio bloccato: è cambiato lo stato di accredito del Mese":"Salvataggio bloccato: sono disponibili dati più recenti"); updateFbIndicator();
     var overlay=document.createElement("div");overlay.id="revision-conflict-overlay";overlay.style.cssText="position:fixed;inset:0;z-index:999999;background:rgba(0,0,0,.72);display:flex;align-items:center;justify-content:center;padding:20px;";
     var box=document.createElement("div");box.style.cssText="max-width:620px;width:100%;background:#fff;color:#222;border-radius:12px;padding:22px;box-shadow:0 20px 60px rgba(0,0,0,.35);font-family:inherit;";
-    var h=document.createElement("h2");h.textContent=deleted?"⚠ Personaggio eliminato":"⚠ Sono disponibili dati più recenti";box.appendChild(h);
-    var p=document.createElement("p");p.textContent=deleted?"Questo Personaggio è stato eliminato definitivamente dal Narratore mentre l’Elfo era aperto. Le modifiche locali successive non sono state salvate e il documento non verrà ricreato.":"Firebase contiene una versione più recente di questo PG. Per evitare sovrascritture, l’Elfo ha fermato il vecchio salvataggio. Premi «Carica versione più recente»: i dati del PG vengono riletti direttamente dal cloud senza ricaricare la pagina e puoi continuare normalmente.";box.appendChild(p);
+    var h=document.createElement("h2");h.textContent=deleted?"⚠ Personaggio eliminato":(accredited?"⚠ Stato di accredito aggiornato":"⚠ Sono disponibili dati più recenti");box.appendChild(h);
+    var p=document.createElement("p");p.textContent=deleted?"Questo Personaggio è stato eliminato definitivamente dal Narratore mentre l’Elfo era aperto. Le modifiche locali successive non sono state salvate e il documento non verrà ricreato.":(accredited?"Il Narratore ha modificato lo stato di accredito di un Mese mentre l’Elfo era aperto. Per sicurezza il Tool non altera una Camera Blindata già accreditata. Carica la versione più recente e ricontrolla il Mese prima di continuare.":"Firebase contiene una versione più recente di questo PG. Per evitare sovrascritture, l’Elfo ha fermato il vecchio salvataggio. Premi «Carica versione più recente»: i dati del PG vengono riletti direttamente dal cloud senza ricaricare la pagina e puoi continuare normalmente.");box.appendChild(p);
     var actions=document.createElement("div");actions.style.cssText="display:flex;gap:10px;flex-wrap:wrap;margin-top:18px;";
     var b=document.createElement("button");b.className="action";b.textContent=deleted?"Cambia Elfo":"Carica versione più recente";
     b.addEventListener("click",function(){
@@ -3975,7 +4197,7 @@
         fbStatusText=wasUnlocked?"Versione più recente caricata · modifica autorizzata":"Versione più recente caricata · sola visualizzazione";
         SAVE_FORCE_AGAIN=false;
         window.fbLastSavedRevision=DB_REVISION;
-        if(overlay&&overlay.parentNode){overlay.remove();}
+        document.querySelectorAll("#revision-conflict-overlay").forEach(function(x){if(x&&x.parentNode){x.remove();}});
         /* Il recupero da conflitto è una LETTURA autoritativa: non deve generare subito
            un nuovo salvataggio soltanto perché la pagina viene ricostruita. */
         renderAll({skipAutoSave:true});updateFbIndicator();
@@ -4822,7 +5044,7 @@
       RICHIESTA_ELIMINAZIONE: DELETE_REQUESTED,
       _tutorialState: tutorialNormalizeState(TUTORIAL_STATE),
       STUDENTE: STUDENTE,
-      MESI: MESI, meseCounter: meseCounter, postCounter: postCounter, globalPostCounter: globalPostCounter, ARCHIVIO_DB: ARCHIVIO_DB,
+      MESI: mesiForPersistence(), meseCounter: meseCounter, postCounter: postCounter, globalPostCounter: globalPostCounter, ARCHIVIO_DB: ARCHIVIO_DB,
       PARAMETRI_SOCIALI: PARAMETRI_SOCIALI, VERIFICHE_PARAMETRI_SOCIALI: VERIFICHE_PARAMETRI_SOCIALI, SOCIAL_SYNC_META: SOCIAL_SYNC_META,
       STRUTTURE: STRUTTURE,
       DISPENSA: DISPENSA, ingredienteCounter: ingredienteCounter, movimentoCounter: movimentoCounter, _dispensaBatchDraft: cloneHistoryState(DISPENSA_BATCH),
@@ -4993,6 +5215,33 @@
     if(!st)return false;
     try{return JSON.stringify(st).length>450;}catch(e){return true;}
   }
+
+  /* Dopo una transazione che ha protetto un vecchio Mese accreditato, riallinea
+     soltanto quel Mese nella copia locale se nel frattempo l'utente non lo ha toccato.
+     Così la baseline rappresenta davvero ciò che è stato scritto su Firebase senza
+     cancellare modifiche effettuate mentre il salvataggio era in corso. */
+  function reconcileAccreditedMonthsAfterSave(sentState,committedState){
+    if(!sentState||!committedState||!Array.isArray(sentState.MESI)||!Array.isArray(committedState.MESI)){return;}
+    function key(m){m=m||{};var id=String(m.id==null?"":m.id);return id?("id:"+id):("name:"+normalizeMonthName(m.nome||""));}
+    var sentByKey={},committedByKey={};
+    sentState.MESI.forEach(function(m){sentByKey[key(m)]=m;});
+    committedState.MESI.forEach(function(m){committedByKey[key(m)]=m;});
+    Object.keys(committedByKey).forEach(function(k){
+      var sm=sentByKey[k],cm=committedByKey[k];
+      if(sm&&stableComparableJson(sm)===stableComparableJson(cm)){return;}
+      var idx=-1;
+      for(var i=0;i<MESI.length;i++){if(key(MESI[i])===k){idx=i;break;}}
+      if(sm){
+        /* Sostituisci solo se la copia visibile è ancora identica a quella inviata. */
+        if(idx>=0&&stableComparableJson(MESI[idx])===stableComparableJson(sm)){MESI[idx]=cloneHistoryState(cm);}
+      }else if(idx<0){
+        /* Mese remoto protetto comparso durante la sessione: rendilo visibile senza
+           toccare le altre Camere Blindate. */
+        MESI.push(cloneHistoryState(cm));
+      }
+    });
+  }
+
   function saveStateWithHistory(state){
     /* Congela lo stato di QUESTA operazione: le modifiche UI successive non possono
        mutare per riferimento l'oggetto che verrà scritto dalla transazione. */
@@ -5035,10 +5284,27 @@
       if(snapshotAttempted && snapshotOk){ SESSION_SNAPSHOT_DONE=true; LAST_SNAPSHOT_MS=Date.now(); }
       if(snapshotAttempted && !snapshotOk && window.fbLastSaveError && (window.fbLastSaveError.code==="deleted-pg"||window.fbLastSaveError.code==="not-found")){return false;}
       if(destructive && snapshotAttempted && !snapshotOk){ window.fbLastSaveError={code:"snapshot-failed"}; return false; }
-      return window.fbSaveState(STUDENTE.nome,state,SESSION_ID,PG_DOC_EXISTS,auditEvent);
+      return window.fbSaveState(STUDENTE.nome,state,SESSION_ID,PG_DOC_EXISTS,auditEvent,prev);
+    }).then(function(ok){
+      if(ok||!window.fbLastSaveError||window.fbLastSaveError.code!=="revision-conflict"){return ok;}
+      return tryAutoRebaseRevisionConflict(prev,state).then(function(rebased){
+        if(!rebased||!rebased.ok){return false;}
+        /* Se il server ha cambiato una SEZIONE DIVERSA da quella modificata localmente,
+           inglobiamo quei dati e ritentiamo senza chiedere all'utente di ricaricare. */
+        state=cloneStateForSave(rebased.state||state);
+        state._dbRevision=DB_REVISION;
+        comparable=persistenceComparableState(state);
+        auditComparable=historyComparableState(state);
+        window.fbLastSaveError=null;
+        return window.fbSaveState(STUDENTE.nome,state,SESSION_ID,PG_DOC_EXISTS,auditEvent,prev);
+      });
     }).then(function(ok){
       if(ok){
         PG_DOC_EXISTS=true;
+        var committedState=(window.fbLastCommittedState&&typeof window.fbLastCommittedState==="object")?cloneStateForSave(window.fbLastCommittedState):cloneStateForSave(state);
+        reconcileAccreditedMonthsAfterSave(state,committedState);
+        comparable=persistenceComparableState(committedState);
+        auditComparable=historyComparableState(committedState);
         var savedRevision=Math.max(DB_REVISION,parseInt(window.fbLastSavedRevision,10)||0);
         DB_REVISION=savedRevision;
         LAST_MODIFIED_AT=new Date(); LAST_MODIFIED_BY="pg"; LAST_SESSION_ID=SESSION_ID;
@@ -5414,7 +5680,9 @@
     if(found||updated){
       var medMsg=(found?found+" guarigione"+(found===1?" importata":"i importate"):"")+(found&&updated?" e ":"")+(updated?updated+" aggiornata"+(updated===1?"":"e"):"")+" da Medimagia.";
       recordExternalImportNotice("Medimagia",medMsg,"posts");
-      scheduleSave(0);
+      /* La guarigione è già stata salvata nel Taccuino/cloud dedicato. L'avviso globale
+         non deve generare una seconda scrittura passiva sul documento PG. */
+      DATA_DIRTY=true;
       if(manual){
         if(found&&updated){alert(found+" guarigioni importate e "+updated+" aggiornate da Medimagia.");}
         else if(updated){alert(updated===1?"Guarigione aggiornata da Medimagia.":updated+" guarigioni aggiornate da Medimagia.");}
@@ -6670,7 +6938,10 @@
     appendPageNavigation(c);
     if(EDIT_UNLOCKED && currentStep !== "taccuino"){ appendAuditFooter(c); }
     appendGlobalDisconnect(c);
-    if(currentStep !== "taccuino" && options.skipAutoSave!==true){ scheduleSave(undefined, false); }
+    /* v117/v121: renderAll è solo rendering. Nessun salvataggio deve partire per il semplice
+       fatto che una pagina, un details o un avviso venga ridisegnato. Le migrazioni
+       vengono consolidate esplicitamente al caricamento e le modifiche reali chiamano
+       scheduleSave dai rispettivi handler. */
     applyReadOnlyMode(c);
     updateFbIndicator();
     if(fbConnected&&EDIT_UNLOCKED){setTimeout(function(){consumeHealingImportsForCurrentPg(false);},0);}
@@ -7331,7 +7602,7 @@
             if(staffTokenIsUsed(post,mese)&&!isValidPostLink(candidate)){iLink.value=lastAcceptedPostLink;alert("Questo Post usa uno Staff Token. Rimuovi prima lo Staff Token, poi potrai eliminare il link.");refreshInlineGlobal();return;}
             var hit=findDuplicateGeneralPostLink(candidate,post);
             if(hit){rejectDuplicatePostLink(candidate,hit);return;}
-            post.link=candidate;lastAcceptedPostLink=candidate;ensurePostGlobalNo(post);refreshInlineGlobal();scheduleSave(0);if(staffTokenIsUsed(post,mese)){syncStaffTokenReference(post,mese);}
+            if(String(candidate||"").trim()){ensurePersistentGeneralPostId(post);}post.link=candidate;lastAcceptedPostLink=candidate;ensurePostGlobalNo(post);refreshInlineGlobal();scheduleSave(0);if(staffTokenIsUsed(post,mese)){syncStaffTokenReference(post,mese);}
           },0);
         });
         iLink.addEventListener("input", function(){
@@ -7341,7 +7612,7 @@
           if(refLabels.length && isValidPostLink(post.link) && !isValidPostLink(candidate)){refreshInlineGlobal();return;}
           var hit=findDuplicateGeneralPostLink(candidate,post);
           if(hit&&isValidPostLink(candidate)){return;}
-          post.link=candidate;lastAcceptedPostLink=candidate;ensurePostGlobalNo(post);refreshInlineGlobal();scheduleSave(450);
+          if(String(candidate||"").trim()){ensurePersistentGeneralPostId(post);}post.link=candidate;lastAcceptedPostLink=candidate;ensurePostGlobalNo(post);refreshInlineGlobal();scheduleSave(450);
         });
         iLink.addEventListener("change", function(){
           if(blockIfMonthReadOnly(mese)){return;}
@@ -7354,7 +7625,7 @@
           }
           var hit=findDuplicateGeneralPostLink(candidate,post);
           if(hit){rejectDuplicatePostLink(candidate,hit);return;}
-          post.link=candidate;lastAcceptedPostLink=candidate;ensurePostGlobalNo(post);refreshInlineGlobal();scheduleSave(0);if(staffTokenIsUsed(post,mese)){syncStaffTokenReference(post,mese);}
+          if(String(candidate||"").trim()){ensurePersistentGeneralPostId(post);}post.link=candidate;lastAcceptedPostLink=candidate;ensurePostGlobalNo(post);refreshInlineGlobal();scheduleSave(0);if(staffTokenIsUsed(post,mese)){syncStaffTokenReference(post,mese);}
         });
         tdLink.appendChild(iLink);
         var existingDuplicate=findDuplicateGeneralPostLink(post.link,post);
@@ -7436,9 +7707,11 @@
     addBtn.disabled = locked || accreditato || isImportedStudentMonth(mese);
     function addPostAfterChecks(){
       if(blockIfMonthReadOnly(mese)){return;}
-      postCounter = postCounter + 1;
-      mese.posts.push({ id: postCounter, globalNo:null, link: "", nota: "", pp: "", eventoBonusEscluso:false, bonusUtilizzi:{}, staffTokenUsato:false, staffTokenStaffId:"", staffTokenStaffName:"", staffTokenUsedAt:"" });
-      scheduleSave(0); renderAll();
+      /* La riga vuota è una BOZZA UI: non avanza postCounter e non tocca Firebase.
+         Diventa un vero Post soltanto quando l'utente inizia a compilarla. In questo
+         modo il semplice click su «Aggiungi post» non può generare conflitti. */
+      mese.posts.push({ id:"draft_"+Date.now().toString(36)+"_"+Math.random().toString(36).slice(2,7), globalNo:null, link: "", nota: "", pp: "", eventoBonusEscluso:false, bonusUtilizzi:{}, staffTokenUsato:false, staffTokenStaffId:"", staffTokenStaffName:"", staffTokenUsedAt:"" });
+      renderAll();
     }
     addBtn.addEventListener(EV, function(){
       if(fbConnected && !accreditiVerified()){
