@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+<!-- v112 — fix creazione PG: Nome e Cognome obbligatori appena il nome risulta nuovo + doppia protezione prima del salvataggio, 04/09/2026 -->
 <!-- v111 — stato Staffer attivo/non attivo: stop nuovi ST negli Elfi, consumi storici invariati, 04/09/2026 -->
 <!-- v110 — correzione semantica ST: eliminare un Mese NON rimborsa gli Staff Token già usati; consumo e storico restano validi, 04/09/2026 -->
 <!-- v109 — secondo audit: coerenza Staff Token su riferimenti attivi + protezione eliminazione Mesi con ST, 04/09/2026 -->
@@ -6760,7 +6761,14 @@
         renderAll();return false;
       }
       if(!data){
-        resetDataState();STUDENTE.nome=nome;NEW_PG_PENDING=true;NEW_PG_PASSWORD_DRAFT=editPassword;EDIT_UNLOCKED=false;EDIT_PASSWORD_CONFIGURED=false;fbConnected=false;rememberBrowserPg("");renderAll();return false;
+        var fullNameErr=validateNewPgFullName(nome);
+        resetDataState();STUDENTE.nome=nome;NEW_PG_PASSWORD_DRAFT=editPassword;EDIT_UNLOCKED=false;EDIT_PASSWORD_CONFIGURED=false;fbConnected=false;rememberBrowserPg("");
+        if(fullNameErr){
+          NEW_PG_PENDING=false;
+          if(!silent){alert(fullNameErr);}
+          renderAll();return false;
+        }
+        NEW_PG_PENDING=true;renderAll();return false;
       }
       NEW_PG_PASSWORD_DRAFT="";
       var rawLoadedState=cloneStateForSave(data);
@@ -6797,6 +6805,12 @@
     }).finally(function(){if(btn&&document.body.contains(btn)){btn.disabled=false;btn.textContent=originalButtonText||"Apri Elfo";}});
   }
   function createNewPgAccess(nome,password,btn){
+    var fullNameErr=validateNewPgFullName(nome);
+    if(fullNameErr){
+      NEW_PG_PENDING=false;
+      if(btn){btn.disabled=false;btn.textContent="Crea nuovo Elfo";}
+      alert(fullNameErr);renderAll();return Promise.resolve(false);
+    }
     resetDataState();STUDENTE.nome=nome;EDIT_PASSWORD_CONFIGURED=true;tutorialFlagFirstAccess();
     var state=collectState();
     return window.fbCreateNewPgWithPassword(nome,state,password,SESSION_ID).then(function(res){
