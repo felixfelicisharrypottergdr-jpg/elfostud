@@ -3927,20 +3927,59 @@
     SAVE_CONFLICT_LOCKED=true;
     if(fbSaveTimer){clearTimeout(fbSaveTimer);fbSaveTimer=null;}
     var deleted=(code==="deleted-pg"||code==="not-found");
-    fbStatusText=deleted?"Salvataggio bloccato: questo PG è stato eliminato dal Narratore":"Salvataggio bloccato: i dati remoti sono cambiati. Ricarica i dati prima di continuare"; updateFbIndicator();
+    fbStatusText=deleted?"Salvataggio bloccato: questo PG è stato eliminato dal Narratore":"Salvataggio bloccato: sono disponibili dati più recenti"; updateFbIndicator();
     var old=document.getElementById("revision-conflict-overlay");if(old){return;}
     var overlay=document.createElement("div");overlay.id="revision-conflict-overlay";overlay.style.cssText="position:fixed;inset:0;z-index:999999;background:rgba(0,0,0,.72);display:flex;align-items:center;justify-content:center;padding:20px;";
     var box=document.createElement("div");box.style.cssText="max-width:620px;width:100%;background:#fff;color:#222;border-radius:12px;padding:22px;box-shadow:0 20px 60px rgba(0,0,0,.35);font-family:inherit;";
     var h=document.createElement("h2");h.textContent=deleted?"⚠ Personaggio eliminato":"⚠ Sono disponibili dati più recenti";box.appendChild(h);
-    var p=document.createElement("p");p.textContent=deleted?"Questo Personaggio è stato eliminato definitivamente dal Narratore mentre il Tracker era aperto. Le modifiche locali successive non sono state salvate e il documento non verrà ricreato. Ricarica il Tool per chiudere questa sessione.":"Questo Elfo è stato aggiornato online dopo che avevi aperto la pagina. Per evitare di sovrascrivere dati più recenti, le modifiche locali in conflitto non sono state salvate. Premi «Ricarica i dati»: la sessione di modifica viene chiusa e il PG viene riaperto dalla versione più recente presente su Firebase.";box.appendChild(p);
+    var p=document.createElement("p");p.textContent=deleted?"Questo Personaggio è stato eliminato definitivamente dal Narratore mentre l’Elfo era aperto. Le modifiche locali successive non sono state salvate e il documento non verrà ricreato.":"Firebase contiene una versione più recente di questo PG. Per evitare sovrascritture, l’Elfo ha fermato il vecchio salvataggio. Premi «Carica versione più recente»: i dati del PG vengono riletti direttamente dal cloud senza ricaricare la pagina e puoi continuare normalmente.";box.appendChild(p);
     var actions=document.createElement("div");actions.style.cssText="display:flex;gap:10px;flex-wrap:wrap;margin-top:18px;";
-    var b=document.createElement("button");b.className="action";b.textContent=deleted?"Disconnetti e ricarica":"Ricarica i dati";
+    var b=document.createElement("button");b.className="action";b.textContent=deleted?"Cambia Elfo":"Carica versione più recente";
     b.addEventListener("click",function(){
-      b.disabled=true;b.textContent=deleted?"Disconnessione…":"Ricarico…";
+      b.disabled=true;b.textContent=deleted?"Uscita…":"Caricamento…";
       if(fbSaveTimer){clearTimeout(fbSaveTimer);fbSaveTimer=null;}
-      try{EDIT_UNLOCKED=false;DATA_DIRTY=false;FORCE_PERSIST_SAVE=false;}catch(e){}
-      if(deleted){try{rememberBrowserPg("");}catch(e){}}
-      Promise.resolve(window.fbEndEditSession?window.fbEndEditSession():true).catch(function(e){console.error(e);}).finally(function(){window.location.reload();});
+      if(deleted){
+        try{rememberBrowserPg("");EDIT_UNLOCKED=false;DATA_DIRTY=false;FORCE_PERSIST_SAVE=false;}catch(e){}
+        Promise.resolve(window.fbEndEditSession?window.fbEndEditSession():true).catch(function(e){console.error(e);}).finally(function(){window.location.reload();});
+        return;
+      }
+      var nome=String(STUDENTE&&STUDENTE.nome||"").trim(),wasUnlocked=!!EDIT_UNLOCKED;
+      if(!nome||!window.fbLoadState){b.disabled=false;b.textContent="Riprova caricamento";return;}
+      /* v114: recupero diretto dal cloud. Evita il loop reload -> riapertura
+         automatica dello stesso PG -> nuovo overlay di revision-conflict. */
+      Promise.resolve(window.fbLoadState(nome)).then(function(data){
+        if(!data||data._deleted||data._archiviato){
+          try{rememberBrowserPg("");}catch(e){}
+          SAVE_CONFLICT_LOCKED=false;
+          if(overlay&&overlay.parentNode){overlay.remove();}
+          clearLoadedPg();
+          alert(!data||data._deleted?"Questo Personaggio non è più disponibile.":"Questo Personaggio è stato archiviato dal Narratore.");
+          return false;
+        }
+        var rawLoadedState=cloneStateForSave(data);
+        applyState(data);
+        STUDENTE.nome=nome;PG_DOC_EXISTS=true;fbConnected=true;NEW_PG_PENDING=false;NEW_PG_PASSWORD_DRAFT="";
+        EDIT_PASSWORD_CONFIGURED=data._editPasswordConfigured===true;
+        EDIT_UNLOCKED=wasUnlocked;
+        accreditiCache=null;
+        var loadedState=collectState();
+        LAST_PERSISTED_STATE=cloneHistoryState(persistenceComparableState(loadedState));
+        LAST_AUDITED_STATE=cloneHistoryState(historyComparableState(loadedState));
+        PENDING_AUDIT_STATE=null;SESSION_SNAPSHOT_DONE=false;LAST_SNAPSHOT_MS=0;
+        DATA_DIRTY=false;FORCE_PERSIST_SAVE=false;LOCKED_MIGRATION_PENDING=false;SAVE_CONFLICT_LOCKED=false;
+        window.fbLastSaveError=null;
+        rememberBrowserPg(nome);resetUndoRedoHistory();
+        if(typeof taccSwitchLocalProfile==="function"){taccSwitchLocalProfile(nome);}
+        startAccreditiWatch(nome,true);
+        fbStatusText=wasUnlocked?"Versione più recente caricata · modifica autorizzata":"Versione più recente caricata · sola visualizzazione";
+        if(overlay&&overlay.parentNode){overlay.remove();}
+        renderAll();updateFbIndicator();
+        return true;
+      }).catch(function(e){
+        console.error(e);b.disabled=false;b.textContent="Riprova caricamento";
+        var note=document.createElement("div");note.style.cssText="margin-top:10px;color:#8a1f1f;font-weight:700;";note.textContent="Non riesco a rileggere i dati dal cloud. Controlla la connessione e riprova.";
+        if(!box.querySelector('.conflict-reload-error')){note.className='conflict-reload-error';box.appendChild(note);}
+      });
     });actions.appendChild(b);
     if(!deleted){
       var change=document.createElement("button");change.className="action ghost";change.textContent="Cambia Elfo";
