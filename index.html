@@ -1,4 +1,16 @@
 <!DOCTYPE html>
+<!-- v136 — Camera Blindata compatta: rimossa guida introduttiva e Bonus racchiusi in details chiuso di default, 05/09/2026 -->
+<!-- v135 — Punti Casa: automatici per tutti i Post da Settembre a Giugno incluso; Luglio e Agosto esclusi, rimossa esclusione manuale Spin-off, 05/09/2026 -->
+<!-- v134 — Punti Casa completi: scala mensile Settembre–Maggio, modificatore Stima dei Docenti, esclusione Spin-off, +2 Role stessa Casa e riepilogo completo, 05/09/2026 -->
+<!-- v133 — Camera Blindata: gestione +2 Punti Casa racchiusa in details chiuso di default, 05/09/2026 -->
+<!-- v132 — Camera Blindata: “Rimuovi Bonus” immediato e affidabile, senza confirm nativo; compatibile con Bonus Casa per Role, 05/09/2026 -->
+<!-- v131 — Punti Casa: «Role conclusa» chiude e rimuove la Role dal registro attivo mantenendo i +2 già assegnati; Dispensa: azione rinominata «Importa Ingredienti», 05/09/2026 -->
+<!-- v130 — Punti Casa per Role: stato attiva/conclusa, storico riapribile e riconoscimento robusto del topic ForumFree, 05/09/2026 -->
+<!-- v129 — Punti Casa per Role: registrazione globale del link e +2 automatici su tutti i Post della stessa Role, con esclusione manuale per singolo Post, 05/09/2026 -->
+<!-- v128 — Camera Blindata: post selezionati + preset +2 Punti Casa per free role della stessa Casa, 05/09/2026 -->
+<!-- v127 — Dispensa formato libero: riconoscimento Ingredienti indipendente da separatori, bullet e impaginazione; quantità opzionale, 05/09/2026 -->
+<!-- v126 — Dispensa tollerante: incolla multi-formato, pulizia HTML/BBCode, alias e fuzzy matching sicuro degli Ingredienti, 05/09/2026 -->
+<!-- v125 — fix Dispensa 10d90: riconosce Classificazione con trattino (X - Nome), quantità assente = 1 dose; corretto Malaclaw Maculato, 05/09/2026 -->
 <!-- v124 — protezione Taccuino universale: copie locali, coda pendente e recupero per ogni profilo/PG, anche prima della registrazione Firebase, 04/09/2026 -->
 <!-- v123 — Taccuino anti-perdita: coda locale persistente, recupero automatico delle modifiche non sincronizzate, retry cloud e stato salvataggio sempre visibile, 04/09/2026 -->
 <!-- v122 — fix restituzione Staff Token: uso autorevole dal record Firebase + percorso Rules v46 dedicato al rimborso, 04/09/2026 -->
@@ -949,6 +961,15 @@
   }
   .out-tag{ display:inline-block; padding: 2px 8px; border-radius: 12px; font-size:.72rem; font-weight:bold; background:#c7b98a; color:#3a2b1a; }
   details.stage{ border:1px solid var(--gold); border-radius:6px; margin-top:8px; padding:6px 10px; background:#fbf4e2; }
+  .house-role-details{margin:0;}
+  .house-role-details > summary{
+    cursor:pointer; list-style:none; font-weight:800; color:var(--green-dark);
+    font-size:1rem; padding:2px 0; display:flex; align-items:center; gap:7px;
+  }
+  .house-role-details > summary::-webkit-details-marker{display:none;}
+  .house-role-details > summary::before{content:"▶"; color:var(--gold); font-size:.78em; width:1em; text-align:center;}
+  .house-role-details[open] > summary::before{content:"▼";}
+  .house-role-details-body{padding-top:10px;}
   details.stage summary{ cursor:pointer; font-weight:bold; color: var(--green-dark); }
   .sub-entry{ border-left:3px solid var(--gold); padding-left:10px; margin-top:8px; margin-bottom:8px; }
 
@@ -1746,6 +1767,21 @@
   body.theme-cb .staff-token-live{background:rgba(158,234,0,.06)}
   body.theme-cb .staff-token-live-note,body.theme-cb .staff-token-post-note{color:#4b4b4b}
 
+
+  /* Camera Blindata: Bonus compatti in tendina */
+  details.bonus-details{padding:12px 14px;}
+  details.bonus-details > summary.bonus-details-summary{
+    cursor:pointer;
+    list-style:none;
+    font-weight:800;
+    color:var(--green-dark);
+    user-select:none;
+    margin:-2px 0 0;
+  }
+  details.bonus-details > summary.bonus-details-summary::-webkit-details-marker{display:none;}
+  details.bonus-details > summary.bonus-details-summary::before{content:"▶";display:inline-block;width:1.2em;color:var(--gold);font-size:.8em;}
+  details.bonus-details[open] > summary.bonus-details-summary::before{content:"▼";}
+  details.bonus-details[open] > summary.bonus-details-summary{margin-bottom:10px;}
 </style>
 
 <style id="elfo-v41-harvest-style">
@@ -3507,6 +3543,7 @@
 
   var POSTS = [];
   var MESI = [];
+  var HOUSE_ROLE_BONUSES = [];
   var meseCounter = 0;
   var postCounter = 0;
   var globalPostCounter = 0;
@@ -5131,7 +5168,7 @@
   }
 
   function resetDataState(){
-    POSTS = []; MESI = []; meseCounter = 0; postCounter = 0; globalPostCounter = 0; ARCHIVIO_DB = { periodiche:[], ultima:null };
+    POSTS = []; MESI = []; HOUSE_ROLE_BONUSES = []; meseCounter = 0; postCounter = 0; globalPostCounter = 0; ARCHIVIO_DB = { periodiche:[], ultima:null };
     STUDENTE = { nome:"", anno:"V", annoPromemoriaAgosto:0, elfoNome:"Dobby", elfoAppellativo:"Padron", elfoNomeChiamata:"", elfoTitoloPersonalizzato:false };
     STRUTTURE = { taccuino:false, dispensa:false, postazione:false, cubicolo:false, recinto:false, esporta:false };
     POSTAZIONE_FAC = { descrizione:"", distillatoriMax:0 }; CALDERONI = []; calderoneCounter = 0; ARCHIVIO_CALDERONI = [];
@@ -5146,11 +5183,11 @@
 
   function collectState(){
     return {
-      _schemaVersion: 28, _dbRevision: DB_REVISION, _pgName: STUDENTE.nome, _editPasswordConfigured: EDIT_PASSWORD_CONFIGURED,
+      _schemaVersion: 29, _dbRevision: DB_REVISION, _pgName: STUDENTE.nome, _editPasswordConfigured: EDIT_PASSWORD_CONFIGURED,
       RICHIESTA_ELIMINAZIONE: DELETE_REQUESTED,
       _tutorialState: tutorialNormalizeState(TUTORIAL_STATE),
       STUDENTE: STUDENTE,
-      MESI: mesiForPersistence(), meseCounter: meseCounter, postCounter: postCounter, globalPostCounter: globalPostCounter, ARCHIVIO_DB: ARCHIVIO_DB,
+      MESI: mesiForPersistence(), HOUSE_ROLE_BONUSES: normalizeHouseRoleBonuses(HOUSE_ROLE_BONUSES), meseCounter: meseCounter, postCounter: postCounter, globalPostCounter: globalPostCounter, ARCHIVIO_DB: ARCHIVIO_DB,
       PARAMETRI_SOCIALI: PARAMETRI_SOCIALI, VERIFICHE_PARAMETRI_SOCIALI: VERIFICHE_PARAMETRI_SOCIALI, SOCIAL_SYNC_META: SOCIAL_SYNC_META,
       STRUTTURE: STRUTTURE,
       DISPENSA: DISPENSA, ingredienteCounter: ingredienteCounter, movimentoCounter: movimentoCounter, _dispensaBatchDraft: cloneHistoryState(DISPENSA_BATCH),
@@ -5190,6 +5227,7 @@
     if(isNaN(_annoProm)||_annoProm<0){_annoProm=0;}
     if(STUDENTE.annoPromemoriaAgosto!==_annoProm){STUDENTE.annoPromemoriaAgosto=_annoProm;DATA_DIRTY=true;}
     if(data.MESI){ MESI = data.MESI; }
+    HOUSE_ROLE_BONUSES = normalizeHouseRoleBonuses(data.HOUSE_ROLE_BONUSES);
     if(data.meseCounter){ meseCounter = data.meseCounter; }
     if(data.postCounter){ postCounter = data.postCounter; }
     if(data.globalPostCounter){ globalPostCounter = data.globalPostCounter; }
@@ -5268,7 +5306,7 @@
       var _ebg=parseInt(MESI[nmi].eventoBonusGaleoni,10); if(isNaN(_ebg)||_ebg<0){_ebg=0;}
       if(MESI[nmi].eventoBonusGaleoni!==_ebg){MESI[nmi].eventoBonusGaleoni=_ebg;DATA_DIRTY=true;}
       if(typeof MESI[nmi].eventoBonusAltro!=="string"){MESI[nmi].eventoBonusAltro="";DATA_DIRTY=true;}
-      if(["all","posts","first","manual"].indexOf(MESI[nmi].eventoBonusModalita)<0){MESI[nmi].eventoBonusModalita="all";DATA_DIRTY=true;}
+      if(["all","selected","posts","first","manual"].indexOf(MESI[nmi].eventoBonusModalita)<0){MESI[nmi].eventoBonusModalita="all";DATA_DIRTY=true;}
       var _ebp=Math.max(0,parseInt(MESI[nmi].eventoBonusPrimiPost,10)||0); if(MESI[nmi].eventoBonusPrimiPost!==_ebp){MESI[nmi].eventoBonusPrimiPost=_ebp;DATA_DIRTY=true;}
       if(["fixed","variable"].indexOf(MESI[nmi].eventoBonusValore)<0){MESI[nmi].eventoBonusValore="fixed";DATA_DIRTY=true;}
       var _ebu=Math.max(0,parseInt(MESI[nmi].eventoBonusMaxUtilizzi,10)||0); if(MESI[nmi].eventoBonusMaxUtilizzi!==_ebu){MESI[nmi].eventoBonusMaxUtilizzi=_ebu;DATA_DIRTY=true;}
@@ -5279,7 +5317,7 @@
       if(!Array.isArray(MESI[nmi].bonusAggiuntivi)){MESI[nmi].bonusAggiuntivi=[];DATA_DIRTY=true;}
       for(var _bai=0;_bai<MESI[nmi].bonusAggiuntivi.length;_bai++){
         var _ba=MESI[nmi].bonusAggiuntivi[_bai]||{};
-        if(["all","posts","first","manual"].indexOf(_ba.modalita)<0){_ba.modalita="all";DATA_DIRTY=true;}
+        if(["all","selected","posts","first","manual"].indexOf(_ba.modalita)<0){_ba.modalita="all";DATA_DIRTY=true;}
         var _bap=Math.max(0,parseInt(_ba.primiPost,10)||0); if(_ba.primiPost!==_bap){_ba.primiPost=_bap;DATA_DIRTY=true;}
         if(["fixed","variable"].indexOf(_ba.valore)<0){_ba.valore="fixed";DATA_DIRTY=true;}
         _ba.maxUtilizzi=Math.max(0,parseInt(_ba.maxUtilizzi,10)||0);
@@ -5629,7 +5667,228 @@
   function healingNormName(v){return String(v||"").trim().replace(/\s+/g," ").toLocaleLowerCase("it-IT");}
   function healingRoleUrlKey(url){
     var raw=String(url||"").trim();if(!raw){return "";}
-    try{var u=new URL(raw,window.location.href),tid=u.searchParams.get("t");if(tid){return "t:"+tid;}return (u.origin+u.pathname+u.search).replace(/#.*$/," ").trim();}catch(e){var m=raw.match(/[?&]t=(\d+)/i);if(m){return "t:"+m[1];}return raw.split("#")[0];}
+    try{
+      var u=new URL(raw,window.location.href);
+      var tid=u.searchParams.get("t")||u.searchParams.get("showtopic");
+      if(tid&&/^\d+$/.test(String(tid))){return "t:"+String(tid);}
+      var pm=String(u.pathname||"").match(/\/t\/(\d+)/i);if(pm){return "t:"+pm[1];}
+      return (u.origin+u.pathname+u.search).replace(/#.*$/," ").replace(/\/$/,"").trim();
+    }catch(e){
+      var m=raw.match(/[?&](?:t|showtopic)=(\d+)/i);if(m){return "t:"+m[1];}
+      var pth=raw.match(/\/t\/(\d+)/i);if(pth){return "t:"+pth[1];}
+      return raw.split("#")[0].replace(/\/$/,"").trim();
+    }
+  }
+
+  /* v129 — Punti Casa automatici per Role della stessa Casa.
+     Il link identifica il topic (parametro t=...), quindi qualsiasi link a un Post
+     della stessa Role produce la stessa chiave. Il bonus viene materializzato sui
+     singoli Post per non alterare retroattivamente Mesi già accreditati/consolidati. */
+  function normalizeHouseRoleBonuses(list){
+    var out=[],seen={};list=Array.isArray(list)?list:[];
+    for(var i=0;i<list.length;i++){
+      var x=list[i]||{},url=safeHttpUrl(x.url||""),key=healingRoleUrlKey(url||x.url||"");
+      if(!key||seen[key])continue;seen[key]=1;
+      out.push({
+        id:String(x.id||("house_"+Date.now().toString(36)+"_"+i)),
+        url:url||String(x.url||""),key:key,title:String(x.title||""),
+        status:String(x.status||"")==="completed"?"completed":"active",
+        completedAt:String(x.completedAt||"")
+      });
+    }
+    return out;
+  }
+  function houseRoleAnyEntryByKey(key){
+    key=String(key||"");if(!key)return null;
+    HOUSE_ROLE_BONUSES=normalizeHouseRoleBonuses(HOUSE_ROLE_BONUSES);
+    for(var i=0;i<HOUSE_ROLE_BONUSES.length;i++){if(String(HOUSE_ROLE_BONUSES[i].key)===key)return HOUSE_ROLE_BONUSES[i];}
+    return null;
+  }
+  function houseRoleRegistryEntryByKey(key){
+    var entry=houseRoleAnyEntryByKey(key);
+    return entry&&entry.status!=="completed"?entry:null;
+  }
+  function houseRoleMonthEditable(mese){
+    if(!mese)return false;
+    if(fbConnected&&!accreditiVerified())return false;
+    return !monthIsAccredited(mese)&&!archiveLocked(mese);
+  }
+  function houseRoleAssigned(post){return !!(post&&post.houseRoleBonus===true);}
+  function houseSchoolMonth(mese){
+    var m=normalizeMonthName(mese&&mese.nome).match(/^(gennaio|febbraio|marzo|aprile|maggio|giugno|luglio|agosto|settembre|ottobre|novembre|dicembre)\s+\d{4}$/);
+    if(!m)return false;
+    return ["settembre","ottobre","novembre","dicembre","gennaio","febbraio","marzo","aprile","maggio","giugno"].indexOf(m[1])>=0;
+  }
+  function houseBasePointsByOrdinal(n){
+    n=Math.max(0,parseInt(n,10)||0);
+    if(n===1)return 10;if(n===2)return 9;if(n===3)return 8;if(n===4)return 7;if(n===5)return 6;
+    if(n>=6&&n<=15)return 5;if(n>=16&&n<=25)return 3;if(n>=26&&n<=35)return 2;if(n>=36)return 1;return 0;
+  }
+  function houseStimaBand(value){
+    var v=socialNumber(value);
+    if(v===null||v<1)return {label:"Stima non disponibile",modifier:0};
+    if(v<=4)return {label:"Indisciplinato",modifier:-1};
+    if(v<=11)return {label:"Mediocre",modifier:-1};
+    if(v<=22)return {label:"Ordinario",modifier:0};
+    if(v<=29)return {label:"Modello",modifier:1};
+    return {label:"Prediletto",modifier:1};
+  }
+  function houseMonthStimaValue(mese){
+    var key=socialMonthKey(mese&&mese.nome),snap=key&&VERIFICHE_PARAMETRI_SOCIALI?VERIFICHE_PARAMETRI_SOCIALI[key]:null;
+    var v=socialNumber(snap&&snap.values&&snap.values.stima);
+    if(v!==null)return v;
+    return socialNumber(PARAMETRI_SOCIALI&&PARAMETRI_SOCIALI.stima);
+  }
+  function houseAutomaticPostEligible(mese,post){
+    return !!(houseSchoolMonth(mese)&&post&&isValidPostLink(post.link));
+  }
+  function houseRolePointsOnPost(post,mese){
+    return houseAutomaticPostEligible(mese,post)&&houseRoleAssigned(post)&&post.houseRoleBonusExcluded!==true?2:0;
+  }
+  function syncHouseRoleBonusForPost(post,mese){
+    if(!post||!houseRoleMonthEditable(mese))return false;
+    var key=healingRoleUrlKey(post.link),entry=houseRoleRegistryEntryByKey(key),anyEntry=houseRoleAnyEntryByKey(key),changed=false;
+    if(entry){
+      if(String(post.houseRoleKey||"")!==key){post.houseRoleBonusExcluded=false;changed=true;}
+      if(post.houseRoleBonus!==true){post.houseRoleBonus=true;changed=true;}
+      if(post.houseRoleBonusAuto!==true){post.houseRoleBonusAuto=true;changed=true;}
+      if(String(post.houseRoleKey||"")!==key){post.houseRoleKey=key;changed=true;}
+    }else if(anyEntry&&anyEntry.status==="completed"){
+      /* Role conclusa: i Post già marcati restano storico, ma i nuovi Post non
+         ricevono più automaticamente il Bonus Casa. */
+      return false;
+    }else if(post.houseRoleBonusAuto===true){
+      if(post.houseRoleBonus){changed=true;}
+      post.houseRoleBonus=false;post.houseRoleBonusAuto=false;post.houseRoleBonusExcluded=false;post.houseRoleKey="";
+    }
+    return changed;
+  }
+  function applyHouseRoleRegistryKey(key,enabled){
+    key=String(key||"");var changed=0,skipped=0;
+    for(var mi=0;mi<MESI.length;mi++){
+      var mese=MESI[mi],posts=Array.isArray(mese&&mese.posts)?mese.posts:[];
+      if(!houseRoleMonthEditable(mese)){
+        for(var si=0;si<posts.length;si++){if(healingRoleUrlKey(posts[si]&&posts[si].link)===key)skipped++;}
+        continue;
+      }
+      for(var pi=0;pi<posts.length;pi++){
+        var p=posts[pi];if(!p||healingRoleUrlKey(p.link)!==key)continue;
+        if(enabled){
+          if(String(p.houseRoleKey||"")!==key)p.houseRoleBonusExcluded=false;
+          if(p.houseRoleBonus!==true||p.houseRoleBonusAuto!==true||String(p.houseRoleKey||"")!==key)changed++;
+          p.houseRoleBonus=true;p.houseRoleBonusAuto=true;p.houseRoleKey=key;
+        }else if(p.houseRoleBonusAuto===true&&String(p.houseRoleKey||"")===key){
+          p.houseRoleBonus=false;p.houseRoleBonusAuto=false;p.houseRoleBonusExcluded=false;p.houseRoleKey="";changed++;
+        }
+      }
+    }
+    return {changed:changed,skipped:skipped};
+  }
+  function finalizeHouseRoleRegistryKey(key){
+    /* v131 — chiudere una Role non deve conservare una voce separata: i Post già
+       contrassegnati diventano storico statico, mentre il registro della Role viene
+       rimosso. In questo modo i nuovi Post non vengono più marcati automaticamente. */
+    key=String(key||"");var frozen=0,skipped=0;
+    for(var mi=0;mi<MESI.length;mi++){
+      var mese=MESI[mi],posts=Array.isArray(mese&&mese.posts)?mese.posts:[];
+      for(var pi=0;pi<posts.length;pi++){
+        var p=posts[pi];if(!p||healingRoleUrlKey(p.link)!==key)continue;
+        /* Congelare il marcatore automatico non cambia il valore accreditato del Post:
+           serve solo a impedire che una futura riapertura del Mese rimuova il +2. */
+        if(!houseRoleMonthEditable(mese))skipped++;
+        if(p.houseRoleBonus===true){
+          if(p.houseRoleBonusAuto===true||String(p.houseRoleKey||"")===key)frozen++;
+          p.houseRoleBonus=true;
+          p.houseRoleBonusAuto=false;
+          p.houseRoleKey="";
+        }
+      }
+    }
+    HOUSE_ROLE_BONUSES=HOUSE_ROLE_BONUSES.filter(function(x){return String(x.key)!==key;});
+    return {frozen:frozen,skipped:skipped};
+  }
+  function migrateLegacyCompletedHouseRoles(){
+    /* Compatibilità v130: eventuali Role già concluse vengono trasformate una sola
+       volta in bonus statici e poi eliminate dal registro. */
+    var legacy=normalizeHouseRoleBonuses(HOUSE_ROLE_BONUSES).filter(function(x){return x.status==="completed";});
+    if(!legacy.length)return false;
+    var changed=false;
+    for(var i=0;i<legacy.length;i++){
+      var key=legacy[i].key;
+      for(var mi=0;mi<MESI.length;mi++){
+        var posts=Array.isArray(MESI[mi]&&MESI[mi].posts)?MESI[mi].posts:[];
+        for(var pi=0;pi<posts.length;pi++){
+          var p=posts[pi];if(!p||String(p.houseRoleKey||"")!==String(key)||p.houseRoleBonus!==true)continue;
+          p.houseRoleBonusAuto=false;p.houseRoleKey="";changed=true;
+        }
+      }
+    }
+    HOUSE_ROLE_BONUSES=normalizeHouseRoleBonuses(HOUSE_ROLE_BONUSES).filter(function(x){return x.status!=="completed";});
+    return true||changed;
+  }
+  function houseRoleMatchedPostsCount(key){
+    var n=0;for(var mi=0;mi<MESI.length;mi++){var posts=Array.isArray(MESI[mi]&&MESI[mi].posts)?MESI[mi].posts:[];for(var pi=0;pi<posts.length;pi++){if(healingRoleUrlKey(posts[pi]&&posts[pi].link)===key)n++;}}return n;
+  }
+  function renderHouseRoleBonusManager(parent){
+    migrateLegacyCompletedHouseRoles();
+    HOUSE_ROLE_BONUSES=normalizeHouseRoleBonuses(HOUSE_ROLE_BONUSES).filter(function(x){return x.status!=="completed";});
+    var active=HOUSE_ROLE_BONUSES.slice();
+    var card=el("div","card");
+    var details=document.createElement("details");details.className="house-role-details";
+    var summary=document.createElement("summary");summary.textContent="🏠 +2 Punti Casa — Role della stessa Casa";details.appendChild(summary);
+    var detailsBody=el("div","house-role-details-body");
+    detailsBody.appendChild(el("p","small-note","Se una <b>free role</b> comprende almeno altri 2 PG esclusivamente della stessa Casa, incolla qui <b>una sola volta il link della Role</b> (va bene anche il link di uno dei suoi Post). L’Elfo riconosce il <b>topic</b>: nei normali link ForumFree conta il numero <code>t=…</code>, mentre la parte <code>#entry…</code> identifica soltanto il singolo Post. Puoi registrare <b>più Role contemporaneamente</b>. Quando una Role è finita, usa «Role conclusa»: viene rimossa da questo elenco, i +2 già assegnati ai Post restano registrati e i nuovi Post non vengono più marcati automaticamente."));
+
+    function appendEntryRow(list,entry){
+      var row=el("div","healing-role-row"),main=el("div");
+      main.appendChild(el("strong",null,entry.title||"Role stessa Casa"));
+      var a=document.createElement("a");a.href=safeHttpUrl(entry.url)||entry.url;a.target="_blank";a.rel="noopener noreferrer";a.className="tacc-link";a.textContent=entry.url||entry.key;main.appendChild(document.createElement("br"));main.appendChild(a);
+      var count=el("span","healing-role-count",houseRoleMatchedPostsCount(entry.key)+" post trovati");
+      row.appendChild(main);row.appendChild(count);
+
+      var done=el("button","action small","Role conclusa");done.type="button";done.disabled=!EDIT_UNLOCKED;
+      done.addEventListener(EV,function(){
+        if(!EDIT_UNLOCKED){alert("Accedi alla modifica dell’Elfo.");return;}
+        if(fbConnected&&!accreditiVerified()){alert("Non posso verificare gli accrediti: per sicurezza non modifico i Punti Casa finché Firebase non torna disponibile.");return;}
+        var res=finalizeHouseRoleRegistryKey(entry.key);scheduleSave(0);renderAll();
+        if(res.skipped>0)setTimeout(function(){alert("Role conclusa e rimossa dall’elenco. I +2 già registrati restano sui Post; "+res.skipped+" Post in Mesi accreditati/consolidati erano già bloccati e sono rimasti invariati.");},0);
+      });
+      row.appendChild(done);
+
+      var rm=el("button","action danger small","Rimuovi bonus");rm.type="button";rm.disabled=!EDIT_UNLOCKED;
+      rm.addEventListener(EV,function(){
+        if(!EDIT_UNLOCKED){alert("Accedi alla modifica dell’Elfo.");return;}
+        if(fbConnected&&!accreditiVerified()){alert("Non posso verificare gli accrediti: per sicurezza non modifico i Punti Casa finché Firebase non torna disponibile.");return;}
+        var res=applyHouseRoleRegistryKey(entry.key,false);
+        HOUSE_ROLE_BONUSES=HOUSE_ROLE_BONUSES.filter(function(x){return String(x.key)!==String(entry.key);});
+        scheduleSave(0);renderAll();
+        if(res.skipped>0)setTimeout(function(){alert("Bonus della Role rimosso. "+res.changed+" post editabili aggiornati; "+res.skipped+" post in Mesi accreditati/consolidati sono rimasti invariati.");},0);
+      });
+      row.appendChild(rm);list.appendChild(row);
+    }
+
+    if(active.length){
+      var list=el("div","healing-role-list");active.forEach(function(entry){appendEntryRow(list,entry);});detailsBody.appendChild(list);
+    }else{detailsBody.appendChild(el("p","small-note","Nessuna Role con Bonus Casa attualmente attiva."));}
+
+    var row=el("div","row"),cell=el("div");cell.appendChild(el("label",null,"Link della Role valida"));
+    var inp=el("input");inp.type="url";inp.placeholder="Incolla il link della Role o di un suo Post";inp.disabled=!EDIT_UNLOCKED;cell.appendChild(inp);row.appendChild(cell);
+    var act=el("div");act.style.alignSelf="end";var add=el("button","action","Contrassegna tutti i Post della Role");add.type="button";add.disabled=!EDIT_UNLOCKED;act.appendChild(add);row.appendChild(act);detailsBody.appendChild(row);
+    add.addEventListener(EV,function(){
+      if(!EDIT_UNLOCKED){alert("Accedi alla modifica dell’Elfo.");return;}
+      if(fbConnected&&!accreditiVerified()){alert("Non posso verificare gli accrediti: per sicurezza non modifico i Punti Casa finché Firebase non torna disponibile.");return;}
+      var url=safeHttpUrl(inp.value),key=healingRoleUrlKey(url||inp.value);
+      if(!url||!key){alert("Inserisci un link valido della Role o di un suo Post.");return;}
+      var existing=houseRoleAnyEntryByKey(key);
+      if(existing){alert("Questa Role è già registrata per il Bonus Casa.");return;}
+      HOUSE_ROLE_BONUSES.push({id:"house_"+Date.now().toString(36)+"_"+Math.random().toString(36).slice(2,7),url:url,key:key,title:"Free role — stessa Casa",status:"active",completedAt:""});
+      HOUSE_ROLE_BONUSES=normalizeHouseRoleBonuses(HOUSE_ROLE_BONUSES);
+      var res=applyHouseRoleRegistryKey(key,true);scheduleSave(0);renderAll();
+      setTimeout(function(){alert("Role registrata: "+res.changed+" post contrassegnati automaticamente con +2 Punti Casa."+(res.skipped>0?" "+res.skipped+" post appartengono a Mesi già accreditati/consolidati e non sono stati modificati.":""));},0);
+    });
+    details.appendChild(detailsBody);
+    card.appendChild(details);
+    parent.appendChild(card);
   }
   function healingPostStableKey(post){
     if(!post){return "";}var gn=parseInt(post.globalNo,10);if(!isNaN(gn)&&gn>0){return "g:"+gn;}if(post.id!=null){return "id:"+String(post.id);}return "u:"+healingRoleUrlKey(post.link);
@@ -7805,7 +8064,7 @@
             if(staffTokenIsUsed(post,mese)&&!isValidPostLink(candidate)){iLink.value=lastAcceptedPostLink;alert("Questo Post usa uno Staff Token. Rimuovi prima lo Staff Token, poi potrai eliminare il link.");refreshInlineGlobal();return;}
             var hit=findDuplicateGeneralPostLink(candidate,post);
             if(hit){rejectDuplicatePostLink(candidate,hit);return;}
-            if(String(candidate||"").trim()){ensurePersistentGeneralPostId(post);}post.link=candidate;lastAcceptedPostLink=candidate;ensurePostGlobalNo(post);refreshInlineGlobal();scheduleSave(0);if(staffTokenIsUsed(post,mese)){syncStaffTokenReference(post,mese);}
+            if(String(candidate||"").trim()){ensurePersistentGeneralPostId(post);}post.link=candidate;lastAcceptedPostLink=candidate;ensurePostGlobalNo(post);refreshInlineGlobal();syncHouseRoleBonusForPost(post,mese);scheduleSave(0);if(staffTokenIsUsed(post,mese)){syncStaffTokenReference(post,mese);}
           },0);
         });
         iLink.addEventListener("input", function(){
@@ -7950,7 +8209,7 @@
   function meseBonusAltro(mese){ return String(mese && mese.eventoBonusAltro != null ? mese.eventoBonusAltro : "").trim(); }
   function newBonusId(){ return "b_"+Date.now().toString(36)+"_"+Math.random().toString(36).slice(2,8); }
 
-  function normalizeBonusMode(v){return ["all","posts","first","manual"].indexOf(v)>=0?v:"all";}
+  function normalizeBonusMode(v){return ["all","selected","posts","first","manual"].indexOf(v)>=0?v:"all";}
   function normalizeBonusValueMode(v){return ["fixed","variable"].indexOf(v)>=0?v:"fixed";}
   function normalizeVariableTarget(v){return ["pp","galeoni","altro"].indexOf(v)>=0?v:"pp";}
 
@@ -8091,7 +8350,7 @@
   }
   function bonusUsedPostRefs(b,posts){
     var out=[],localNo=0;
-    if(!b||b.modalita!=="posts"){return out;}
+    if(!b||(b.modalita!=="posts"&&b.modalita!=="selected")){return out;}
     posts=Array.isArray(posts)?posts:[];
     for(var i=0;i<posts.length;i++){
       var post=posts[i];
@@ -8149,6 +8408,7 @@
   function postEligibleForBonus(post,b,posts){
     if(!post||!isValidPostLink(post.link)){return false;}
     if(b.modalita==="all"){return true;}
+    if(b.modalita==="selected"){return postUsesLimitedBonus(post,b);}
     if(b.modalita==="posts"){return postUsesLimitedBonus(post,b);}
     if(b.modalita==="first"){
       var max=Math.max(0,parseInt(b.primiPost,10)||0);if(max<=0){return false;}
@@ -8231,13 +8491,48 @@
   function bonusAltroForPost(mese,post){
     window.__ELFO_CURRENT_BONUS_POSTS=Array.isArray(mese&&mese.posts)?mese.posts:[];
     var bonuses=activeMonthBonuses(mese),out=[];
-    for(var i=0;i<bonuses.length;i++){var a=bonusAltroOnPost(bonuses[i],post);if(a)out.push(a);}
+    for(var i=0;i<bonuses.length;i++){var a=bonusAltroOnPost(bonuses[i],post);if(a&&housePointsFromText(a)===0)out.push(a);}
     return out.join(", ");
   }
+  function housePointsFromText(value){
+    var s=String(value||"").replace(/\s+/g," ").trim();
+    var m=s.match(/(?:^|[^0-9])([+-]?\d+)\s*punt[io]\s+casa\b/i);
+    return m?(parseInt(m[1],10)||0):0;
+  }
+  function bonusHousePointsOnPost(b,post){
+    if(!postEligibleForBonus(post,b,window.__ELFO_CURRENT_BONUS_POSTS||[])){return 0;}
+    return housePointsFromText(bonusAltroOnPost(b,post));
+  }
+  function housePointsBreakdown(mese,posts,endExclusive){
+    posts=Array.isArray(posts)?posts:[];window.__ELFO_CURRENT_BONUS_POSTS=posts;
+    var limit=Math.min(endExclusive==null?posts.length:endExclusive,posts.length),bonuses=activeMonthBonuses(mese),stima=houseMonthStimaValue(mese),band=houseStimaBand(stima);
+    var out={base:0,stima:0,role:0,manual:0,total:0,eligiblePosts:0,stimaValue:stima,stimaLabel:band.label,stimaModifier:band.modifier,schoolMonth:houseSchoolMonth(mese)};
+    var ordinal=0;
+    for(var i=0;i<limit;i++){
+      var post=posts[i];
+      if(houseAutomaticPostEligible(mese,post)){
+        ordinal++;out.eligiblePosts++;out.base+=houseBasePointsByOrdinal(ordinal);out.stima+=band.modifier;out.role+=houseRolePointsOnPost(post,mese);
+      }
+      for(var b=0;b<bonuses.length;b++)out.manual+=bonusHousePointsOnPost(bonuses[b],post);
+    }
+    for(var mb=0;mb<bonuses.length;mb++){
+      if(bonuses[mb].modalita==="manual"&&bonuses[mb].utilizziManuali>0){out.manual+=Math.max(0,parseInt(bonuses[mb].utilizziManuali,10)||0)*housePointsFromText(bonuses[mb].altro);}
+    }
+    out.total=out.base+out.stima+out.role+out.manual;
+    return out;
+  }
+  function housePointsForPost(mese,post){
+    var posts=Array.isArray(mese&&mese.posts)?mese.posts:[],idx=posts.indexOf(post);
+    if(idx<0)return 0;
+    var before=housePointsBreakdown(mese,posts,idx),one=housePointsBreakdown(mese,posts,idx+1);
+    return one.total-before.total;
+  }
+  function housePointsTotal(mese,posts,endExclusive){return housePointsBreakdown(mese,posts,endExclusive).total;}
   function postBonusTotals(mese,post){
     return {
       pp:bonusPPForPost(mese,post),
       galeoni:bonusGForPost(mese,post),
+      puntiCasa:housePointsForPost(mese,post),
       altro:bonusAltroForPost(mese,post)
     };
   }
@@ -8245,6 +8540,7 @@
     var shown=false;
     if(parts.galeoni>0){cell.appendChild(el("span","cb-total-line","+"+parts.galeoni+" G"));shown=true;}
     if(parts.pp>0){cell.appendChild(el("span","cb-total-line","+"+parts.pp+" PP"));shown=true;}
+    if(parts.puntiCasa>0){cell.appendChild(el("span","cb-total-line","+"+parts.puntiCasa+" Punti Casa"));shown=true;}
     if(altro){cell.appendChild(el("span","cb-total-altro","Altro: "+altro));shown=true;}
     if(!shown){cell.appendChild(el("span","cb-bonus-none","—"));}
   }
@@ -8287,6 +8583,7 @@
       for(var p=0;p<posts.length;p++){
         var value=String(bonusAltroOnPost(b,posts[p])||"").trim();
         if(!value){continue;}
+        if(housePointsFromText(value)>0){continue;}
         if(!Object.prototype.hasOwnProperty.call(counts,value)){counts[value]=0;order.push(value);}
         counts[value]++;
       }
@@ -8345,18 +8642,19 @@
         shown++;
         var line=el("div","cb-bonus-line");
 
-        if(b.modalita==="posts"){
+        if(b.modalita==="posts"||b.modalita==="selected"){
           var cb=el("input");cb.type="checkbox";
           var rec=getBonusUsageRecord(post,b,false);
           cb.checked=!!(rec&&rec.used);
-          var setupMissing=!b.usatiConfermati||!(b.maxUtilizzi>0);
-          var exhausted=b.maxUtilizzi>0&&bonusCurrentUses(b,mese.posts)>=b.maxUtilizzi&&!cb.checked;
+          var isSelectedMode=b.modalita==="selected";
+          var setupMissing=!isSelectedMode&&(!b.usatiConfermati||!(b.maxUtilizzi>0));
+          var exhausted=!isSelectedMode&&b.maxUtilizzi>0&&bonusCurrentUses(b,mese.posts)>=b.maxUtilizzi&&!cb.checked;
           cb.disabled=!!locked||!isValidPostLink(post.link)||setupMissing||exhausted;
-          cb.title=setupMissing?"Prima indica Utilizzi attuali in Scheda e Utilizzi totali":(exhausted?"Premio esaurito":"Spuntato = utilizzo del premio su questo post");
+          cb.title=isSelectedMode?"Spuntato = questo post riceve il Bonus":(setupMissing?"Prima indica Utilizzi attuali in Scheda e Utilizzi totali":(exhausted?"Premio esaurito":"Spuntato = utilizzo del premio su questo post"));
           cb.addEventListener("change",function(){
             if(blockIfMonthReadOnly(mese)){renderAll();return;}
             var r=getBonusUsageRecord(post,b,true);
-            if(cb.checked && b.maxUtilizzi>0 && bonusCurrentUses(b,mese.posts)>=b.maxUtilizzi && !r.used){
+            if(!isSelectedMode&&cb.checked && b.maxUtilizzi>0 && bonusCurrentUses(b,mese.posts)>=b.maxUtilizzi && !r.used){
               alert("Questo Bonus ha già raggiunto "+b.maxUtilizzi+"/"+b.maxUtilizzi+" utilizzi.");renderAll();return;
             }
             r.used=cb.checked;scheduleSave(0);renderAll();
@@ -8366,7 +8664,7 @@
 
         var txt=el("span");
         var name=bonusDisplayName(b,idx);
-        txt.appendChild(el("span","cb-bonus-name",name+(b.modalita==="posts"?": ":"")));
+        txt.appendChild(el("span","cb-bonus-name",name+((b.modalita==="posts"||b.modalita==="selected")?": ":"")));
 
         if(b.modalita==="posts"&&b.valore==="variable"){
           var r=getBonusUsageRecord(post,b,true);
@@ -8413,6 +8711,27 @@
       })(bonuses[i],i);
     }
 
+    if(houseSchoolMonth(mese)&&isValidPostLink(post.link)){
+      shown++;
+      var hpLine=el("div","cb-bonus-line"),hpTxt=el("span");
+      var hpValue=housePointsForPost(mese,post),hpBand=houseStimaBand(houseMonthStimaValue(mese));
+      hpTxt.appendChild(el("span","cb-bonus-name","Punti Casa del post: "));
+      hpTxt.appendChild(el("span","cb-bonus-values",(hpValue>=0?"+":"")+hpValue));
+      hpTxt.appendChild(el("span","small-note"," · Stima "+hpBand.label+" ("+(hpBand.modifier>0?"+":"")+hpBand.modifier+"/post)"));
+      hpLine.appendChild(hpTxt);td.appendChild(hpLine);
+    }
+
+    if(houseRoleAssigned(post)){
+      shown++;
+      var hline=el("div","cb-bonus-line"),hcb=el("input");hcb.type="checkbox";hcb.checked=post.houseRoleBonusExcluded!==true;hcb.disabled=!!locked||!isValidPostLink(post.link);
+      hcb.title="Spuntato = questo Post riceve +2 Punti Casa per la Role della stessa Casa";
+      hcb.addEventListener("change",function(){
+        if(blockIfMonthReadOnly(mese)){renderAll();return;}
+        post.houseRoleBonusExcluded=!hcb.checked;scheduleSave(0);renderAll();
+      });
+      hline.appendChild(hcb);
+      var htxt=el("span");htxt.appendChild(el("span","cb-bonus-name","Free role — stessa Casa: "));htxt.appendChild(el("span","cb-bonus-values",houseAutomaticPostEligible(mese,post)?"+2 Punti Casa":"+2 Punti Casa (non conteggiati qui)"));hline.appendChild(htxt);td.appendChild(hline);
+    }
     if(!shown)td.appendChild(el("span","cb-bonus-none","—"));
     return td;
   }
@@ -8423,7 +8742,7 @@
 
     var modeCell=el("div");modeCell.appendChild(el("label",null,"Applicazione"));
     var modeSel=el("select");
-    [["all","Tutti i post"],["first","Solo per i primi X post"],["posts","A utilizzi sui post"]].forEach(function(o){var op=el("option");op.value=o[0];op.textContent=o[1];modeSel.appendChild(op);});
+    [["all","Tutti i post"],["first","Solo per i primi X post"],["selected","Solo sui post selezionati"],["posts","A utilizzi sui post"]].forEach(function(o){var op=el("option");op.value=o[0];op.textContent=o[1];modeSel.appendChild(op);});
     if(mode==="manual"){mode="all";setEditableBonusField(mese,bonus,isPrimary,"modalita","all");}
     modeSel.value=mode;modeSel.disabled=locked;
     modeSel.addEventListener("change",function(){
@@ -8557,7 +8876,8 @@
       var rem=el("button","action danger small","Rimuovi Bonus");rem.type="button";rem.style.marginTop="12px";
       rem.addEventListener(EV,function(){
         if(blockIfMonthReadOnly(mese))return;
-        if(!confirm("Rimuovere questo Bonus?"))return;
+        /* v132 — rimozione immediata: niente confirm nativo, che negli iframe può
+           risultare inaffidabile. L'operazione resta recuperabile dalla cronologia. */
         var extras=ensureBonusExtras(mese),id=String(bonus.id);
         for(var i=extras.length-1;i>=0;i--){if(String(extras[i].id)===id)extras.splice(i,1);}
         for(var p=0;p<mese.posts.length;p++){
@@ -8576,7 +8896,6 @@
     staffTokenEnsureWatcher();
     var p = el("div", "panel");
     p.appendChild(el("h2", null, "Camera Blindata (Studente)"));
-    p.appendChild(el("div", "guide-text", "Un blocco per ogni Mese creato allo Step 2. Qui controlli <b>Link, Galeoni, N. globale e Bonus</b>. Se questo PG è associato a uno Staffer ancora attivo, compare anche il comando <b>ST</b>: 1 Staff Token vale +1 PP su quel Post. Se lo Staffer viene segnato come «Non è più Staffer», i tasti spariscono subito; gli ST già usati restano consumati e vengono mostrati soltanto come storico. I Bonus si impostano nel riquadro qui sotto e compaiono automaticamente nella colonna Bonus dei post a cui si applicano. Scala Galeoni: 30-20-15-10-8-6-4-3-2-2, poi 1 G ciascuno."));
 
     if(MESI.length === 0){
       p.appendChild(el("div", "guide-text", "Non hai ancora creato nessun Mese. Torna allo Step 2.")); container.appendChild(p); return;
@@ -8620,6 +8939,7 @@
     }
     p.appendChild(accBadge);
     appendStaffTokenLiveCard(p);
+    renderHouseRoleBonusManager(p);
 
     /* Lo stesso comando presente in “I tuoi Post” è disponibile anche qui:
        Camera Blindata e lista Post agiscono sul medesimo Mese. */
@@ -8655,9 +8975,10 @@
     }
 
     var bonusLocked = !!(meseObj.chiuso && archiveLocked(meseObj)) || monthIsAccredited(meseObj) || (fbConnected && !accreditiVerified());
-    var bonusBox=el("div","card");
-    bonusBox.appendChild(el("h4",null,"🎉 Bonus"));
-    bonusBox.appendChild(el("p","small-note","Usa questo riquadro per i <b>Bonus che devono comparire in Camera Blindata</b>: Eventi, Premi FT legati ai post e altri bonus analoghi. Per i bonus normali lascia «Tutti i post». Per premi a consumo con valore sempre uguale, come <b>+1 PP per 10 post</b> o <b>+5 G per 10 post</b>, scegli «A utilizzi sui post» e «Fisso». Per <b>+1d3 PP</b> o <b>+1d10 G</b> scegli invece «Variabile per post»: <b>non dovrai creare dieci Bonus diversi</b> e non inserirai alcun valore PP/Galeoni qui sopra; spunterai il Bonus sul singolo post e lì compariranno il campo del risultato e il link del tiro. Prima di poter segnare un utilizzo devi indicare quanti utilizzi risultano già consumati in Scheda PG e il totale previsto dal premio."));
+    var bonusBox=el("details","card bonus-details");
+    keepDetailsState(bonusBox,"camera-blindata:bonus:"+String(meseObj.id),false);
+    bonusBox.appendChild(el("summary","bonus-details-summary","🎉 Bonus"));
+    bonusBox.appendChild(el("p","small-note","Usa questo riquadro per i <b>Bonus generici che devono comparire in Camera Blindata</b>: Eventi, Premi FT e altri bonus analoghi. Se il Bonus vale soltanto su alcuni post ma <b>non ha un numero limitato di utilizzi</b>, scegli «Solo sui post selezionati». «A utilizzi sui post» resta invece riservato ai premi realmente a consumo. I <b>+2 Punti Casa per le free role della stessa Casa</b> si gestiscono nel riquadro dedicato sopra: basta registrare il link della Role."));
 
     appendBonusEditor(bonusBox,meseObj,primaryBonusItem(meseObj),0,bonusLocked,true);
     var extraBonuses=ensureBonusExtras(meseObj);
@@ -8672,6 +8993,7 @@
         scheduleSave(0);renderAll();
       });
       bonusActions.appendChild(addBonusBtn);
+
 
       var anyBonusActive=activeMonthBonuses(meseObj).length>0 || ensureBonusExtras(meseObj).length>0;
       if(anyBonusActive){
@@ -8720,6 +9042,8 @@
     var totPPBase = cumulativeBasePP(postiDelMese, postiDelMese.length);
     var totPPEvento = eventBonusTotal(meseObj, postiDelMese, postiDelMese.length);
     var totPP = totPPBase + totPPEvento;
+    var houseBreakdown = housePointsBreakdown(meseObj, postiDelMese, postiDelMese.length);
+    var totPuntiCasa = houseBreakdown.total;
     var latestCredit = latestCreditInfo(meseObj, postiDelMese);
 
     var manualCredit=manualCreditParts(meseObj);
@@ -8736,6 +9060,7 @@
          non il valore del solo ultimo post. Viene ricostruito ad ogni renderAll(). */
       creditParts.push("+"+totG+" G");
       creditParts.push("+"+totPP+" PP");
+      if(houseBreakdown.schoolMonth||totPuntiCasa!==0){creditParts.push((totPuntiCasa>=0?"+":"")+totPuntiCasa+" Punti Casa");}
 
       var allMonthAltro=monthlyBonusAltroParts(meseObj,postiDelMese);
       if(manualCredit.altro.length){allMonthAltro=allMonthAltro.concat(manualCredit.altro);}
@@ -8756,8 +9081,20 @@
     totals.appendChild(el("div", "box", "Totale Post<br><b>" + totFilled + "</b>"));
     totals.appendChild(el("div", "box", "Totale Galeoni<br><b>" + totG + " G</b>"));
     totals.appendChild(el("div", "box", "Totale PP<br><b>" + totPP + " PP</b>"));
+    if(houseBreakdown.schoolMonth||totPuntiCasa!==0){totals.appendChild(el("div","box","Punti Casa<br><b>"+(totPuntiCasa>=0?"+":"")+totPuntiCasa+"</b>"));}
     if(STAFF_TOKEN_STATE.associated||staffTokenHistorical){totals.appendChild(el("div","box","Staff Token usati<br><b>"+staffTokenCountForPosts(postiDelMese,postiDelMese.length,meseObj)+"</b>"));}
     p.appendChild(totals);
+    if(houseBreakdown.schoolMonth||totPuntiCasa!==0){
+      var hpParts=[];
+      if(houseBreakdown.schoolMonth){
+        hpParts.push("Base post: "+(houseBreakdown.base>=0?"+":"")+houseBreakdown.base);
+        hpParts.push("Stima "+houseBreakdown.stimaLabel+" ("+(houseBreakdown.stimaValue===null?"—":fmtSocialValue(houseBreakdown.stimaValue))+"): "+(houseBreakdown.stima>=0?"+":"")+houseBreakdown.stima);
+        hpParts.push("Role stessa Casa: +"+houseBreakdown.role);
+      }
+      if(houseBreakdown.manual!==0)hpParts.push("Altri Punti Casa: "+(houseBreakdown.manual>=0?"+":"")+houseBreakdown.manual);
+      p.appendChild(el("div","guide-text","<b>🏆 Punti Casa del mese:</b> "+hpParts.join(" · ")+" · <b>Totale: "+(totPuntiCasa>=0?"+":"")+totPuntiCasa+"</b>"));
+      if(houseBreakdown.schoolMonth&&houseBreakdown.stimaValue===null){p.appendChild(el("div","warning-alert","⚠ Non trovo la Stima dei Docenti verificata per questo Mese: il modificatore Stima è temporaneamente 0. Verifica i Parametri Sociali prima dell’accredito."));}
+    }
     var bonusItems=activeMonthBonuses(meseObj);
     for(var bsi=0;bsi<bonusItems.length;bsi++){
       var bi=bonusItems[bsi],parts=[],modeText="";
@@ -8771,6 +9108,12 @@
         if(bi.galeoni>0)parts.push("+"+bi.galeoni+" G per post");
         if(bi.altro)parts.push("Altro: "+bi.altro);
         modeText="Solo primi "+Math.max(0,parseInt(bi.primiPost,10)||0)+" post · applicati a "+bonusEligibleCount(bi,postiDelMese,postiDelMese.length)+" post validi";
+      }else if(bi.modalita==="selected"){
+        if(bi.pp>0)parts.push("+"+bi.pp+" PP per post selezionato");
+        if(bi.galeoni>0)parts.push("+"+bi.galeoni+" G per post selezionato");
+        if(bi.altro)parts.push(bi.altro+" per post selezionato");
+        var selectedRefs=bonusUsedPostRefs(bi,postiDelMese);
+        modeText="Post selezionati: "+selectedRefs.length+(selectedRefs.length?" · "+selectedRefs.join(", "):"");
       }else if(bi.modalita==="posts"){
         if(bi.valore==="variable"){
           parts.push("valore variabile in "+(bi.variabileSu==="pp"?"PP":(bi.variabileSu==="galeoni"?"Galeoni":"Altro"))+" per utilizzo");
@@ -8800,7 +9143,7 @@
     staffTokenHistorical=staffTokenMonthHasHistory(postiDelMese,meseObj);
     var staffTokenColumn=STAFF_TOKEN_STATE.associated||staffTokenHistorical;
     var staffTokenHead=staffTokenColumn?"<th>ST</th>":"";
-    tblLive.appendChild(el("tr", null, "<th>N.</th><th>Link</th><th>Galeoni accumulati</th><th>N. globale</th><th>Bonus</th>"+staffTokenHead+"<th>Totale Bonus</th>"));
+    tblLive.appendChild(el("tr", null, "<th>N.</th><th>Link</th><th>Galeoni accumulati</th><th>N. globale</th><th>Bonus / Punti Casa</th>"+staffTokenHead+"<th>Totali</th>"));
 
     var showUpToLive = postiDelMese.length;
     if(showUpToLive < 1){ showUpToLive = 0; }
@@ -8890,20 +9233,39 @@
   /* ==================================================== */
   /* DISPENSA DEGLI INGREDIENTI                            */
   /* ==================================================== */
-  var INGREDIENTI_GLOSSARIO = [{"nome":"Acido di Albero Carnivoro","classificazione":"XXXXX","classeBene":"Non Commerciabile di Classe C","provenienzaGlossario":"Piante XXXXX","esotico":true,"illegale":true,"pozionista":true},{"nome":"Acqua di testa di Kappa","classificazione":"XXXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie XXXX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Aculeo di Istrice","classificazione":"X","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Animali","esotico":false,"illegale":false,"pozionista":false},{"nome":"Aculeo di Knarl","classificazione":"XXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie XXX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Aculeo di Tentacula Velenosa","classificazione":"XXXXX","classeBene":"Non Commerciabile di Classe C","provenienzaGlossario":"Piante XXXXX","esotico":false,"illegale":true,"pozionista":false},{"nome":"Ala di Doxy","classificazione":"XXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie XXX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Ala di Fata","classificazione":"XX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie XX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Ala di Pipistrello","classificazione":"X","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Animali","esotico":false,"illegale":false,"pozionista":false},{"nome":"Ala di Pixie","classificazione":"XXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie XXX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Ala di Scriber","classificazione":"X","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie X","esotico":false,"illegale":false,"pozionista":false},{"nome":"Algabranchia","classificazione":"XXXXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Piante XXXXX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Alghe di Loto di Mahoutokoro","classificazione":"XXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Piante XXX","esotico":true,"illegale":false,"pozionista":false},{"nome":"Amaralinfa di Amarantacea","classificazione":"XXXXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Piante XXXXX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Antenna di Duckbill","classificazione":"X","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie X","esotico":false,"illegale":false,"pozionista":false},{"nome":"Appendice di Purvincolo","classificazione":"XXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie XXX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Artiglio di Drago","classificazione":"XXXXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie XXXXX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Artiglio di Duckbill","classificazione":"X","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie X","esotico":false,"illegale":false,"pozionista":false},{"nome":"Artiglio di Grifone","classificazione":"XXXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie XXXX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Artiglio di Ippogrifo","classificazione":"XXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie XXX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Artiglio di Matagot","classificazione":"XXXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie XXXX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Artiglio di Sfinge","classificazione":"XXXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie XXXX","esotico":true,"illegale":false,"pozionista":false},{"nome":"Bacca di Agrifoglio","classificazione":"X","classeBene":"Non Commerciabile di Classe C","provenienzaGlossario":"Piante X","esotico":false,"illegale":true,"pozionista":true},{"nome":"Bacca di Alloro","classificazione":"X","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Piante X","esotico":false,"illegale":false,"pozionista":false},{"nome":"Bacca di Balzar","classificazione":"XXXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Piante XXXX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Bacca di Belladonna","classificazione":"X","classeBene":"Non Commerciabile di Classe C","provenienzaGlossario":"Piante X","esotico":false,"illegale":true,"pozionista":true},{"nome":"Bacca di Vischio","classificazione":"X","classeBene":"Non Commerciabile di Classe C","provenienzaGlossario":"Piante X","esotico":false,"illegale":true,"pozionista":true},{"nome":"Baccello di Pugnacio","classificazione":"XXXXX","classeBene":"Non Commerciabile di Classe C","provenienzaGlossario":"Piante XXXXX","esotico":false,"illegale":true,"pozionista":true},{"nome":"Baccello di Stupefiore","classificazione":"XXXXX","classeBene":"Non Commerciabile di Classe C","provenienzaGlossario":"Piante XXXXX","esotico":true,"illegale":true,"pozionista":false},{"nome":"Baccello di Tentacula Velenosa","classificazione":"XXXXX","classeBene":"Non Commerciabile di Classe C","provenienzaGlossario":"Piante XXXXX","esotico":false,"illegale":true,"pozionista":false},{"nome":"Baffo di Mau","classificazione":"X","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie X","esotico":true,"illegale":false,"pozionista":false},{"nome":"Bava di Ghoul","classificazione":"XX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie XX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Bava di Lumaca Carnivora","classificazione":"XX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie XX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Bezoar","classificazione":"X","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Animali","esotico":false,"illegale":false,"pozionista":false},{"nome":"Bile di Armadillo","classificazione":"X","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Animali","esotico":false,"illegale":false,"pozionista":false},{"nome":"Bruco Peloso Carnivoro","classificazione":"X","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Animali","esotico":false,"illegale":false,"pozionista":false},{"nome":"Bulbo di Bucaneve","classificazione":"X","classeBene":"Non Commerciabile di Classe C","provenienzaGlossario":"Piante X","esotico":false,"illegale":true,"pozionista":true},{"nome":"Bulbo di Bulbo Balzellante","classificazione":"XXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Piante XXX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Caccola di Baku","classificazione":"X","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie X","esotico":true,"illegale":false,"pozionista":false},{"nome":"Capello di Ninfa dei Boschi","classificazione":"Esseri, Non-Esseri e Spiriti","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Essere","esotico":false,"illegale":false,"pozionista":false},{"nome":"Capello di Veela","classificazione":"Esseri, Non-Esseri e Spiriti","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Esseri","esotico":false,"illegale":false,"pozionista":false},{"nome":"Cappello di Fungo Scoppiettante","classificazione":"XXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Piante XXX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Cenere dell'Albero di Cenere","classificazione":"XXXXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Piante XXXXX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Cenere di Ashwinder","classificazione":"XXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie XXX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Cenere di Pianta di Seme di Fuoco","classificazione":"XXXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Piante XXXX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Cervello di Rana","classificazione":"X","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Animali","esotico":false,"illegale":false,"pozionista":false},{"nome":"Chele di Kàvouras","classificazione":"X","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie X","esotico":true,"illegale":false,"pozionista":false},{"nome":"Coda di Erumpent","classificazione":"XXXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie XXXX","esotico":true,"illegale":false,"pozionista":false},{"nome":"Coda di Malacaw Maculato","classificazione":"XXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie XXX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Coda di Topo","classificazione":"X","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Animali","esotico":false,"illegale":false,"pozionista":false},{"nome":"Concime di Menta Tibetana","classificazione":"XX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Piante XX","esotico":true,"illegale":false,"pozionista":false},{"nome":"Corda di cuore di Drago","classificazione":"XXXXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie XXXXX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Corno di Bicorno","classificazione":"XXXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie XXXX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Corno di Graphorn","classificazione":"XXXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie XXXX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Corno di Hodag","classificazione":"XXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie XXX","esotico":true,"illegale":false,"pozionista":false},{"nome":"Corno di Unicorno","classificazione":"XXXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie XXXX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Corteccia dell'Albero della Vita","classificazione":"XXXXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Piante XXXXX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Corteccia di Alloro","classificazione":"X","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Piante X","esotico":false,"illegale":false,"pozionista":false},{"nome":"Corteccia di Platano Picchiatore","classificazione":"XXXXX","classeBene":"Non Commerciabile di Classe C","provenienzaGlossario":"Piante XXXXX","esotico":false,"illegale":true,"pozionista":false},{"nome":"Crine di Cavallo Alato","classificazione":"XXXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie XXXX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Crine di Fiammablu","classificazione":"X","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie X","esotico":true,"illegale":false,"pozionista":false},{"nome":"Crine di Hanabira","classificazione":"X","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie X","esotico":false,"illegale":false,"pozionista":false},{"nome":"Crine di Thestral","classificazione":"XXXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie XXXX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Crine di Unicorno","classificazione":"XXXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie XXXX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Cristallo di Fiammablu","classificazione":"X","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie X","esotico":true,"illegale":false,"pozionista":false},{"nome":"Cuore di Coccodrillo","classificazione":"X","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Animali","esotico":false,"illegale":false,"pozionista":false},{"nome":"Dente di Ninki Nanka","classificazione":"X","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie X","esotico":true,"illegale":false,"pozionista":false},{"nome":"Dente di Wiggity","classificazione":"X","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie X","esotico":true,"illegale":false,"pozionista":false},{"nome":"Dito di Erkling","classificazione":"XXXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie XXXX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Escremento di Wiggity","classificazione":"X","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie X","esotico":true,"illegale":false,"pozionista":false},{"nome":"Essenza di Ruta","classificazione":"XXXXX","classeBene":"Non Commerciabile di Classe C","provenienzaGlossario":"Piante XXXXX","esotico":false,"illegale":true,"pozionista":false},{"nome":"Estratto di Annientamento","classificazione":"XXXX","classeBene":"Non Commerciabile di Classe C","provenienzaGlossario":"Piante XXXX","esotico":true,"illegale":true,"pozionista":false},{"nome":"Estratto di Coccolacea","classificazione":"XXXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Piante XXXX","esotico":true,"illegale":false,"pozionista":false},{"nome":"Estratto di Mandragola","classificazione":"XXXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Piante XXXX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Estratto di Moly","classificazione":"XXXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Piante XXXX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Fagiolo Corridore","classificazione":"XXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Piante XXX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Fagiolo Sopoforoso","classificazione":"X","classeBene":"Non Commerciabile di Classe C","provenienzaGlossario":"Piante X","esotico":false,"illegale":true,"pozionista":true},{"nome":"Fango di Sblorb","classificazione":"XXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie XXX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Fertilizzante di Arbusto Autofertilizzante","classificazione":"XXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Piante XXX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Fico","classificazione":"X","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Piante X","esotico":false,"illegale":false,"pozionista":false},{"nome":"Filo d'erba del Prato Messicano","classificazione":"XXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Piante XXX","esotico":true,"illegale":false,"pozionista":false},{"nome":"Fiore (bolle) di Erbaschiuma","classificazione":"XXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Piante XXX","esotico":true,"illegale":false,"pozionista":false},{"nome":"Fiore di Asfodelo","classificazione":"X","classeBene":"Non Commerciabile di Classe C","provenienzaGlossario":"Piante X","esotico":false,"illegale":true,"pozionista":true},{"nome":"Fiore di Belladonna","classificazione":"X","classeBene":"Non Commerciabile di Classe C","provenienzaGlossario":"Piante X","esotico":false,"illegale":true,"pozionista":true},{"nome":"Fiore di Bucaneve","classificazione":"X","classeBene":"Non Commerciabile di Classe C","provenienzaGlossario":"Piante X","esotico":false,"illegale":true,"pozionista":true},{"nome":"Fiore di Canterose","classificazione":"XXXX","classeBene":"Non Commerciabile di Classe C","provenienzaGlossario":"Piante XXXX","esotico":false,"illegale":true,"pozionista":false},{"nome":"Fiore di Cespuglio Farfallino","classificazione":"XXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Piante XXX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Fiore di Cespuglio Spinoso","classificazione":"XXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Piante XXX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Fiore di Aloe","classificazione":"X","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Piante X","esotico":false,"illegale":false,"pozionista":false},{"nome":"Fiore di Geranio Zannuto","classificazione":"XXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Piante XXX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Fiore di Dittamo","classificazione":"X","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Piante X","esotico":false,"illegale":false,"pozionista":false},{"nome":"Fiore di Erba Stregata","classificazione":"XXXX","classeBene":"Non Commerciabile di Classe C","provenienzaGlossario":"Piante XXXX","esotico":false,"illegale":true,"pozionista":false},{"nome":"Fiore di Hanabira","classificazione":"X","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie X","esotico":false,"illegale":false,"pozionista":false},{"nome":"Fiore di Lavanda","classificazione":"X","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Piante X","esotico":false,"illegale":false,"pozionista":false},{"nome":"Fiore di Platano Colombiano","classificazione":"XXXX","classeBene":"Non Commerciabile di Classe C","provenienzaGlossario":"Piante XXXX","esotico":true,"illegale":true,"pozionista":false},{"nome":"Fiore di Primula Veris","classificazione":"XXXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Piante XXXX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Fiore di Tentacula Velenosa","classificazione":"XXXXX","classeBene":"Non Commerciabile di Classe C","provenienzaGlossario":"Piante XXXXX","esotico":false,"illegale":true,"pozionista":false},{"nome":"Fiore Fabula","classificazione":"XXXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Piante XXXX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Fluido di Erumpent","classificazione":"XXXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie XXXX","esotico":true,"illegale":false,"pozionista":false},{"nome":"Foglia di Agrifoglio","classificazione":"X","classeBene":"Non Commerciabile di Classe C","provenienzaGlossario":"Piante X","esotico":false,"illegale":true,"pozionista":true},{"nome":"Foglia di Alioto","classificazione":"XX","classeBene":"Non Commerciabile di Classe C","provenienzaGlossario":"Piante XX","esotico":false,"illegale":true,"pozionista":true},{"nome":"Foglia di Alloro","classificazione":"X","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Piante X","esotico":false,"illegale":false,"pozionista":false},{"nome":"Foglia di Aloe","classificazione":"X","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Piante X","esotico":false,"illegale":false,"pozionista":false},{"nome":"Foglia di Amarantacea","classificazione":"XXXXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Piante XXXXX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Foglia di Annientamento","classificazione":"XXXX","classeBene":"Non Commerciabile di Classe C","provenienzaGlossario":"Piante XXXX","esotico":true,"illegale":true,"pozionista":false},{"nome":"Foglia di Arbusto Autofertilizzante","classificazione":"XXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Piante XXX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Foglia di Artemisia","classificazione":"X","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Piante X","esotico":false,"illegale":false,"pozionista":false},{"nome":"Foglia di Assenzio","classificazione":"X","classeBene":"Non Commerciabile di Classe C","provenienzaGlossario":"Piante X","esotico":false,"illegale":true,"pozionista":true},{"nome":"Foglia di Bebop Caraibica","classificazione":"XXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Piante XXX","esotico":true,"illegale":false,"pozionista":false},{"nome":"Foglia di Belladonna","classificazione":"X","classeBene":"Non Commerciabile di Classe C","provenienzaGlossario":"Piante X","esotico":false,"illegale":true,"pozionista":true},{"nome":"Foglia di Brugmansia","classificazione":"X","classeBene":"Non Commerciabile di Classe C","provenienzaGlossario":"Piante X","esotico":false,"illegale":true,"pozionista":false},{"nome":"Foglia di Cavolo Carnivoro Cinese","classificazione":"XXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Piante XXX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Foglia di Centinodia","classificazione":"X","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Piante X","esotico":false,"illegale":false,"pozionista":false},{"nome":"Foglia di Cespuglio Farfallino","classificazione":"XXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Piante XXX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Foglia di Cicuta","classificazione":"X","classeBene":"Non Commerciabile di Classe C","provenienzaGlossario":"Piante X","esotico":false,"illegale":true,"pozionista":false},{"nome":"Foglia di Coccolacea","classificazione":"XXXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Piante XXXX","esotico":true,"illegale":false,"pozionista":false},{"nome":"Foglia di Coclearia","classificazione":"X","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Piante X","esotico":false,"illegale":false,"pozionista":false},{"nome":"Foglia di Dittamo","classificazione":"X","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Piante X","esotico":false,"illegale":false,"pozionista":false},{"nome":"Foglia di Erba Fondente","classificazione":"X","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Piante X","esotico":false,"illegale":false,"pozionista":false},{"nome":"Foglia di Erba Stregata","classificazione":"XXXX","classeBene":"Non Commerciabile di Classe C","provenienzaGlossario":"Piante XXXX","esotico":false,"illegale":true,"pozionista":false},{"nome":"Foglia di Felce Imitante","classificazione":"XXXX","classeBene":"Non Commerciabile di Classe C","provenienzaGlossario":"Piante XXXX","esotico":false,"illegale":true,"pozionista":true},{"nome":"Foglia di Giaggiolo Puzzolente","classificazione":"XX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Piante XX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Foglia di Levistico","classificazione":"X","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Piante X","esotico":false,"illegale":false,"pozionista":false},{"nome":"Foglia di Mandragola","classificazione":"XXXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Piante XXXX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Foglia di Menta Piperita","classificazione":"X","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Piante X","esotico":false,"illegale":false,"pozionista":false},{"nome":"Foglia di Menta Tibetana","classificazione":"XX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Piante XX","esotico":true,"illegale":false,"pozionista":false},{"nome":"Foglia di Ortica","classificazione":"X","classeBene":"Non Commerciabile di Classe C","provenienzaGlossario":"Piante X","esotico":false,"illegale":true,"pozionista":true},{"nome":"Foglia di Platano Picchiatore","classificazione":"XXXXX","classeBene":"Non Commerciabile di Classe C","provenienzaGlossario":"Piante XXXXX","esotico":false,"illegale":true,"pozionista":false},{"nome":"Foglia di Pugnacio","classificazione":"XXXXX","classeBene":"Non Commerciabile di Classe C","provenienzaGlossario":"Piante XXXXX","esotico":false,"illegale":true,"pozionista":false},{"nome":"Foglia di Salvia","classificazione":"X","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Piante X","esotico":false,"illegale":false,"pozionista":false},{"nome":"Foglia di Starnutaria","classificazione":"X","classeBene":"Non Commerciabile di Classe C","provenienzaGlossario":"Piante X","esotico":false,"illegale":true,"pozionista":false},{"nome":"Foglia di Vischio","classificazione":"X","classeBene":"Non Commerciabile di Classe C","provenienzaGlossario":"Piante X","esotico":false,"illegale":true,"pozionista":true},{"nome":"Formicaleone","classificazione":"XX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Animali","esotico":false,"illegale":false,"pozionista":false},{"nome":"Frutto dell'Albero della Vita","classificazione":"XXXXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Piante XXXXX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Frutto di Erba Stregata","classificazione":"XXXX","classeBene":"Non Commerciabile di Classe C","provenienzaGlossario":"Piante XXXX","esotico":false,"illegale":true,"pozionista":false},{"nome":"Frutto di Giaggiolo Puzzolente","classificazione":"XX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Piante XX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Fumo di Pianta Fumogena","classificazione":"XXXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Piante XXXX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Fungo Allucinogeno","classificazione":"XXX","classeBene":"Non Commerciabile di Classe C","provenienzaGlossario":"Piante XXX","esotico":false,"illegale":true,"pozionista":true},{"nome":"Fungo Saltellante","classificazione":"XX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Piante XX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Germoglio di Bubotubero","classificazione":"XXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Piante XXX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Germoglio Lamentoso","classificazione":"XX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Piante XX","esotico":true,"illegale":false,"pozionista":false},{"nome":"Guscio di Shellusk","classificazione":"X","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie X","esotico":false,"illegale":false,"pozionista":false},{"nome":"Guscio di uovo di Occamy","classificazione":"XXXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie XXXX","esotico":true,"illegale":false,"pozionista":false},{"nome":"Ingrediente Base","classificazione":"X","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"//","esotico":false,"illegale":false,"pozionista":false},{"nome":"Lacrima di Banshee","classificazione":"Esseri, Non-Esseri e Spiriti","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Non-Essere","esotico":false,"illegale":false,"pozionista":false},{"nome":"Lacrima di Birdengold","classificazione":"X","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie X","esotico":false,"illegale":false,"pozionista":false},{"nome":"Lacrima di Fenice","classificazione":"XXXX","classeBene":"Non Commerciabile di Classe A","provenienzaGlossario":"Bestie XXXX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Latte di Marmite","classificazione":"X","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie X","esotico":false,"illegale":false,"pozionista":false},{"nome":"Latte maledetto di Nogtail","classificazione":"XXX","classeBene":"Non Commerciabile di Classe C","provenienzaGlossario":"Bestie XXX","esotico":false,"illegale":true,"pozionista":false},{"nome":"Legno di Alloro","classificazione":"X","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Piante X","esotico":false,"illegale":false,"pozionista":false},{"nome":"Legno di Platano Picchiatore","classificazione":"XXXXX","classeBene":"Non Commerciabile di Classe C","provenienzaGlossario":"Piante XXXXX","esotico":false,"illegale":true,"pozionista":false},{"nome":"Mela dell'Albero di Biancaneve","classificazione":"XXXXX","classeBene":"Non Commerciabile di Classe C","provenienzaGlossario":"Piante XXXXX","esotico":false,"illegale":true,"pozionista":true},{"nome":"Melassa di Glumbumble","classificazione":"XXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie XXX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Melma di Frullobulbo","classificazione":"XX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Piante XX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Miele di Primula Veris","classificazione":"XXXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Piante XXXX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Milza di Lucertola","classificazione":"X","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Animali","esotico":false,"illegale":false,"pozionista":false},{"nome":"Milza di Pipistrello","classificazione":"X","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Animali","esotico":false,"illegale":false,"pozionista":false},{"nome":"Milza di Topo","classificazione":"X","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Animali","esotico":false,"illegale":false,"pozionista":false},{"nome":"Mosca Crisopa","classificazione":"X","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Animali","esotico":false,"illegale":false,"pozionista":false},{"nome":"Muco di Gnomo","classificazione":"XX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie XX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Muco di Lombrico","classificazione":"X","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Animali","esotico":false,"illegale":false,"pozionista":false},{"nome":"Muco di Porlock","classificazione":"XX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie XX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Muco di Streeler","classificazione":"XXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie XXX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Muco di Troll","classificazione":"XXXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie XXXX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Muco di Vermicolo","classificazione":"X","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie X","esotico":false,"illegale":false,"pozionista":false},{"nome":"Muschio del Sud","classificazione":"XXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Piante XXX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Occhio di Anguilla","classificazione":"X","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Animali","esotico":false,"illegale":false,"pozionista":false},{"nome":"Occhio di Pesce palla","classificazione":"X","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Animali","esotico":false,"illegale":false,"pozionista":false},{"nome":"Occhio di Scarabeo","classificazione":"X","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Animali","esotico":false,"illegale":false,"pozionista":false},{"nome":"Olio di Ricino","classificazione":"X","classeBene":"Non Commerciabile di Classe C","provenienzaGlossario":"Piante X","esotico":false,"illegale":true,"pozionista":true},{"nome":"Olio di Rosa","classificazione":"X","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Piante X","esotico":false,"illegale":false,"pozionista":false},{"nome":"Olio di Valeriana","classificazione":"X","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Piante X","esotico":false,"illegale":false,"pozionista":false},{"nome":"Olio di Verbena","classificazione":"X","classeBene":"Non Commerciabile di Classe C","provenienzaGlossario":"Piante X","esotico":false,"illegale":true,"pozionista":true},{"nome":"Olio essenziale di Artemisia","classificazione":"X","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Piante X","esotico":false,"illegale":false,"pozionista":false},{"nome":"Ossigeno di Pianta Magica","classificazione":"XXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Incantesimo Oxygeni","esotico":false,"illegale":false,"pozionista":false},{"nome":"Pece di Platano Picchiatore","classificazione":"XXXXX","classeBene":"Non Commerciabile di Classe C","provenienzaGlossario":"Piante XXXXX","esotico":false,"illegale":true,"pozionista":false},{"nome":"Pelle di Alastridente","classificazione":"XXXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie XXXX","esotico":true,"illegale":true,"pozionista":true},{"nome":"Pelle di Baku","classificazione":"X","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie X","esotico":true,"illegale":false,"pozionista":false},{"nome":"Pelle di Basertilia","classificazione":"X","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie X","esotico":true,"illegale":false,"pozionista":false},{"nome":"Pelle di Drago","classificazione":"XXXXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie XXXXX","esotico":false,"illegale":true,"pozionista":true},{"nome":"Pelle di Girilacco","classificazione":"X","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Animali","esotico":false,"illegale":false,"pozionista":false},{"nome":"Pelle di Moke","classificazione":"XXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie XXX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Pelle di Tebo","classificazione":"XXXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie XXXX","esotico":true,"illegale":true,"pozionista":true},{"nome":"Pelo di Baku","classificazione":"X","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie X","esotico":true,"illegale":false,"pozionista":false},{"nome":"Pelo di Demiguise","classificazione":"XXXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie XXXX","esotico":true,"illegale":false,"pozionista":false},{"nome":"Pelo di Doxy","classificazione":"XXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie XXX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Pelo di Duriccio","classificazione":"X","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie X","esotico":false,"illegale":false,"pozionista":false},{"nome":"Pelo di Mau","classificazione":"X","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie X","esotico":true,"illegale":false,"pozionista":false},{"nome":"Pelo di Nascondombra","classificazione":"XXXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie XXXX","esotico":true,"illegale":false,"pozionista":false},{"nome":"Pelo di orecchie del Pogrebin","classificazione":"XXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie XXX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Pelo di Porlock","classificazione":"XX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie XX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Pelo di Puffskein","classificazione":"XXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie XXX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Pelo di Snaso","classificazione":"XXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie XXX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Pelo di Sobolan","classificazione":"XXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie XXX","esotico":true,"illegale":false,"pozionista":false},{"nome":"Pelo di Wiggity","classificazione":"X","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie X","esotico":true,"illegale":false,"pozionista":false},{"nome":"Pelo di Yeti","classificazione":"XXXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie XXXX","esotico":true,"illegale":false,"pozionista":false},{"nome":"Petalo dell'Albero della Vita","classificazione":"XXXXX","classeBene":"Non Commerciabile di Classe C","provenienzaGlossario":"Piante XXXXX","esotico":false,"illegale":true,"pozionista":true},{"nome":"Petalo di Aconito","classificazione":"X","classeBene":"Non Commerciabile di Classe C","provenienzaGlossario":"Piante X","esotico":false,"illegale":true,"pozionista":true},{"nome":"Petalo di Albero Carnivoro","classificazione":"XXXXX","classeBene":"Non Commerciabile di Classe C","provenienzaGlossario":"Piante XXXXX","esotico":true,"illegale":true,"pozionista":false},{"nome":"Petalo di Bebop Caraibica","classificazione":"XXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Piante XXX","esotico":true,"illegale":false,"pozionista":false},{"nome":"Petalo di Orchidea Fantasma","classificazione":"XXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Piante XXX","esotico":true,"illegale":false,"pozionista":false},{"nome":"Petalo di Fiore Floo","classificazione":"XXXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Piante XXXX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Petalo di Giunchiglia strombazzante","classificazione":"XX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Piante XX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Petalo di Grinzafigo","classificazione":"XX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Pianta XX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Petalo di Hanabira","classificazione":"X","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie X","esotico":false,"illegale":false,"pozionista":false},{"nome":"Petalo di Loto di Mahoutokoro","classificazione":"XXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Piante XXX","esotico":true,"illegale":false,"pozionista":false},{"nome":"Petalo di Moly","classificazione":"XXXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Piante XXXX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Petalo di Pianta Stridula","classificazione":"XXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Piante XXX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Petalo di Ruta","classificazione":"XXXXX","classeBene":"Non Commerciabile di Classe C","provenienzaGlossario":"Piante XXXXX","esotico":false,"illegale":true,"pozionista":false},{"nome":"Petalo di Sanguinaria","classificazione":"X","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Piante X","esotico":false,"illegale":false,"pozionista":false},{"nome":"Petalo di Verbena","classificazione":"X","classeBene":"Non Commerciabile di Classe C","provenienzaGlossario":"Piante X","esotico":false,"illegale":true,"pozionista":true},{"nome":"Pistillo di Loto di Mahoutokoro","classificazione":"XXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Piante XXX","esotico":true,"illegale":false,"pozionista":false},{"nome":"Pistillo di Moly","classificazione":"XXXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Piante XXXX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Pistillo di Orchidea Fantasma","classificazione":"XXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Piante XXX","esotico":true,"illegale":false,"pozionista":false},{"nome":"Pistillo di Primula Veris","classificazione":"XXXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Piante XXXX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Piuma di Birdengold","classificazione":"X","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie X","esotico":false,"illegale":false,"pozionista":false},{"nome":"Piuma di Diricawl","classificazione":"XX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie XX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Piuma di Fenice","classificazione":"XXXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie XXXX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Piuma di Fwooper","classificazione":"XXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie XXX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Piuma di Grifone","classificazione":"XXXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie XXXX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Piuma di Ippogrifo","classificazione":"XXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie XXX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Piuma di Jobberknoll","classificazione":"XX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie XX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Piuma di Occamy","classificazione":"XXXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie XXXX","esotico":true,"illegale":true,"pozionista":true},{"nome":"Piuma di Tuono Alato","classificazione":"XXXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie XXXX","esotico":true,"illegale":true,"pozionista":true},{"nome":"Polvere di Fata","classificazione":"XX","classeBene":"Non Commerciabile di Classe C","provenienzaGlossario":"Bestie XX","esotico":false,"illegale":true,"pozionista":true},{"nome":"Polvere di perla","classificazione":"X","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Animali","esotico":false,"illegale":false,"pozionista":false},{"nome":"Polvere di Shellusk","classificazione":"X","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie X","esotico":false,"illegale":false,"pozionista":false},{"nome":"Puffagiolo","classificazione":"XXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Piante XXX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Pungiglione di Billywig","classificazione":"XXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie XXX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Pus di Bubotubero","classificazione":"XXX","classeBene":"Non Commerciabile di Classe C","provenienzaGlossario":"Piante XXX","esotico":false,"illegale":true,"pozionista":true},{"nome":"Puzzalinfa di Mimbulus Mimbletonia","classificazione":"XXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Piante XXX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Radice di Amarantacea","classificazione":"XXXXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Piante XXXXX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Radice di Annientamento","classificazione":"XXXX","classeBene":"Non Commerciabile di Classe C","provenienzaGlossario":"Piante XXXX","esotico":true,"illegale":true,"pozionista":false},{"nome":"Radice di Artemisia","classificazione":"X","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Piante X","esotico":false,"illegale":false,"pozionista":false},{"nome":"Radice di Asfodelo","classificazione":"X","classeBene":"Non Commerciabile di Classe C","provenienzaGlossario":"Piante X","esotico":false,"illegale":true,"pozionista":true},{"nome":"Radice di Assenzio","classificazione":"X","classeBene":"Non Commerciabile di Classe C","provenienzaGlossario":"Piante X","esotico":false,"illegale":true,"pozionista":true},{"nome":"Radice di Bebop Caraibica","classificazione":"XXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Piante XXX","esotico":true,"illegale":false,"pozionista":false},{"nome":"Radice di Bubotubero","classificazione":"XXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Piante XXX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Radice di Mandragola","classificazione":"XXXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Piante XXXX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Radice di Orchidea Fantasma","classificazione":"XXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Piante XXX","esotico":true,"illegale":false,"pozionista":false},{"nome":"Radice di Platano Picchiatore","classificazione":"XXXXX","classeBene":"Non Commerciabile di Classe C","provenienzaGlossario":"Piante XXXXX","esotico":false,"illegale":true,"pozionista":false},{"nome":"Radice di Rampicante Capovolto","classificazione":"XXXXX","classeBene":"Non Commerciabile di Classe C","provenienzaGlossario":"Piante XXXXX","esotico":false,"illegale":true,"pozionista":false},{"nome":"Radice di Ruta","classificazione":"XXXX","classeBene":"Non Commerciabile di Classe C","provenienzaGlossario":"Piante XXXX","esotico":false,"illegale":true,"pozionista":false},{"nome":"Radice di Valeriana","classificazione":"X","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Piante X","esotico":false,"illegale":false,"pozionista":false},{"nome":"Radice di Zenzero","classificazione":"X","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Piante X","esotico":false,"illegale":false,"pozionista":false},{"nome":"Radigorda","classificazione":"XX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Piante XX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Ragno","classificazione":"X","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Animali","esotico":false,"illegale":false,"pozionista":false},{"nome":"Rametto di Aconito","classificazione":"X","classeBene":"Non Commerciabile di Classe C","provenienzaGlossario":"Piante X","esotico":false,"illegale":true,"pozionista":true},{"nome":"Rametto di Menta Piperita","classificazione":"X","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Piante X","esotico":false,"illegale":false,"pozionista":false},{"nome":"Rametto di Valeriana","classificazione":"X","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Piante X","esotico":false,"illegale":false,"pozionista":false},{"nome":"Ramo dell'Albero Medusa","classificazione":"XXXXX","classeBene":"Non Commerciabile di Classe C","provenienzaGlossario":"Piante XXXXX","esotico":true,"illegale":true,"pozionista":false},{"nome":"Saliva di Jarvey","classificazione":"XXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie XXX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Saliva di Kelpie","classificazione":"XXXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie XXXX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Saliva di Nundu","classificazione":"XXXXX","classeBene":"Non Commerciabile di Classe C","provenienzaGlossario":"Bestie XXXXX","esotico":true,"illegale":true,"pozionista":false},{"nome":"Sangue di Re'em","classificazione":"XXXX","classeBene":"Non Commerciabile di Classe A","provenienzaGlossario":"Bestie XXXX","esotico":true,"illegale":true,"pozionista":false},{"nome":"Sangue di Salamandra","classificazione":"XXX","classeBene":"Non Commerciabile di Classe A","provenienzaGlossario":"Bestie XXX","esotico":false,"illegale":true,"pozionista":true},{"nome":"Sangue di Unicorno","classificazione":"XXXX","classeBene":"Non Commerciabile di Classe A","provenienzaGlossario":"Bestie XXXX","esotico":false,"illegale":true,"pozionista":false},{"nome":"Sangue di Vampiro","classificazione":"Esseri, Non-Esseri e Spiriti","classeBene":"Non Commerciabile di Classe A","provenienzaGlossario":"Essere","esotico":false,"illegale":true,"pozionista":true},{"nome":"Sanguisuga","classificazione":"X","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Animali","esotico":false,"illegale":false,"pozionista":false},{"nome":"Scaglia di Ninki Nanka","classificazione":"X","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie X","esotico":true,"illegale":false,"pozionista":false},{"nome":"Secrezione di Bundimun","classificazione":"XX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie XX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Semino di Papavero","classificazione":"X","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Piante X","esotico":false,"illegale":false,"pozionista":false},{"nome":"Spina di Canterose","classificazione":"XXXX","classeBene":"Non Commerciabile di Classe C","provenienzaGlossario":"Piante XXXX","esotico":false,"illegale":true,"pozionista":false},{"nome":"Spina di Cespuglio Spinoso","classificazione":"XXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Piante XXX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Spina di Duriccio","classificazione":"X","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie X","esotico":false,"illegale":false,"pozionista":false},{"nome":"Spina di Pesce leone","classificazione":"X","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Animali","esotico":false,"illegale":false,"pozionista":false},{"nome":"Spina di Pugnacio","classificazione":"XXXXX","classeBene":"Non Commerciabile di Classe C","provenienzaGlossario":"Piante XXXXX","esotico":false,"illegale":true,"pozionista":false},{"nome":"Spina di Rosa","classificazione":"X","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Piante X","esotico":false,"illegale":false,"pozionista":false},{"nome":"Spina di Shrake","classificazione":"XXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie XXX","esotico":true,"illegale":false,"pozionista":false},{"nome":"Squama di Aoi Kaeru","classificazione":"X","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie X","esotico":true,"illegale":false,"pozionista":false},{"nome":"Squama di Chupacabra","classificazione":"XX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie XX","esotico":true,"illegale":false,"pozionista":false},{"nome":"Squama di Fiammablu","classificazione":"X","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie X","esotico":true,"illegale":false,"pozionista":false},{"nome":"Squama di Ippocampo","classificazione":"XX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie XX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Squama di Plimpi","classificazione":"XXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie XXX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Squama di Ramora","classificazione":"XX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie XX","esotico":true,"illegale":false,"pozionista":false},{"nome":"Squama di Serpecorno","classificazione":"XXXXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie XXXXX","esotico":true,"illegale":false,"pozionista":false},{"nome":"Squama di Serpente Marino","classificazione":"XXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie XXX","esotico":true,"illegale":false,"pozionista":false},{"nome":"Stelo di Giunchiglia strombazzante","classificazione":"XX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Piante XX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Stelo di Moly","classificazione":"XXXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Piante XXXX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Stelo di Ruta","classificazione":"XXXX","classeBene":"Non Commerciabile di Classe C","provenienzaGlossario":"Piante XXXX","esotico":false,"illegale":true,"pozionista":false},{"nome":"Sterco di Mooncalf","classificazione":"XX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie XX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Succo dei Baccello di Pugnacio","classificazione":"XXXXX","classeBene":"Non Commerciabile di Classe C","provenienzaGlossario":"Piante XXXXX","esotico":false,"illegale":true,"pozionista":true},{"nome":"Succo di Aloe","classificazione":"X","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Piante X","esotico":false,"illegale":false,"pozionista":false},{"nome":"Succo di Grinzafico","classificazione":"XX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Piante XX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Succo di Horklump","classificazione":"X","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie X","esotico":false,"illegale":false,"pozionista":false},{"nome":"Tentacolo di Albero Carnivoro","classificazione":"XXXXX","classeBene":"Non Commerciabile di Classe C","provenienzaGlossario":"Piante XXXXX","esotico":true,"illegale":true,"pozionista":false},{"nome":"Tentacolo di Frullobulbo","classificazione":"XX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Piante XX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Tentacolo di Stupefiore","classificazione":"XXXXX","classeBene":"Non Commerciabile di Classe C","provenienzaGlossario":"Piante XXXXX","esotico":true,"illegale":true,"pozionista":false},{"nome":"Testa di Papavero","classificazione":"X","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Piante X","esotico":false,"illegale":false,"pozionista":false},{"nome":"Torace di Libellula","classificazione":"X","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Animali","esotico":false,"illegale":false,"pozionista":false},{"nome":"Unghia di Clabbert","classificazione":"XX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie XX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Unghia di Gnomo","classificazione":"XX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie XX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Unghia di Kneazle","classificazione":"XXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie XXX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Unghia di Snaso","classificazione":"XXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie XXX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Uovo di Ashwinder","classificazione":"XXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie XXX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Uovo di Basertilia","classificazione":"X","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie X","esotico":true,"illegale":false,"pozionista":false},{"nome":"Uovo di Doxy","classificazione":"XXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie XXX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Uovo di Ippocampo","classificazione":"XX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie XX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Uovo di Ramora","classificazione":"XX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie XX","esotico":true,"illegale":false,"pozionista":false},{"nome":"Veleno dell'Albero Medusa","classificazione":"XXXXX","classeBene":"Non Commerciabile di Classe C","provenienzaGlossario":"Piante XXXXX","esotico":true,"illegale":true,"pozionista":false},{"nome":"Veleno di Acromantula","classificazione":"XXXXX","classeBene":"Non Commerciabile di Classe C","provenienzaGlossario":"Bestie XXXXX","esotico":false,"illegale":true,"pozionista":true},{"nome":"Veleno di Billywig","classificazione":"XXX","classeBene":"Non Commerciabile di Classe C","provenienzaGlossario":"Bestie XXX","esotico":false,"illegale":true,"pozionista":true},{"nome":"Veleno di Doxy","classificazione":"XXX","classeBene":"Non Commerciabile di Classe C","provenienzaGlossario":"Bestie XXX","esotico":false,"illegale":true,"pozionista":true},{"nome":"Veleno di Erbaschiuma","classificazione":"XXX","classeBene":"Non Commerciabile di Classe C","provenienzaGlossario":"Piante XXX","esotico":true,"illegale":true,"pozionista":true},{"nome":"Veleno di Kàvouras","classificazione":"X","classeBene":"Non Commerciabile di Classe C","provenienzaGlossario":"Bestie X","esotico":true,"illegale":true,"pozionista":true},{"nome":"Veleno di Lobalug","classificazione":"XXX","classeBene":"Non Commerciabile di Classe C","provenienzaGlossario":"Bestie XXX","esotico":false,"illegale":true,"pozionista":true},{"nome":"Veleno di Manticora","classificazione":"XXXXX","classeBene":"Non Commerciabile di Classe C","provenienzaGlossario":"Bestie XXXXX","esotico":false,"illegale":true,"pozionista":true},{"nome":"Veleno di Ninki Nanka","classificazione":"X","classeBene":"Non Commerciabile di Classe C","provenienzaGlossario":"Bestie X","esotico":true,"illegale":true,"pozionista":true},{"nome":"Veleno di Tentacula Velenosa","classificazione":"XXXXX","classeBene":"Non Commerciabile di Classe C","provenienzaGlossario":"Piante XXXXX","esotico":false,"illegale":true,"pozionista":true},{"nome":"Veleno di Velenottero","classificazione":"XXXX","classeBene":"Non Commerciabile di Classe C","provenienzaGlossario":"Bestie XXXX","esotico":false,"illegale":true,"pozionista":true},{"nome":"Viticcio di Tranello del Diavolo","classificazione":"XXXXX","classeBene":"Non Commerciabile di Classe C","provenienzaGlossario":"Piante XXXXX","esotico":false,"illegale":true,"pozionista":false},{"nome":"Zanna di Avvincino","classificazione":"XX","classeBene":"Non Commerciabile di Classe C","provenienzaGlossario":"Bestie XX","esotico":false,"illegale":true,"pozionista":false},{"nome":"Zanna di Chizpurfle","classificazione":"XX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie XX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Zanna di Drakul","classificazione":"X","classeBene":"Non Commerciabile di Classe C","provenienzaGlossario":"Bestie X","esotico":false,"illegale":true,"pozionista":true},{"nome":"Zanna di Geranio Zannuto","classificazione":"XXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Piante XXX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Zanna di Pianta Vampiro","classificazione":"XXXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Piante XXXX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Zanna di Serpente","classificazione":"X","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Animali","esotico":false,"illegale":false,"pozionista":false}];
+  var INGREDIENTI_GLOSSARIO = [{"nome":"Acido di Albero Carnivoro","classificazione":"XXXXX","classeBene":"Non Commerciabile di Classe C","provenienzaGlossario":"Piante XXXXX","esotico":true,"illegale":true,"pozionista":true},{"nome":"Acqua di testa di Kappa","classificazione":"XXXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie XXXX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Aculeo di Istrice","classificazione":"X","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Animali","esotico":false,"illegale":false,"pozionista":false},{"nome":"Aculeo di Knarl","classificazione":"XXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie XXX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Aculeo di Tentacula Velenosa","classificazione":"XXXXX","classeBene":"Non Commerciabile di Classe C","provenienzaGlossario":"Piante XXXXX","esotico":false,"illegale":true,"pozionista":false},{"nome":"Ala di Doxy","classificazione":"XXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie XXX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Ala di Fata","classificazione":"XX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie XX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Ala di Pipistrello","classificazione":"X","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Animali","esotico":false,"illegale":false,"pozionista":false},{"nome":"Ala di Pixie","classificazione":"XXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie XXX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Ala di Scriber","classificazione":"X","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie X","esotico":false,"illegale":false,"pozionista":false},{"nome":"Algabranchia","classificazione":"XXXXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Piante XXXXX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Alghe di Loto di Mahoutokoro","classificazione":"XXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Piante XXX","esotico":true,"illegale":false,"pozionista":false},{"nome":"Amaralinfa di Amarantacea","classificazione":"XXXXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Piante XXXXX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Antenna di Duckbill","classificazione":"X","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie X","esotico":false,"illegale":false,"pozionista":false},{"nome":"Appendice di Purvincolo","classificazione":"XXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie XXX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Artiglio di Drago","classificazione":"XXXXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie XXXXX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Artiglio di Duckbill","classificazione":"X","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie X","esotico":false,"illegale":false,"pozionista":false},{"nome":"Artiglio di Grifone","classificazione":"XXXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie XXXX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Artiglio di Ippogrifo","classificazione":"XXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie XXX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Artiglio di Matagot","classificazione":"XXXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie XXXX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Artiglio di Sfinge","classificazione":"XXXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie XXXX","esotico":true,"illegale":false,"pozionista":false},{"nome":"Bacca di Agrifoglio","classificazione":"X","classeBene":"Non Commerciabile di Classe C","provenienzaGlossario":"Piante X","esotico":false,"illegale":true,"pozionista":true},{"nome":"Bacca di Alloro","classificazione":"X","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Piante X","esotico":false,"illegale":false,"pozionista":false},{"nome":"Bacca di Balzar","classificazione":"XXXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Piante XXXX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Bacca di Belladonna","classificazione":"X","classeBene":"Non Commerciabile di Classe C","provenienzaGlossario":"Piante X","esotico":false,"illegale":true,"pozionista":true},{"nome":"Bacca di Vischio","classificazione":"X","classeBene":"Non Commerciabile di Classe C","provenienzaGlossario":"Piante X","esotico":false,"illegale":true,"pozionista":true},{"nome":"Baccello di Pugnacio","classificazione":"XXXXX","classeBene":"Non Commerciabile di Classe C","provenienzaGlossario":"Piante XXXXX","esotico":false,"illegale":true,"pozionista":true},{"nome":"Baccello di Stupefiore","classificazione":"XXXXX","classeBene":"Non Commerciabile di Classe C","provenienzaGlossario":"Piante XXXXX","esotico":true,"illegale":true,"pozionista":false},{"nome":"Baccello di Tentacula Velenosa","classificazione":"XXXXX","classeBene":"Non Commerciabile di Classe C","provenienzaGlossario":"Piante XXXXX","esotico":false,"illegale":true,"pozionista":false},{"nome":"Baffo di Mau","classificazione":"X","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie X","esotico":true,"illegale":false,"pozionista":false},{"nome":"Bava di Ghoul","classificazione":"XX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie XX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Bava di Lumaca Carnivora","classificazione":"XX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie XX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Bezoar","classificazione":"X","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Animali","esotico":false,"illegale":false,"pozionista":false},{"nome":"Bile di Armadillo","classificazione":"X","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Animali","esotico":false,"illegale":false,"pozionista":false},{"nome":"Bruco Peloso Carnivoro","classificazione":"X","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Animali","esotico":false,"illegale":false,"pozionista":false},{"nome":"Bulbo di Bucaneve","classificazione":"X","classeBene":"Non Commerciabile di Classe C","provenienzaGlossario":"Piante X","esotico":false,"illegale":true,"pozionista":true},{"nome":"Bulbo di Bulbo Balzellante","classificazione":"XXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Piante XXX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Caccola di Baku","classificazione":"X","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie X","esotico":true,"illegale":false,"pozionista":false},{"nome":"Capello di Ninfa dei Boschi","classificazione":"Esseri, Non-Esseri e Spiriti","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Essere","esotico":false,"illegale":false,"pozionista":false},{"nome":"Capello di Veela","classificazione":"Esseri, Non-Esseri e Spiriti","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Esseri","esotico":false,"illegale":false,"pozionista":false},{"nome":"Cappello di Fungo Scoppiettante","classificazione":"XXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Piante XXX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Cenere dell'Albero di Cenere","classificazione":"XXXXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Piante XXXXX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Cenere di Ashwinder","classificazione":"XXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie XXX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Cenere di Pianta di Seme di Fuoco","classificazione":"XXXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Piante XXXX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Cervello di Rana","classificazione":"X","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Animali","esotico":false,"illegale":false,"pozionista":false},{"nome":"Chele di Kàvouras","classificazione":"X","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie X","esotico":true,"illegale":false,"pozionista":false},{"nome":"Coda di Erumpent","classificazione":"XXXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie XXXX","esotico":true,"illegale":false,"pozionista":false},{"nome":"Coda di Malaclaw Maculato","classificazione":"XXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie XXX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Coda di Topo","classificazione":"X","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Animali","esotico":false,"illegale":false,"pozionista":false},{"nome":"Concime di Menta Tibetana","classificazione":"XX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Piante XX","esotico":true,"illegale":false,"pozionista":false},{"nome":"Corda di cuore di Drago","classificazione":"XXXXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie XXXXX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Corno di Bicorno","classificazione":"XXXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie XXXX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Corno di Graphorn","classificazione":"XXXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie XXXX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Corno di Hodag","classificazione":"XXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie XXX","esotico":true,"illegale":false,"pozionista":false},{"nome":"Corno di Unicorno","classificazione":"XXXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie XXXX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Corteccia dell'Albero della Vita","classificazione":"XXXXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Piante XXXXX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Corteccia di Alloro","classificazione":"X","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Piante X","esotico":false,"illegale":false,"pozionista":false},{"nome":"Corteccia di Platano Picchiatore","classificazione":"XXXXX","classeBene":"Non Commerciabile di Classe C","provenienzaGlossario":"Piante XXXXX","esotico":false,"illegale":true,"pozionista":false},{"nome":"Crine di Cavallo Alato","classificazione":"XXXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie XXXX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Crine di Fiammablu","classificazione":"X","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie X","esotico":true,"illegale":false,"pozionista":false},{"nome":"Crine di Hanabira","classificazione":"X","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie X","esotico":false,"illegale":false,"pozionista":false},{"nome":"Crine di Thestral","classificazione":"XXXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie XXXX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Crine di Unicorno","classificazione":"XXXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie XXXX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Cristallo di Fiammablu","classificazione":"X","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie X","esotico":true,"illegale":false,"pozionista":false},{"nome":"Cuore di Coccodrillo","classificazione":"X","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Animali","esotico":false,"illegale":false,"pozionista":false},{"nome":"Dente di Ninki Nanka","classificazione":"X","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie X","esotico":true,"illegale":false,"pozionista":false},{"nome":"Dente di Wiggity","classificazione":"X","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie X","esotico":true,"illegale":false,"pozionista":false},{"nome":"Dito di Erkling","classificazione":"XXXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie XXXX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Escremento di Wiggity","classificazione":"X","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie X","esotico":true,"illegale":false,"pozionista":false},{"nome":"Essenza di Ruta","classificazione":"XXXXX","classeBene":"Non Commerciabile di Classe C","provenienzaGlossario":"Piante XXXXX","esotico":false,"illegale":true,"pozionista":false},{"nome":"Estratto di Annientamento","classificazione":"XXXX","classeBene":"Non Commerciabile di Classe C","provenienzaGlossario":"Piante XXXX","esotico":true,"illegale":true,"pozionista":false},{"nome":"Estratto di Coccolacea","classificazione":"XXXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Piante XXXX","esotico":true,"illegale":false,"pozionista":false},{"nome":"Estratto di Mandragola","classificazione":"XXXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Piante XXXX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Estratto di Moly","classificazione":"XXXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Piante XXXX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Fagiolo Corridore","classificazione":"XXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Piante XXX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Fagiolo Sopoforoso","classificazione":"X","classeBene":"Non Commerciabile di Classe C","provenienzaGlossario":"Piante X","esotico":false,"illegale":true,"pozionista":true},{"nome":"Fango di Sblorb","classificazione":"XXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie XXX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Fertilizzante di Arbusto Autofertilizzante","classificazione":"XXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Piante XXX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Fico","classificazione":"X","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Piante X","esotico":false,"illegale":false,"pozionista":false},{"nome":"Filo d'erba del Prato Messicano","classificazione":"XXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Piante XXX","esotico":true,"illegale":false,"pozionista":false},{"nome":"Fiore (bolle) di Erbaschiuma","classificazione":"XXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Piante XXX","esotico":true,"illegale":false,"pozionista":false},{"nome":"Fiore di Asfodelo","classificazione":"X","classeBene":"Non Commerciabile di Classe C","provenienzaGlossario":"Piante X","esotico":false,"illegale":true,"pozionista":true},{"nome":"Fiore di Belladonna","classificazione":"X","classeBene":"Non Commerciabile di Classe C","provenienzaGlossario":"Piante X","esotico":false,"illegale":true,"pozionista":true},{"nome":"Fiore di Bucaneve","classificazione":"X","classeBene":"Non Commerciabile di Classe C","provenienzaGlossario":"Piante X","esotico":false,"illegale":true,"pozionista":true},{"nome":"Fiore di Canterose","classificazione":"XXXX","classeBene":"Non Commerciabile di Classe C","provenienzaGlossario":"Piante XXXX","esotico":false,"illegale":true,"pozionista":false},{"nome":"Fiore di Cespuglio Farfallino","classificazione":"XXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Piante XXX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Fiore di Cespuglio Spinoso","classificazione":"XXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Piante XXX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Fiore di Aloe","classificazione":"X","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Piante X","esotico":false,"illegale":false,"pozionista":false},{"nome":"Fiore di Geranio Zannuto","classificazione":"XXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Piante XXX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Fiore di Dittamo","classificazione":"X","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Piante X","esotico":false,"illegale":false,"pozionista":false},{"nome":"Fiore di Erba Stregata","classificazione":"XXXX","classeBene":"Non Commerciabile di Classe C","provenienzaGlossario":"Piante XXXX","esotico":false,"illegale":true,"pozionista":false},{"nome":"Fiore di Hanabira","classificazione":"X","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie X","esotico":false,"illegale":false,"pozionista":false},{"nome":"Fiore di Lavanda","classificazione":"X","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Piante X","esotico":false,"illegale":false,"pozionista":false},{"nome":"Fiore di Platano Colombiano","classificazione":"XXXX","classeBene":"Non Commerciabile di Classe C","provenienzaGlossario":"Piante XXXX","esotico":true,"illegale":true,"pozionista":false},{"nome":"Fiore di Primula Veris","classificazione":"XXXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Piante XXXX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Fiore di Tentacula Velenosa","classificazione":"XXXXX","classeBene":"Non Commerciabile di Classe C","provenienzaGlossario":"Piante XXXXX","esotico":false,"illegale":true,"pozionista":false},{"nome":"Fiore Fabula","classificazione":"XXXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Piante XXXX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Fluido di Erumpent","classificazione":"XXXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie XXXX","esotico":true,"illegale":false,"pozionista":false},{"nome":"Foglia di Agrifoglio","classificazione":"X","classeBene":"Non Commerciabile di Classe C","provenienzaGlossario":"Piante X","esotico":false,"illegale":true,"pozionista":true},{"nome":"Foglia di Alioto","classificazione":"XX","classeBene":"Non Commerciabile di Classe C","provenienzaGlossario":"Piante XX","esotico":false,"illegale":true,"pozionista":true},{"nome":"Foglia di Alloro","classificazione":"X","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Piante X","esotico":false,"illegale":false,"pozionista":false},{"nome":"Foglia di Aloe","classificazione":"X","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Piante X","esotico":false,"illegale":false,"pozionista":false},{"nome":"Foglia di Amarantacea","classificazione":"XXXXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Piante XXXXX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Foglia di Annientamento","classificazione":"XXXX","classeBene":"Non Commerciabile di Classe C","provenienzaGlossario":"Piante XXXX","esotico":true,"illegale":true,"pozionista":false},{"nome":"Foglia di Arbusto Autofertilizzante","classificazione":"XXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Piante XXX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Foglia di Artemisia","classificazione":"X","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Piante X","esotico":false,"illegale":false,"pozionista":false},{"nome":"Foglia di Assenzio","classificazione":"X","classeBene":"Non Commerciabile di Classe C","provenienzaGlossario":"Piante X","esotico":false,"illegale":true,"pozionista":true},{"nome":"Foglia di Bebop Caraibica","classificazione":"XXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Piante XXX","esotico":true,"illegale":false,"pozionista":false},{"nome":"Foglia di Belladonna","classificazione":"X","classeBene":"Non Commerciabile di Classe C","provenienzaGlossario":"Piante X","esotico":false,"illegale":true,"pozionista":true},{"nome":"Foglia di Brugmansia","classificazione":"X","classeBene":"Non Commerciabile di Classe C","provenienzaGlossario":"Piante X","esotico":false,"illegale":true,"pozionista":false},{"nome":"Foglia di Cavolo Carnivoro Cinese","classificazione":"XXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Piante XXX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Foglia di Centinodia","classificazione":"X","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Piante X","esotico":false,"illegale":false,"pozionista":false},{"nome":"Foglia di Cespuglio Farfallino","classificazione":"XXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Piante XXX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Foglia di Cicuta","classificazione":"X","classeBene":"Non Commerciabile di Classe C","provenienzaGlossario":"Piante X","esotico":false,"illegale":true,"pozionista":false},{"nome":"Foglia di Coccolacea","classificazione":"XXXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Piante XXXX","esotico":true,"illegale":false,"pozionista":false},{"nome":"Foglia di Coclearia","classificazione":"X","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Piante X","esotico":false,"illegale":false,"pozionista":false},{"nome":"Foglia di Dittamo","classificazione":"X","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Piante X","esotico":false,"illegale":false,"pozionista":false},{"nome":"Foglia di Erba Fondente","classificazione":"X","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Piante X","esotico":false,"illegale":false,"pozionista":false},{"nome":"Foglia di Erba Stregata","classificazione":"XXXX","classeBene":"Non Commerciabile di Classe C","provenienzaGlossario":"Piante XXXX","esotico":false,"illegale":true,"pozionista":false},{"nome":"Foglia di Felce Imitante","classificazione":"XXXX","classeBene":"Non Commerciabile di Classe C","provenienzaGlossario":"Piante XXXX","esotico":false,"illegale":true,"pozionista":true},{"nome":"Foglia di Giaggiolo Puzzolente","classificazione":"XX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Piante XX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Foglia di Levistico","classificazione":"X","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Piante X","esotico":false,"illegale":false,"pozionista":false},{"nome":"Foglia di Mandragola","classificazione":"XXXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Piante XXXX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Foglia di Menta Piperita","classificazione":"X","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Piante X","esotico":false,"illegale":false,"pozionista":false},{"nome":"Foglia di Menta Tibetana","classificazione":"XX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Piante XX","esotico":true,"illegale":false,"pozionista":false},{"nome":"Foglia di Ortica","classificazione":"X","classeBene":"Non Commerciabile di Classe C","provenienzaGlossario":"Piante X","esotico":false,"illegale":true,"pozionista":true},{"nome":"Foglia di Platano Picchiatore","classificazione":"XXXXX","classeBene":"Non Commerciabile di Classe C","provenienzaGlossario":"Piante XXXXX","esotico":false,"illegale":true,"pozionista":false},{"nome":"Foglia di Pugnacio","classificazione":"XXXXX","classeBene":"Non Commerciabile di Classe C","provenienzaGlossario":"Piante XXXXX","esotico":false,"illegale":true,"pozionista":false},{"nome":"Foglia di Salvia","classificazione":"X","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Piante X","esotico":false,"illegale":false,"pozionista":false},{"nome":"Foglia di Starnutaria","classificazione":"X","classeBene":"Non Commerciabile di Classe C","provenienzaGlossario":"Piante X","esotico":false,"illegale":true,"pozionista":false},{"nome":"Foglia di Vischio","classificazione":"X","classeBene":"Non Commerciabile di Classe C","provenienzaGlossario":"Piante X","esotico":false,"illegale":true,"pozionista":true},{"nome":"Formicaleone","classificazione":"XX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Animali","esotico":false,"illegale":false,"pozionista":false},{"nome":"Frutto dell'Albero della Vita","classificazione":"XXXXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Piante XXXXX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Frutto di Erba Stregata","classificazione":"XXXX","classeBene":"Non Commerciabile di Classe C","provenienzaGlossario":"Piante XXXX","esotico":false,"illegale":true,"pozionista":false},{"nome":"Frutto di Giaggiolo Puzzolente","classificazione":"XX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Piante XX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Fumo di Pianta Fumogena","classificazione":"XXXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Piante XXXX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Fungo Allucinogeno","classificazione":"XXX","classeBene":"Non Commerciabile di Classe C","provenienzaGlossario":"Piante XXX","esotico":false,"illegale":true,"pozionista":true},{"nome":"Fungo Saltellante","classificazione":"XX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Piante XX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Germoglio di Bubotubero","classificazione":"XXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Piante XXX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Germoglio Lamentoso","classificazione":"XX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Piante XX","esotico":true,"illegale":false,"pozionista":false},{"nome":"Guscio di Shellusk","classificazione":"X","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie X","esotico":false,"illegale":false,"pozionista":false},{"nome":"Guscio di uovo di Occamy","classificazione":"XXXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie XXXX","esotico":true,"illegale":false,"pozionista":false},{"nome":"Ingrediente Base","classificazione":"X","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"//","esotico":false,"illegale":false,"pozionista":false},{"nome":"Lacrima di Banshee","classificazione":"Esseri, Non-Esseri e Spiriti","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Non-Essere","esotico":false,"illegale":false,"pozionista":false},{"nome":"Lacrima di Birdengold","classificazione":"X","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie X","esotico":false,"illegale":false,"pozionista":false},{"nome":"Lacrima di Fenice","classificazione":"XXXX","classeBene":"Non Commerciabile di Classe A","provenienzaGlossario":"Bestie XXXX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Latte di Marmite","classificazione":"X","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie X","esotico":false,"illegale":false,"pozionista":false},{"nome":"Latte maledetto di Nogtail","classificazione":"XXX","classeBene":"Non Commerciabile di Classe C","provenienzaGlossario":"Bestie XXX","esotico":false,"illegale":true,"pozionista":false},{"nome":"Legno di Alloro","classificazione":"X","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Piante X","esotico":false,"illegale":false,"pozionista":false},{"nome":"Legno di Platano Picchiatore","classificazione":"XXXXX","classeBene":"Non Commerciabile di Classe C","provenienzaGlossario":"Piante XXXXX","esotico":false,"illegale":true,"pozionista":false},{"nome":"Mela dell'Albero di Biancaneve","classificazione":"XXXXX","classeBene":"Non Commerciabile di Classe C","provenienzaGlossario":"Piante XXXXX","esotico":false,"illegale":true,"pozionista":true},{"nome":"Melassa di Glumbumble","classificazione":"XXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie XXX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Melma di Frullobulbo","classificazione":"XX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Piante XX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Miele di Primula Veris","classificazione":"XXXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Piante XXXX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Milza di Lucertola","classificazione":"X","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Animali","esotico":false,"illegale":false,"pozionista":false},{"nome":"Milza di Pipistrello","classificazione":"X","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Animali","esotico":false,"illegale":false,"pozionista":false},{"nome":"Milza di Topo","classificazione":"X","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Animali","esotico":false,"illegale":false,"pozionista":false},{"nome":"Mosca Crisopa","classificazione":"X","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Animali","esotico":false,"illegale":false,"pozionista":false},{"nome":"Muco di Gnomo","classificazione":"XX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie XX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Muco di Lombrico","classificazione":"X","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Animali","esotico":false,"illegale":false,"pozionista":false},{"nome":"Muco di Porlock","classificazione":"XX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie XX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Muco di Streeler","classificazione":"XXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie XXX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Muco di Troll","classificazione":"XXXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie XXXX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Muco di Vermicolo","classificazione":"X","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie X","esotico":false,"illegale":false,"pozionista":false},{"nome":"Muschio del Sud","classificazione":"XXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Piante XXX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Occhio di Anguilla","classificazione":"X","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Animali","esotico":false,"illegale":false,"pozionista":false},{"nome":"Occhio di Pesce palla","classificazione":"X","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Animali","esotico":false,"illegale":false,"pozionista":false},{"nome":"Occhio di Scarabeo","classificazione":"X","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Animali","esotico":false,"illegale":false,"pozionista":false},{"nome":"Olio di Ricino","classificazione":"X","classeBene":"Non Commerciabile di Classe C","provenienzaGlossario":"Piante X","esotico":false,"illegale":true,"pozionista":true},{"nome":"Olio di Rosa","classificazione":"X","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Piante X","esotico":false,"illegale":false,"pozionista":false},{"nome":"Olio di Valeriana","classificazione":"X","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Piante X","esotico":false,"illegale":false,"pozionista":false},{"nome":"Olio di Verbena","classificazione":"X","classeBene":"Non Commerciabile di Classe C","provenienzaGlossario":"Piante X","esotico":false,"illegale":true,"pozionista":true},{"nome":"Olio essenziale di Artemisia","classificazione":"X","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Piante X","esotico":false,"illegale":false,"pozionista":false},{"nome":"Ossigeno di Pianta Magica","classificazione":"XXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Incantesimo Oxygeni","esotico":false,"illegale":false,"pozionista":false},{"nome":"Pece di Platano Picchiatore","classificazione":"XXXXX","classeBene":"Non Commerciabile di Classe C","provenienzaGlossario":"Piante XXXXX","esotico":false,"illegale":true,"pozionista":false},{"nome":"Pelle di Alastridente","classificazione":"XXXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie XXXX","esotico":true,"illegale":true,"pozionista":true},{"nome":"Pelle di Baku","classificazione":"X","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie X","esotico":true,"illegale":false,"pozionista":false},{"nome":"Pelle di Basertilia","classificazione":"X","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie X","esotico":true,"illegale":false,"pozionista":false},{"nome":"Pelle di Drago","classificazione":"XXXXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie XXXXX","esotico":false,"illegale":true,"pozionista":true},{"nome":"Pelle di Girilacco","classificazione":"X","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Animali","esotico":false,"illegale":false,"pozionista":false},{"nome":"Pelle di Moke","classificazione":"XXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie XXX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Pelle di Tebo","classificazione":"XXXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie XXXX","esotico":true,"illegale":true,"pozionista":true},{"nome":"Pelo di Baku","classificazione":"X","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie X","esotico":true,"illegale":false,"pozionista":false},{"nome":"Pelo di Demiguise","classificazione":"XXXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie XXXX","esotico":true,"illegale":false,"pozionista":false},{"nome":"Pelo di Doxy","classificazione":"XXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie XXX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Pelo di Duriccio","classificazione":"X","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie X","esotico":false,"illegale":false,"pozionista":false},{"nome":"Pelo di Mau","classificazione":"X","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie X","esotico":true,"illegale":false,"pozionista":false},{"nome":"Pelo di Nascondombra","classificazione":"XXXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie XXXX","esotico":true,"illegale":false,"pozionista":false},{"nome":"Pelo di orecchie del Pogrebin","classificazione":"XXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie XXX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Pelo di Porlock","classificazione":"XX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie XX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Pelo di Puffskein","classificazione":"XXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie XXX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Pelo di Snaso","classificazione":"XXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie XXX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Pelo di Sobolan","classificazione":"XXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie XXX","esotico":true,"illegale":false,"pozionista":false},{"nome":"Pelo di Wiggity","classificazione":"X","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie X","esotico":true,"illegale":false,"pozionista":false},{"nome":"Pelo di Yeti","classificazione":"XXXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie XXXX","esotico":true,"illegale":false,"pozionista":false},{"nome":"Petalo dell'Albero della Vita","classificazione":"XXXXX","classeBene":"Non Commerciabile di Classe C","provenienzaGlossario":"Piante XXXXX","esotico":false,"illegale":true,"pozionista":true},{"nome":"Petalo di Aconito","classificazione":"X","classeBene":"Non Commerciabile di Classe C","provenienzaGlossario":"Piante X","esotico":false,"illegale":true,"pozionista":true},{"nome":"Petalo di Albero Carnivoro","classificazione":"XXXXX","classeBene":"Non Commerciabile di Classe C","provenienzaGlossario":"Piante XXXXX","esotico":true,"illegale":true,"pozionista":false},{"nome":"Petalo di Bebop Caraibica","classificazione":"XXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Piante XXX","esotico":true,"illegale":false,"pozionista":false},{"nome":"Petalo di Orchidea Fantasma","classificazione":"XXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Piante XXX","esotico":true,"illegale":false,"pozionista":false},{"nome":"Petalo di Fiore Floo","classificazione":"XXXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Piante XXXX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Petalo di Giunchiglia strombazzante","classificazione":"XX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Piante XX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Petalo di Grinzafigo","classificazione":"XX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Pianta XX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Petalo di Hanabira","classificazione":"X","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie X","esotico":false,"illegale":false,"pozionista":false},{"nome":"Petalo di Loto di Mahoutokoro","classificazione":"XXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Piante XXX","esotico":true,"illegale":false,"pozionista":false},{"nome":"Petalo di Moly","classificazione":"XXXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Piante XXXX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Petalo di Pianta Stridula","classificazione":"XXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Piante XXX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Petalo di Ruta","classificazione":"XXXXX","classeBene":"Non Commerciabile di Classe C","provenienzaGlossario":"Piante XXXXX","esotico":false,"illegale":true,"pozionista":false},{"nome":"Petalo di Sanguinaria","classificazione":"X","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Piante X","esotico":false,"illegale":false,"pozionista":false},{"nome":"Petalo di Verbena","classificazione":"X","classeBene":"Non Commerciabile di Classe C","provenienzaGlossario":"Piante X","esotico":false,"illegale":true,"pozionista":true},{"nome":"Pistillo di Loto di Mahoutokoro","classificazione":"XXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Piante XXX","esotico":true,"illegale":false,"pozionista":false},{"nome":"Pistillo di Moly","classificazione":"XXXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Piante XXXX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Pistillo di Orchidea Fantasma","classificazione":"XXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Piante XXX","esotico":true,"illegale":false,"pozionista":false},{"nome":"Pistillo di Primula Veris","classificazione":"XXXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Piante XXXX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Piuma di Birdengold","classificazione":"X","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie X","esotico":false,"illegale":false,"pozionista":false},{"nome":"Piuma di Diricawl","classificazione":"XX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie XX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Piuma di Fenice","classificazione":"XXXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie XXXX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Piuma di Fwooper","classificazione":"XXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie XXX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Piuma di Grifone","classificazione":"XXXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie XXXX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Piuma di Ippogrifo","classificazione":"XXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie XXX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Piuma di Jobberknoll","classificazione":"XX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie XX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Piuma di Occamy","classificazione":"XXXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie XXXX","esotico":true,"illegale":true,"pozionista":true},{"nome":"Piuma di Tuono Alato","classificazione":"XXXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie XXXX","esotico":true,"illegale":true,"pozionista":true},{"nome":"Polvere di Fata","classificazione":"XX","classeBene":"Non Commerciabile di Classe C","provenienzaGlossario":"Bestie XX","esotico":false,"illegale":true,"pozionista":true},{"nome":"Polvere di perla","classificazione":"X","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Animali","esotico":false,"illegale":false,"pozionista":false},{"nome":"Polvere di Shellusk","classificazione":"X","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie X","esotico":false,"illegale":false,"pozionista":false},{"nome":"Puffagiolo","classificazione":"XXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Piante XXX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Pungiglione di Billywig","classificazione":"XXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie XXX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Pus di Bubotubero","classificazione":"XXX","classeBene":"Non Commerciabile di Classe C","provenienzaGlossario":"Piante XXX","esotico":false,"illegale":true,"pozionista":true},{"nome":"Puzzalinfa di Mimbulus Mimbletonia","classificazione":"XXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Piante XXX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Radice di Amarantacea","classificazione":"XXXXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Piante XXXXX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Radice di Annientamento","classificazione":"XXXX","classeBene":"Non Commerciabile di Classe C","provenienzaGlossario":"Piante XXXX","esotico":true,"illegale":true,"pozionista":false},{"nome":"Radice di Artemisia","classificazione":"X","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Piante X","esotico":false,"illegale":false,"pozionista":false},{"nome":"Radice di Asfodelo","classificazione":"X","classeBene":"Non Commerciabile di Classe C","provenienzaGlossario":"Piante X","esotico":false,"illegale":true,"pozionista":true},{"nome":"Radice di Assenzio","classificazione":"X","classeBene":"Non Commerciabile di Classe C","provenienzaGlossario":"Piante X","esotico":false,"illegale":true,"pozionista":true},{"nome":"Radice di Bebop Caraibica","classificazione":"XXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Piante XXX","esotico":true,"illegale":false,"pozionista":false},{"nome":"Radice di Bubotubero","classificazione":"XXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Piante XXX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Radice di Mandragola","classificazione":"XXXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Piante XXXX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Radice di Orchidea Fantasma","classificazione":"XXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Piante XXX","esotico":true,"illegale":false,"pozionista":false},{"nome":"Radice di Platano Picchiatore","classificazione":"XXXXX","classeBene":"Non Commerciabile di Classe C","provenienzaGlossario":"Piante XXXXX","esotico":false,"illegale":true,"pozionista":false},{"nome":"Radice di Rampicante Capovolto","classificazione":"XXXXX","classeBene":"Non Commerciabile di Classe C","provenienzaGlossario":"Piante XXXXX","esotico":false,"illegale":true,"pozionista":false},{"nome":"Radice di Ruta","classificazione":"XXXX","classeBene":"Non Commerciabile di Classe C","provenienzaGlossario":"Piante XXXX","esotico":false,"illegale":true,"pozionista":false},{"nome":"Radice di Valeriana","classificazione":"X","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Piante X","esotico":false,"illegale":false,"pozionista":false},{"nome":"Radice di Zenzero","classificazione":"X","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Piante X","esotico":false,"illegale":false,"pozionista":false},{"nome":"Radigorda","classificazione":"XX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Piante XX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Ragno","classificazione":"X","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Animali","esotico":false,"illegale":false,"pozionista":false},{"nome":"Rametto di Aconito","classificazione":"X","classeBene":"Non Commerciabile di Classe C","provenienzaGlossario":"Piante X","esotico":false,"illegale":true,"pozionista":true},{"nome":"Rametto di Menta Piperita","classificazione":"X","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Piante X","esotico":false,"illegale":false,"pozionista":false},{"nome":"Rametto di Valeriana","classificazione":"X","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Piante X","esotico":false,"illegale":false,"pozionista":false},{"nome":"Ramo dell'Albero Medusa","classificazione":"XXXXX","classeBene":"Non Commerciabile di Classe C","provenienzaGlossario":"Piante XXXXX","esotico":true,"illegale":true,"pozionista":false},{"nome":"Saliva di Jarvey","classificazione":"XXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie XXX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Saliva di Kelpie","classificazione":"XXXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie XXXX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Saliva di Nundu","classificazione":"XXXXX","classeBene":"Non Commerciabile di Classe C","provenienzaGlossario":"Bestie XXXXX","esotico":true,"illegale":true,"pozionista":false},{"nome":"Sangue di Re'em","classificazione":"XXXX","classeBene":"Non Commerciabile di Classe A","provenienzaGlossario":"Bestie XXXX","esotico":true,"illegale":true,"pozionista":false},{"nome":"Sangue di Salamandra","classificazione":"XXX","classeBene":"Non Commerciabile di Classe A","provenienzaGlossario":"Bestie XXX","esotico":false,"illegale":true,"pozionista":true},{"nome":"Sangue di Unicorno","classificazione":"XXXX","classeBene":"Non Commerciabile di Classe A","provenienzaGlossario":"Bestie XXXX","esotico":false,"illegale":true,"pozionista":false},{"nome":"Sangue di Vampiro","classificazione":"Esseri, Non-Esseri e Spiriti","classeBene":"Non Commerciabile di Classe A","provenienzaGlossario":"Essere","esotico":false,"illegale":true,"pozionista":true},{"nome":"Sanguisuga","classificazione":"X","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Animali","esotico":false,"illegale":false,"pozionista":false},{"nome":"Scaglia di Ninki Nanka","classificazione":"X","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie X","esotico":true,"illegale":false,"pozionista":false},{"nome":"Secrezione di Bundimun","classificazione":"XX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie XX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Semino di Papavero","classificazione":"X","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Piante X","esotico":false,"illegale":false,"pozionista":false},{"nome":"Spina di Canterose","classificazione":"XXXX","classeBene":"Non Commerciabile di Classe C","provenienzaGlossario":"Piante XXXX","esotico":false,"illegale":true,"pozionista":false},{"nome":"Spina di Cespuglio Spinoso","classificazione":"XXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Piante XXX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Spina di Duriccio","classificazione":"X","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie X","esotico":false,"illegale":false,"pozionista":false},{"nome":"Spina di Pesce leone","classificazione":"X","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Animali","esotico":false,"illegale":false,"pozionista":false},{"nome":"Spina di Pugnacio","classificazione":"XXXXX","classeBene":"Non Commerciabile di Classe C","provenienzaGlossario":"Piante XXXXX","esotico":false,"illegale":true,"pozionista":false},{"nome":"Spina di Rosa","classificazione":"X","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Piante X","esotico":false,"illegale":false,"pozionista":false},{"nome":"Spina di Shrake","classificazione":"XXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie XXX","esotico":true,"illegale":false,"pozionista":false},{"nome":"Squama di Aoi Kaeru","classificazione":"X","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie X","esotico":true,"illegale":false,"pozionista":false},{"nome":"Squama di Chupacabra","classificazione":"XX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie XX","esotico":true,"illegale":false,"pozionista":false},{"nome":"Squama di Fiammablu","classificazione":"X","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie X","esotico":true,"illegale":false,"pozionista":false},{"nome":"Squama di Ippocampo","classificazione":"XX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie XX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Squama di Plimpi","classificazione":"XXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie XXX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Squama di Ramora","classificazione":"XX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie XX","esotico":true,"illegale":false,"pozionista":false},{"nome":"Squama di Serpecorno","classificazione":"XXXXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie XXXXX","esotico":true,"illegale":false,"pozionista":false},{"nome":"Squama di Serpente Marino","classificazione":"XXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie XXX","esotico":true,"illegale":false,"pozionista":false},{"nome":"Stelo di Giunchiglia strombazzante","classificazione":"XX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Piante XX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Stelo di Moly","classificazione":"XXXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Piante XXXX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Stelo di Ruta","classificazione":"XXXX","classeBene":"Non Commerciabile di Classe C","provenienzaGlossario":"Piante XXXX","esotico":false,"illegale":true,"pozionista":false},{"nome":"Sterco di Mooncalf","classificazione":"XX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie XX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Succo dei Baccello di Pugnacio","classificazione":"XXXXX","classeBene":"Non Commerciabile di Classe C","provenienzaGlossario":"Piante XXXXX","esotico":false,"illegale":true,"pozionista":true},{"nome":"Succo di Aloe","classificazione":"X","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Piante X","esotico":false,"illegale":false,"pozionista":false},{"nome":"Succo di Grinzafico","classificazione":"XX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Piante XX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Succo di Horklump","classificazione":"X","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie X","esotico":false,"illegale":false,"pozionista":false},{"nome":"Tentacolo di Albero Carnivoro","classificazione":"XXXXX","classeBene":"Non Commerciabile di Classe C","provenienzaGlossario":"Piante XXXXX","esotico":true,"illegale":true,"pozionista":false},{"nome":"Tentacolo di Frullobulbo","classificazione":"XX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Piante XX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Tentacolo di Stupefiore","classificazione":"XXXXX","classeBene":"Non Commerciabile di Classe C","provenienzaGlossario":"Piante XXXXX","esotico":true,"illegale":true,"pozionista":false},{"nome":"Testa di Papavero","classificazione":"X","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Piante X","esotico":false,"illegale":false,"pozionista":false},{"nome":"Torace di Libellula","classificazione":"X","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Animali","esotico":false,"illegale":false,"pozionista":false},{"nome":"Unghia di Clabbert","classificazione":"XX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie XX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Unghia di Gnomo","classificazione":"XX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie XX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Unghia di Kneazle","classificazione":"XXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie XXX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Unghia di Snaso","classificazione":"XXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie XXX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Uovo di Ashwinder","classificazione":"XXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie XXX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Uovo di Basertilia","classificazione":"X","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie X","esotico":true,"illegale":false,"pozionista":false},{"nome":"Uovo di Doxy","classificazione":"XXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie XXX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Uovo di Ippocampo","classificazione":"XX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie XX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Uovo di Ramora","classificazione":"XX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie XX","esotico":true,"illegale":false,"pozionista":false},{"nome":"Veleno dell'Albero Medusa","classificazione":"XXXXX","classeBene":"Non Commerciabile di Classe C","provenienzaGlossario":"Piante XXXXX","esotico":true,"illegale":true,"pozionista":false},{"nome":"Veleno di Acromantula","classificazione":"XXXXX","classeBene":"Non Commerciabile di Classe C","provenienzaGlossario":"Bestie XXXXX","esotico":false,"illegale":true,"pozionista":true},{"nome":"Veleno di Billywig","classificazione":"XXX","classeBene":"Non Commerciabile di Classe C","provenienzaGlossario":"Bestie XXX","esotico":false,"illegale":true,"pozionista":true},{"nome":"Veleno di Doxy","classificazione":"XXX","classeBene":"Non Commerciabile di Classe C","provenienzaGlossario":"Bestie XXX","esotico":false,"illegale":true,"pozionista":true},{"nome":"Veleno di Erbaschiuma","classificazione":"XXX","classeBene":"Non Commerciabile di Classe C","provenienzaGlossario":"Piante XXX","esotico":true,"illegale":true,"pozionista":true},{"nome":"Veleno di Kàvouras","classificazione":"X","classeBene":"Non Commerciabile di Classe C","provenienzaGlossario":"Bestie X","esotico":true,"illegale":true,"pozionista":true},{"nome":"Veleno di Lobalug","classificazione":"XXX","classeBene":"Non Commerciabile di Classe C","provenienzaGlossario":"Bestie XXX","esotico":false,"illegale":true,"pozionista":true},{"nome":"Veleno di Manticora","classificazione":"XXXXX","classeBene":"Non Commerciabile di Classe C","provenienzaGlossario":"Bestie XXXXX","esotico":false,"illegale":true,"pozionista":true},{"nome":"Veleno di Ninki Nanka","classificazione":"X","classeBene":"Non Commerciabile di Classe C","provenienzaGlossario":"Bestie X","esotico":true,"illegale":true,"pozionista":true},{"nome":"Veleno di Tentacula Velenosa","classificazione":"XXXXX","classeBene":"Non Commerciabile di Classe C","provenienzaGlossario":"Piante XXXXX","esotico":false,"illegale":true,"pozionista":true},{"nome":"Veleno di Velenottero","classificazione":"XXXX","classeBene":"Non Commerciabile di Classe C","provenienzaGlossario":"Bestie XXXX","esotico":false,"illegale":true,"pozionista":true},{"nome":"Viticcio di Tranello del Diavolo","classificazione":"XXXXX","classeBene":"Non Commerciabile di Classe C","provenienzaGlossario":"Piante XXXXX","esotico":false,"illegale":true,"pozionista":false},{"nome":"Zanna di Avvincino","classificazione":"XX","classeBene":"Non Commerciabile di Classe C","provenienzaGlossario":"Bestie XX","esotico":false,"illegale":true,"pozionista":false},{"nome":"Zanna di Chizpurfle","classificazione":"XX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Bestie XX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Zanna di Drakul","classificazione":"X","classeBene":"Non Commerciabile di Classe C","provenienzaGlossario":"Bestie X","esotico":false,"illegale":true,"pozionista":true},{"nome":"Zanna di Geranio Zannuto","classificazione":"XXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Piante XXX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Zanna di Pianta Vampiro","classificazione":"XXXX","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Piante XXXX","esotico":false,"illegale":false,"pozionista":false},{"nome":"Zanna di Serpente","classificazione":"X","classeBene":"Commerciabile di Classe B","provenienzaGlossario":"Animali","esotico":false,"illegale":false,"pozionista":false}];
   var INGREDIENTI_MAP = {};
+  function ingredientCleanRawText(v){
+    var s=String(v||"");
+    /* Accetta anche testo copiato da HTML/Forum: togli tag, BBCode e frammenti
+       di icone che possono finire letteralmente negli appunti. */
+    s=s.replace(/<br\s*\/?>/gi," ").replace(/<[^>]*>/g," ");
+    s=s.replace(/\[(?:\/?(?:b|i|u|color|font|size|url|quote|center|left|right)|img)(?:=[^\]]*)?\]/gi," ");
+    s=s.replace(/\(?\s*i\s+class\s*=\s*["'][^"']+["']\s*\/?\s*>?\s*\)?/gi," ");
+    s=s.replace(/\bfa-(?:solid|regular|light|thin|duotone|brands|ban|flask-vial|check|circle-check)\b/gi," ");
+    s=s.replace(/[🌴🚫⚗✔✅☑️]/g," ");
+    return s;
+  }
   function normalizeIngredientName(v){
-    var s=String(v||"").normalize ? String(v||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"") : String(v||"");
-    return s.toLowerCase().replace(/[🌴🚫⚗✔]/g,"").replace(/[’‘`]/g,"'").replace(/\s+/g," ").trim();
+    var raw=ingredientCleanRawText(v);
+    var s=raw.normalize ? raw.normalize("NFD").replace(/[\u0300-\u036f]/g,"") : raw;
+    return s.toLowerCase()
+      .replace(/[’‘`´]/g,"'")
+      .replace(/[“”«»"]/g," ")
+      .replace(/[–—−]/g,"-")
+      .replace(/\s+/g," ")
+      .trim();
   }
   for(var igi=0;igi<INGREDIENTI_GLOSSARIO.length;igi++){ INGREDIENTI_MAP[normalizeIngredientName(INGREDIENTI_GLOSSARIO[igi].nome)] = INGREDIENTI_GLOSSARIO[igi]; }
 
-  /* v47 — alias retrocompatibili per i vecchi nomi con refuso già salvati. */
+  /* Alias sicuri: vecchi refusi, grafie già circolate nei tool e forme molto comuni. */
   [
     ["Fiore di di Aloe","Fiore di Aloe"],
     ["Fiore di di Geranio Zannuto","Fiore di Geranio Zannuto"],
     ["Petalo di di Orchidea Fantasma","Petalo di Orchidea Fantasma"],
-    ["Spina di di Cespuglio Spinoso","Spina di Cespuglio Spinoso"]
+    ["Spina di di Cespuglio Spinoso","Spina di Cespuglio Spinoso"],
+    ["Coda di Malacaw Maculato","Coda di Malaclaw Maculato"],
+    ["Coda Malacaw Maculato","Coda di Malaclaw Maculato"]
   ].forEach(function(pair){
     var canonical=INGREDIENTI_MAP[normalizeIngredientName(pair[1])];
     if(canonical){INGREDIENTI_MAP[normalizeIngredientName(pair[0])]=canonical;}
@@ -8937,18 +9299,53 @@
     var score=0,changed=0;
     for(var i=0;i<a.length;i++){
       if(a[i]===b[i]){continue;}
-
-      /* Accetta soltanto piccole flessioni della stessa parola:
-         Rametti/Rametto, Petali/Petalo, Zanne/Zanna,
-         Secrezioni/Secrezione, Autofertilizzanti/Autofertilizzante... */
+      /* Piccole flessioni/plurali: Rametti/Rametto, Petali/Petalo, Zanne/Zanna... */
       if(a[i].length<4 || b[i].length<4 || a[i].charAt(0)!==b[i].charAt(0)){return 99;}
       var d=ingredientTokenDistance(a[i],b[i]);
       if(d!==1){return 99;}
-      score+=d;
-      changed++;
+      score+=d;changed++;
       if(changed>2 || score>2){return 99;}
     }
     return changed>0?score:0;
+  }
+
+  function ingredientLooseKey(v){
+    var s=normalizeIngredientName(v)
+      .replace(/^(?:ingrediente|ingredienti)\s*[:\-]?\s*/i,"")
+      .replace(/^(?:class(?:ificazione)?\.?\s*)?(?:xxxxx|xxxx|xxx|xx|x)\s*(?::|\||-|\s)\s*/i,"")
+      .replace(/[()\[\]{}.,;:!?/\\|_+=*#]/g," ")
+      .replace(/'/g," ")
+      .replace(/\s+/g," ")
+      .trim();
+    var stop={"di":1,"del":1,"della":1,"dello":1,"dei":1,"degli":1,"delle":1,"dell":1,"d":1,"il":1,"lo":1,"la":1,"i":1,"gli":1,"le":1,"un":1,"uno":1,"una":1};
+    return s.split(" ").filter(function(t){return t&&!stop[t];}).join(" ");
+  }
+
+  function ingredientEditDistance(a,b){
+    a=String(a||"");b=String(b||"");
+    if(a===b){return 0;}
+    var prev=[],cur=[];
+    for(var j=0;j<=b.length;j++){prev[j]=j;}
+    for(var i=1;i<=a.length;i++){
+      cur=[i];
+      for(var k=1;k<=b.length;k++){
+        cur[k]=Math.min(cur[k-1]+1,prev[k]+1,prev[k-1]+(a.charAt(i-1)===b.charAt(k-1)?0:1));
+      }
+      prev=cur;
+    }
+    return prev[b.length];
+  }
+
+  function ingredientFuzzyScore(inputName,officialName){
+    var a=ingredientLooseKey(inputName),b=ingredientLooseKey(officialName);
+    if(!a||!b){return 99;}
+    if(a===b){return 0;}
+    /* Se una parola lunga è stata pluralizzata o contiene un refuso, confrontiamo
+       l'intera forma “alleggerita” senza articoli/preposizioni. */
+    var d=ingredientEditDistance(a,b),longest=Math.max(a.length,b.length);
+    var maxDist=longest<=8?1:(longest<=16?2:(longest<=28?3:4));
+    if(d>maxDist || d/longest>0.16){return 99;}
+    return d;
   }
 
   function catalogIngredient(nome){
@@ -8956,20 +9353,28 @@
     var exact=INGREDIENTI_MAP[key];
     if(exact){return exact;}
 
-    /* Gli elenchi generati altrove possono usare il plurale mentre il Glossario
-       conserva il nome canonico al singolare. Cerchiamo una corrispondenza
-       morfologica molto stretta e la accettiamo solo se è univoca. */
+    /* Prima prova le flessioni molto strette già supportate. */
     var best=null,bestScore=99,ties=0;
     for(var i=0;i<INGREDIENTI_GLOSSARIO.length;i++){
-      var rec=INGREDIENTI_GLOSSARIO[i];
-      var score=ingredientMorphScore(nome,rec.nome);
-      if(score<bestScore){
-        best=rec;bestScore=score;ties=1;
-      }else if(score===bestScore && score<99){
-        ties++;
-      }
+      var rec=INGREDIENTI_GLOSSARIO[i],score=ingredientMorphScore(nome,rec.nome);
+      if(score<bestScore){best=rec;bestScore=score;ties=1;}
+      else if(score===bestScore && score<99){ties++;}
     }
-    return bestScore<=2 && ties===1 ? best : null;
+    if(bestScore<=2 && ties===1){return best;}
+
+    /* Poi una corrispondenza più libera: ignora articoli/preposizioni/punteggiatura
+       e tollera pochi refusi. Viene accettata SOLO se un candidato è chiaramente
+       migliore del secondo, così “Veleno” o “Ala” non possono finire sul nome sbagliato. */
+    best=null;bestScore=99;var secondScore=99;ties=0;
+    for(var f=0;f<INGREDIENTI_GLOSSARIO.length;f++){
+      var frec=INGREDIENTI_GLOSSARIO[f],fscore=ingredientFuzzyScore(nome,frec.nome);
+      if(fscore<bestScore){secondScore=bestScore;best=frec;bestScore=fscore;ties=1;}
+      else if(fscore===bestScore && fscore<99){ties++;}
+      else if(fscore<secondScore){secondScore=fscore;}
+    }
+    if(bestScore===0 && ties===1){return best;}
+    if(bestScore<99 && ties===1 && (secondScore===99 || secondScore-bestScore>=2)){return best;}
+    return null;
   }
   function ingredientSymbols(rec){
     if(!rec){return "";} var a=[]; if(rec.esotico){a.push("🌴");} if(rec.illegale){a.push("🚫");} if(rec.pozionista){a.push("⚗ ✔");} return a.length ? " "+a.join(" ") : "";
@@ -9063,49 +9468,154 @@
     var line=String(raw||"").trim();
     if(!line){return null;}
 
-    /* Intestazioni che possono essere copiate insieme agli Ingredienti. */
-    if(/^RISULTATI\s+RACCOLTA\s*:?\s*$/i.test(line)){return null;}
-    if(/^\*{0,2}\s*Ingredienti\s+(?:X|XX|XXX|XXXX|XXXXX)\s*\*{0,2}\s*:?\s*$/i.test(line)){return null;}
-
-    /* Formati accettati:
-       - X: Nome <i ...></i> (...)
-       • Nome [1]
-       Nome
-       3 | Nome
-       La Classificazione resta quella ufficiale del Glossario. */
-    line=line.replace(/^\*{1,2}|\*{1,2}$/g,"").trim();
-    line=line.replace(/^\s*[-•*]\s*/,"");
-    line=line.replace(/^(?:X|XX|XXX|XXXX|XXXXX)\s*:\s*/i,"");
-
-    var qty=1;
-
-    /* Quantità all'inizio: 3 | Nome, 3 x Nome, ecc. */
-    var qm=line.match(/^(\d+)\s*(?:\||x|×|-)\s*(.+)$/i);
-    if(qm){
-      qty=Math.max(1,parseInt(qm[1],10)||1);
-      line=qm[2].trim();
-    }
-
-    /* Quantità alla fine, come negli elenchi:
-       • Cuore di coccodrillo [1]
-       • Cuore di coccodrillo [3] */
-    var bracketQty=line.match(/^(.*?)\s*\[(\d+)\]\s*$/);
-    if(bracketQty){
-      line=bracketQty[1].trim();
-      qty=Math.max(1,parseInt(bracketQty[2],10)||1);
-    }
-
-    /* Elimina le icone HTML copiate come codice e, se l'utente copia
-       la versione visiva, anche i simboli equivalenti. */
-    line=line.replace(/<i\b[^>]*>\s*<\/i>/gi," ");
-    line=line.replace(/<[^>]+>/g," ");
+    /* Ripulisce prima il rumore: HTML, BBCode, icone e frammenti Font Awesome. */
+    line=line.replace(/<br\s*\/?>/gi," ").replace(/<[^>]+>/g," ");
+    line=line.replace(/\[(?:\/?(?:b|i|u|color|font|size|url|quote|center|left|right)|img)(?:=[^\]]*)?\]/gi," ");
     line=decodeDispensaHtmlEntities(line);
-    line=line.replace(/[🚫⚗✔✅]/g," ");
-    line=line.replace(/\(\s*\)/g," ");
-    line=line.replace(/\s+/g," ").trim();
+    line=line.replace(/\(?\s*i\s+class\s*=\s*["'][^"']+["']\s*\/?\s*>?\s*\)?/gi," ");
+    line=line.replace(/\bfa-(?:solid|regular|light|thin|duotone|brands|ban|flask-vial|check|circle-check)\b/gi," ");
+    line=line.replace(/[🌴🚫⚗✔✅☑️]/g," ");
+    line=line.replace(/\(\s*\)/g," ").replace(/\s+/g," ").trim();
+    if(!line){return null;}
 
+    /* Intestazioni e righe descrittive che non sono Ingredienti. */
+    if(/^RISULTATI\s+RACCOLTA\s*:?\s*$/i.test(line)){return null;}
+    if(/^GENERATORE\s+RICERCA\s+INGREDIENTI/i.test(line)){return null;}
+    if(/^\*{0,2}\s*Ingredienti\s+(?:X|XX|XXX|XXXX|XXXXX)\s*\*{0,2}\s*:?\s*$/i.test(line)){return null;}
+    if(/^Class(?:ificazione)?\.?\s*:?\s*(?:X|XX|XXX|XXXX|XXXXX)\s*$/i.test(line)){return null;}
+    if(/^(?:XXXXX|XXXX|XXX|XX|X)$/i.test(line)){return null;}
+
+    line=line.replace(/^\s*(?:[-•*▪◦‣]|\d+[.)])\s*/,"");
+    line=line.replace(/^\*{1,2}|\*{1,2}$/g,"").trim();
+    line=line.replace(/^(?:class(?:ificazione)?\.?\s*)?(?:XXXXX|XXXX|XXX|XX|X)\s*(?::|\||[-–—])\s*/i,"");
+    line=line.replace(/^\[(?:XXXXX|XXXX|XXX|XX|X)\]\s*(?::|\||[-–—])?\s*/i,"");
+
+    var qty=1,m;
+    /* Quantità all'inizio: 3 | Nome, 3x Nome, x3 Nome, 3 dosi Nome. */
+    m=line.match(/^(\d+)\s*(?:\||x|×|[-–—]|dosi?\s+)(.+)$/i);
+    if(m){qty=Math.max(1,parseInt(m[1],10)||1);line=m[2].trim();}
+    else{
+      m=line.match(/^[x×]\s*(\d+)\s+(.+)$/i);
+      if(m){qty=Math.max(1,parseInt(m[1],10)||1);line=m[2].trim();}
+    }
+
+    /* Quantità finali comuni: Nome [3], Nome x3, Nome (3 dosi), Nome - 3 dosi. */
+    m=line.match(/^(.*?)\s*\[(\d+)\]\s*$/);
+    if(m){line=m[1].trim();qty=Math.max(1,parseInt(m[2],10)||1);}
+    else{
+      m=line.match(/^(.*?)\s*(?:[x×]\s*(\d+)|\((\d+)\s*dosi?\)|[-–—]\s*(\d+)\s*dosi?)\s*$/i);
+      if(m){line=m[1].trim();qty=Math.max(1,parseInt(m[2]||m[3]||m[4],10)||1);}
+    }
+
+    /* Etichette residue che talvolta vengono copiate insieme al nome. */
+    line=line.replace(/^Ingrediente\s*:\s*/i,"");
+    line=line.replace(/\s+(?:ingrediente|ingredienti)\s*$/i,"");
+    line=line.replace(/\s+/g," ").trim();
     if(!line){return null;}
     return {qty:qty,name:line};
+  }
+  function ingredientMentionsInBulkFragment(raw){
+    /* Cerca i nomi del Glossario DENTRO un frammento, senza dipendere dalla sua
+       impaginazione. Articoli/preposizioni e punteggiatura sono già neutralizzati
+       da ingredientLooseKey(). Vengono scelti i match più lunghi e non sovrapposti. */
+    var hay=ingredientLooseKey(raw),tokens=hay?hay.split(/\s+/):[];
+    if(!tokens.length){return [];}
+    var hits=[];
+    for(var i=0;i<INGREDIENTI_GLOSSARIO.length;i++){
+      var rec=INGREDIENTI_GLOSSARIO[i],key=ingredientLooseKey(rec.nome),kt=key?key.split(/\s+/):[];
+      if(!kt.length||kt.length>tokens.length){continue;}
+      for(var s=0;s<=tokens.length-kt.length;s++){
+        var ok=true;
+        for(var k=0;k<kt.length;k++){if(tokens[s+k]!==kt[k]){ok=false;break;}}
+        if(ok){hits.push({start:s,end:s+kt.length-1,len:kt.length,rec:rec});}
+      }
+    }
+    hits.sort(function(a,b){return a.start-b.start||b.len-a.len||String(a.rec.nome).localeCompare(String(b.rec.nome),'it');});
+    var chosen=[];
+    for(var h=0;h<hits.length;h++){
+      var overlap=false;
+      for(var c=0;c<chosen.length;c++){
+        if(!(hits[h].end<chosen[c].start||hits[h].start>chosen[c].end)){overlap=true;break;}
+      }
+      if(!overlap){chosen.push(hits[h]);}
+    }
+    chosen.sort(function(a,b){return a.start-b.start;});
+    return chosen;
+  }
+  function splitDispensaBulkText(raw){
+    var text=String(raw||'')
+      .replace(/<br\s*\/?>/gi,'\n')
+      .replace(/<\/li\s*>/gi,'\n')
+      .replace(/<\/p\s*>/gi,'\n')
+      .replace(/\r/g,'');
+
+    /* La formattazione non deve avere peso: a-capo, punto e virgola, bullet,
+       numerazioni e separatori grafici diventano tutti semplici confini. */
+    text=text.replace(/[ \t]*[•▪◦‣][ \t]*/g,'\n');
+    text=text.replace(/\s*;\s*/g,'\n');
+    text=text.replace(/\s+(?=\d+[.)]\s+[A-ZÀ-ÖØ-Ý])/g,'\n');
+    text=text.replace(/\s+(?=(?:XXXXX|XXXX|XXX|XX|X)\s*(?::|\||[-–—])\s*[A-ZÀ-ÖØ-Ý])/g,'\n');
+
+    var lines=text.split(/\n+/),out=[];
+    function splitVisualSeparators(part){
+      var work=[part],next=[],seps=[/\s+[-–—]\s+/,/\s+\|\s+/,/\s+\/\s+/];
+      for(var si=0;si<seps.length;si++){
+        next=[];
+        for(var wi=0;wi<work.length;wi++){
+          var segs=String(work[wi]||'').split(seps[si]);
+          if(segs.length<=1){next.push(work[wi]);continue;}
+          var current=String(segs[0]||'').trim();
+          for(var sj=1;sj<segs.length;sj++){
+            var rhs=String(segs[sj]||'').trim();
+            /* Non spezzare le forme quantità «3 - Nome», «3 | Nome» e
+               «Nome - 3 dosi»: lì il separatore ha significato numerico. */
+            if(/^\d+$/.test(current)||/^\d+\s*dosi?\b/i.test(rhs)){
+              current=current+' | '+rhs;
+            }else{
+              if(current){next.push(current);}
+              current=rhs;
+            }
+          }
+          if(current){next.push(current);}
+        }
+        work=next;
+      }
+      return work;
+    }
+
+    for(var i=0;i<lines.length;i++){
+      var base=String(lines[i]||'').trim();if(!base)continue;
+      var bits=splitVisualSeparators(base);
+      for(var b=0;b<bits.length;b++){
+        var fragment=String(bits[b]||'').trim();if(!fragment)continue;
+        var parsed=parseDispensaBulkLine(fragment);
+        if(!parsed){continue;}
+
+        /* Se il frammento è già un Ingrediente valido, lo conserviamo così com'è
+           per non perdere l'eventuale quantità. */
+        if(catalogIngredient(parsed.name)){out.push(fragment);continue;}
+
+        /* Altrimenti cerchiamo uno o più nomi del Glossario dentro il testo.
+           Questo rende equivalenti «A; B», «A - B», «• A • B», «A, B», ecc. */
+        var mentions=ingredientMentionsInBulkFragment(fragment);
+        if(mentions.length){
+          var fragTokens=ingredientLooseKey(fragment).split(/\s+/).filter(Boolean).length;
+          var maxNameTokens=0;
+          for(var mt=0;mt<mentions.length;mt++){maxNameTokens=Math.max(maxNameTokens,mentions[mt].len);}
+          var looksLikeList=mentions.length>1||fragTokens<=maxNameTokens+6||/(?:^|\s)(?:XXXXX|XXXX|XXX|XX|X)(?:\s|[:|\-–—])|[•▪◦‣;|]/i.test(fragment);
+          if(looksLikeList){
+            for(var m=0;m<mentions.length;m++){
+              var prefix=(mentions.length===1&&parsed.qty>1)?(parsed.qty+' | '):'';
+              out.push(prefix+mentions[m].rec.nome);
+            }
+            continue;
+          }
+        }
+        /* Ultimo tentativo: lascia il frammento al fuzzy matcher sicuro. */
+        out.push(fragment);
+      }
+    }
+    return out;
   }
   function enrichMovementRow(r){var x=Object.assign({},r||{}),rec=catalogIngredient(x.nomeIngrediente);if(rec){x.classificazione=rec.classificazione;x.illegale=!!rec.illegale;x.esotico=!!rec.esotico;x.pozionista=!!rec.pozionista;x.classeBene=rec.classeBene;}return x;}
   function movementRows(m){
@@ -9417,7 +9927,7 @@
     var bulkDet=el("details","dispensa-block dispensa-paste-section");
     keepDetailsState(bulkDet,"dispensa:bulk",true);
     bulkDet.appendChild(el("summary",null,"<span class=\"dispensa-block-number\">2</span><span class=\"dispensa-block-label\">Aggiungi Ingredienti</span>"));
-    bulkDet.appendChild(el("p","small-note","Puoi incollare «Nome Ingrediente», «3 | Nome Ingrediente», il blocco del Generatore Ricerca Ingredienti oppure elenchi divisi per Classificazione come «<b>Ingredienti X</b>» con righe «• Nome Ingrediente [1]». Le intestazioni vengono ignorate e il numero tra parentesi quadre viene letto come quantità. Ogni riga senza quantità vale automaticamente <b>1 dose</b>. Se lo stesso Ingrediente compare più volte o è già presente in Dispensa, il tool <b>somma automaticamente le dosi</b>."));
+    bulkDet.appendChild(el("p","small-note","<b>Importa anche elenchi lunghi in un solo passaggio.</b> Incolla gli Ingredienti come preferisci: uno per riga oppure separati da <b>;</b>, trattini, pallini, barre, virgole o altra impaginazione. <b>La formattazione non conta:</b> l’Elfo cerca direttamente i nomi del Glossario dentro il testo e ignora Classificazioni, numerazioni, HTML/BBCode, icone e simboli. La quantità è facoltativa: se manca considera automaticamente <b>1 dose</b>; restano accettate forme come «3 | Nome», «3x Nome», «Nome [3]» o «Nome x3». Se lo stesso Ingrediente compare più volte o è già presente in Dispensa, <b>somma automaticamente le dosi</b>. I nomi ambigui non vengono mai assegnati a caso."));
 
     var bulkMeta=el("div","row");
     var bulkProvW=el("div");bulkProvW.appendChild(el("label",null,"Come li hai ottenuti?"));
@@ -9438,7 +9948,7 @@
     toggleBulkProducer();
 
     var bulk=el("textarea");
-    bulk.placeholder="RISULTATI RACCOLTA:\n- X: Fiore di Asfodelo\n- XX: Muco di Porlock\n\noppure:\n**Ingredienti X**\n• Cuore di coccodrillo [1]\n• Rametti di Menta Piperita [1]\n\noppure:\n3 | Radice di Valeriana";
+    bulk.placeholder="Fiore di Asfodelo; Muco di Porlock\noppure\n• Cuore di coccodrillo\n• Rametti di Menta Piperita\noppure\nX - Radice di Valeriana - XX - Ala di Fata\noppure\n3 | Radice di Valeriana";
     bulk.style.overflowY="hidden";
     bulk.style.resize="vertical";
     bulk.style.minHeight="90px";
@@ -9450,11 +9960,11 @@
     bulk.addEventListener("input",resizeBulkTextarea);
     bulk.addEventListener("paste",function(){setTimeout(resizeBulkTextarea,0);});
     bulkDet.appendChild(bulk);
-    var bulkBtn=el("button","action small","Aggiungi elenco");
+    var bulkBtn=el("button","action small","Importa Ingredienti");
     bulkBtn.addEventListener(EV,function(){
       var bulkRaw=String(bulk.value||"");
       var fromIngredientGenerator=/(?:FELIX_ELFO_[A-Z_]*INGREDIENT|RISULTATI\s+RACCOLTA\s*:|GENERATORE\s+RICERCA\s+INGREDIENTI)/i.test(bulkRaw);
-      var rawLines=bulkRaw.split(/\r?\n/),errs=[],added=0;
+      var rawLines=splitDispensaBulkText(bulkRaw),errs=[],added=0;
       for(var bi=0;bi<rawLines.length;bi++){
         var parsed=parseDispensaBulkLine(rawLines[bi]);
         if(!parsed){continue;}
@@ -10200,7 +10710,7 @@
 
 
   /* v41 — catalogo Produzione Creature allineato a Magizoologia v140. */
-  var ELFO_CREATURE_INGREDIENTS={"acromantula":["Veleno di Acromantula"],"alastridente":["Pelle di Alastridente"],"aoi kaeru":["Squama di Aoi Kaeru"],"ashwinder":["Uovo di Ashwinder","Cenere di Ashwinder"],"avvincino":["Zanna di Avvincino"],"baku":["Pelle di Baku","Pelo di Baku","Caccola di Baku"],"banshee":["Lacrima di Banshee"],"basertilia":["Uovo di Basertilia","Pelle di Basertilia"],"bicorno":["Corno di Bicorno"],"billywig":["Pungiglione di Billywig","Veleno di Billywig"],"birdengold":["Piuma di Birdengold","Lacrima di Birdengold"],"bundimun":["Secrezione di Bundimun"],"cavallo alato":["Crine di Cavallo Alato"],"chizpurfle":["Zanna di Chizpurfle"],"chupacabra":["Squama di Chupacabra"],"clabbert":["Unghia di Clabbert"],"demiguise":["Pelo di Demiguise"],"diricawl":["Piuma di Diricawl"],"doxy":["Uovo di Doxy","Ala di Doxy","Pelo di Doxy","Veleno di Doxy"],"drago":["Pelle di Drago","Corda di cuore di Drago","Artiglio di Drago"],"drakul":["Zanna di Drakul"],"duckbill":["Antenna di Duckbill","Artiglio di Duckbill"],"duriccio":["Spina di Duriccio","Pelo di Duriccio"],"erkling":["Dito di Erkling"],"erumpent":["Coda di Erumpent","Fluido di Erumpent"],"fata":["Ala di Fata","Polvere di Fata"],"fenice":["Piuma di Fenice","Lacrima di Fenice"],"fiammablu":["Cristallo di Fiammablu","Crine di Fiammablu","Squama di Fiammablu"],"fwooper":["Piuma di Fwooper"],"ghoul":["Bava di Ghoul"],"glumbumble":["Melassa di Glumbumble"],"gnomo":["Muco di Gnomo","Unghia di Gnomo"],"graphorn":["Corno di Graphorn"],"grifone":["Artiglio di Grifone","Piuma di Grifone"],"hanabira":["Crine di Hanabira","Fiore di Hanabira","Petalo di Hanabira"],"hodag":["Corno di Hodag"],"horklump":["Succo di Horklump"],"ippocampo":["Uovo di Ippocampo","Squama di Ippocampo"],"ippogrifo":["Piuma di Ippogrifo","Artiglio di Ippogrifo"],"jarvey":["Saliva di Jarvey"],"jobberknoll":["Piuma di Jobberknoll"],"kappa":["Acqua di testa di Kappa"],"kavouras":["Veleno di Kàvouras","Chela di Kàvouras"],"kelpie":["Saliva di Kelpie"],"knarl":["Aculeo di Knarl"],"kneazle":["Unghia di Kneazle"],"lobalug":["Veleno di Lobalug"],"lumaca carnivora":["Bava di Lumaca Carnivora"],"malaclaw maculato":["Coda di Malacaw Maculato"],"manticora":["Veleno di Manticora"],"marmite":["Latte di Marmite"],"matagot":["Artiglio di Matagot"],"mau":["Pelo di Mau","Baffi di Mau"],"moke":["Pelle di Moke"],"mooncalf":["Sterco di Mooncalf"],"nascondombra":["Pelo di Nascondombra"],"ninfa dei boschi":["Capello di Ninfa dei Boschi"],"ninki nanka":["Veleno di Ninki Nanka","Scaglia di Ninki Nanka","Dente di Ninki Nanka"],"nogtail":["Latte maledetto di Nogtail"],"nundu":["Saliva di Nundu"],"occamy":["Piuma di Occamy"],"pixie":["Ala di Pixie"],"plimpi":["Squama di Plimpi"],"pogrebin":["Pelo di orecchie del Pogrebin"],"porlock":["Muco di Porlock","Pelo di Porlock"],"puffskein":["Pelo di Puffskein"],"purvincolo":["Appendici di Purvincolo"],"ramora":["Squama di Ramora","Uovo di Ramora"],"re em":["Sangue di Re'em"],"salamandra":["Sangue di Salamandra"],"sblorb":["Fango di Sblorb"],"scriber":["Ala di Scriber"],"serpecorno":["Squama di Serpecorno"],"serpente marino":["Squama di Serpente Marino"],"sfinge":["Artiglio di Sfinge"],"shellusk":["Polvere di Shellusk","Guscio di Shellusk"],"shrake":["Spina di Shrake"],"snaso":["Pelo di Snaso","Unghia di Snaso"],"sobolan":["Pelo di Sobolan"],"streeler":["Muco di Streeler"],"tebo":["Pelle di Tebo"],"thestral":["Crine di Thestral"],"troll":["Muco di Troll"],"tuono alato":["Piuma di Tuono Alato"],"unicorno":["Crine di Unicorno","Corno di Unicorno","Sangue di Unicorno"],"vampiro":["Sangue di Vampiro"],"veela":["Capello di Veela"],"velenottero":["Veleno di Velenottero"],"vermicolo":["Muco di Vermicolo"],"wiggity":["Dente di Wiggity","Pelo di Wiggity","Escremento di Wiggity"],"yeti":["Pelo di Yeti"]};
+  var ELFO_CREATURE_INGREDIENTS={"acromantula":["Veleno di Acromantula"],"alastridente":["Pelle di Alastridente"],"aoi kaeru":["Squama di Aoi Kaeru"],"ashwinder":["Uovo di Ashwinder","Cenere di Ashwinder"],"avvincino":["Zanna di Avvincino"],"baku":["Pelle di Baku","Pelo di Baku","Caccola di Baku"],"banshee":["Lacrima di Banshee"],"basertilia":["Uovo di Basertilia","Pelle di Basertilia"],"bicorno":["Corno di Bicorno"],"billywig":["Pungiglione di Billywig","Veleno di Billywig"],"birdengold":["Piuma di Birdengold","Lacrima di Birdengold"],"bundimun":["Secrezione di Bundimun"],"cavallo alato":["Crine di Cavallo Alato"],"chizpurfle":["Zanna di Chizpurfle"],"chupacabra":["Squama di Chupacabra"],"clabbert":["Unghia di Clabbert"],"demiguise":["Pelo di Demiguise"],"diricawl":["Piuma di Diricawl"],"doxy":["Uovo di Doxy","Ala di Doxy","Pelo di Doxy","Veleno di Doxy"],"drago":["Pelle di Drago","Corda di cuore di Drago","Artiglio di Drago"],"drakul":["Zanna di Drakul"],"duckbill":["Antenna di Duckbill","Artiglio di Duckbill"],"duriccio":["Spina di Duriccio","Pelo di Duriccio"],"erkling":["Dito di Erkling"],"erumpent":["Coda di Erumpent","Fluido di Erumpent"],"fata":["Ala di Fata","Polvere di Fata"],"fenice":["Piuma di Fenice","Lacrima di Fenice"],"fiammablu":["Cristallo di Fiammablu","Crine di Fiammablu","Squama di Fiammablu"],"fwooper":["Piuma di Fwooper"],"ghoul":["Bava di Ghoul"],"glumbumble":["Melassa di Glumbumble"],"gnomo":["Muco di Gnomo","Unghia di Gnomo"],"graphorn":["Corno di Graphorn"],"grifone":["Artiglio di Grifone","Piuma di Grifone"],"hanabira":["Crine di Hanabira","Fiore di Hanabira","Petalo di Hanabira"],"hodag":["Corno di Hodag"],"horklump":["Succo di Horklump"],"ippocampo":["Uovo di Ippocampo","Squama di Ippocampo"],"ippogrifo":["Piuma di Ippogrifo","Artiglio di Ippogrifo"],"jarvey":["Saliva di Jarvey"],"jobberknoll":["Piuma di Jobberknoll"],"kappa":["Acqua di testa di Kappa"],"kavouras":["Veleno di Kàvouras","Chela di Kàvouras"],"kelpie":["Saliva di Kelpie"],"knarl":["Aculeo di Knarl"],"kneazle":["Unghia di Kneazle"],"lobalug":["Veleno di Lobalug"],"lumaca carnivora":["Bava di Lumaca Carnivora"],"malaclaw maculato":["Coda di Malaclaw Maculato"],"manticora":["Veleno di Manticora"],"marmite":["Latte di Marmite"],"matagot":["Artiglio di Matagot"],"mau":["Pelo di Mau","Baffi di Mau"],"moke":["Pelle di Moke"],"mooncalf":["Sterco di Mooncalf"],"nascondombra":["Pelo di Nascondombra"],"ninfa dei boschi":["Capello di Ninfa dei Boschi"],"ninki nanka":["Veleno di Ninki Nanka","Scaglia di Ninki Nanka","Dente di Ninki Nanka"],"nogtail":["Latte maledetto di Nogtail"],"nundu":["Saliva di Nundu"],"occamy":["Piuma di Occamy"],"pixie":["Ala di Pixie"],"plimpi":["Squama di Plimpi"],"pogrebin":["Pelo di orecchie del Pogrebin"],"porlock":["Muco di Porlock","Pelo di Porlock"],"puffskein":["Pelo di Puffskein"],"purvincolo":["Appendici di Purvincolo"],"ramora":["Squama di Ramora","Uovo di Ramora"],"re em":["Sangue di Re'em"],"salamandra":["Sangue di Salamandra"],"sblorb":["Fango di Sblorb"],"scriber":["Ala di Scriber"],"serpecorno":["Squama di Serpecorno"],"serpente marino":["Squama di Serpente Marino"],"sfinge":["Artiglio di Sfinge"],"shellusk":["Polvere di Shellusk","Guscio di Shellusk"],"shrake":["Spina di Shrake"],"snaso":["Pelo di Snaso","Unghia di Snaso"],"sobolan":["Pelo di Sobolan"],"streeler":["Muco di Streeler"],"tebo":["Pelle di Tebo"],"thestral":["Crine di Thestral"],"troll":["Muco di Troll"],"tuono alato":["Piuma di Tuono Alato"],"unicorno":["Crine di Unicorno","Corno di Unicorno","Sangue di Unicorno"],"vampiro":["Sangue di Vampiro"],"veela":["Capello di Veela"],"velenottero":["Veleno di Velenottero"],"vermicolo":["Muco di Vermicolo"],"wiggity":["Dente di Wiggity","Pelo di Wiggity","Escremento di Wiggity"],"yeti":["Pelo di Yeti"]};
   var ELFO_CREATURE_KNOWN={"acromantula":1,"ammuntadore":1,"ashwinder":1,"asticello":1,"augurey":1,"avvincino":1,"banshee":1,"berretto rosso":1,"bicorno":1,"billywig":1,"borges":1,"bundimun":1,"cavallo alato":1,"centauro":1,"chizpurfle":1,"clabbert":1,"crup":1,"diricawl":1,"dissennatore":1,"doxy":1,"dugbog":1,"elfo domestico":1,"erkling":1,"fantasma":1,"fata":1,"fiammagranchio":1,"fwooper":1,"gatto":1,"ghoul":1,"gigante":1,"glowbug":1,"glumbumble":1,"gnomo":1,"goblin":1,"grifone":1,"gufo":1,"gytrash":1,"horklump":1,"imp":1,"inferius":1,"ippocampo":1,"ippogrifo":1,"jarvey":1,"jobberknoll":1,"kappa":1,"kelpie":1,"knarl":1,"kneazle":1,"lepricani":1,"lobalug":1,"lumaca carnivora":1,"lupo mannaro":1,"malaclaw maculato":1,"manticora":1,"marciotto":1,"maride":1,"marmite":1,"matagot":1,"megera":1,"moke":1,"molliccio":1,"mooncalf":1,"nano":1,"ninfa dei boschi":1,"nogtail":1,"orco":1,"pixie":1,"plimpi":1,"pogrebin":1,"poltergeist":1,"porlock":1,"puffola pigmea":1,"puffskein":1,"purvincolo":1,"quintaped":1,"rospo":1,"salamandra":1,"sblorb":1,"schiopodo sparacoda":1,"snaso":1,"streeler":1,"thestral":1,"troll":1,"unicorno":1,"vampiro":1,"veela":1,"velenottero":1,"vermicolo":1,"ciclope":1,"jinn":1,"skrimsli":1,"aoi kaeru":1,"baku":1,"basertilia":1,"fiammablu":1,"kavouras":1,"mau":1,"ninki nanka":1,"wiggity":1,"chupacabra":1,"ramora":1,"abarimon":1,"hodag":1,"oni":1,"serpente marino":1,"shrake":1,"sobolan":1,"alastridente":1,"demiguise":1,"erumpent":1,"nascondombra":1,"occamy":1,"qlin":1,"re em":1,"runespoor":1,"sfinge":1,"tebo":1,"tuono alato":1,"yeti":1,"cane a tre teste":1,"chimera":1,"nundu":1,"serpecorno":1,"wampus":1,"zouwu":1,"zombie":1,"birdengold":1,"drakul":1,"duckbill":1,"duriccio":1,"hanabira":1,"jigglypuff":1,"scriber":1,"shellusk":1,"fenice":1,"graphorn":1,"basilisco":1,"drago":1,"lethifold":1};
   var ELFO_CREATURE_REMUVO_ONLY={"ghoul":1,"gnomo":1,"horklump":1,"imp":1,"lumaca carnivora":1,"abarimon":1,"oni":1,"crup":1,"fiammagranchio":1,"graphorn":1,"jigglypuff":1,"lupo mannaro":1,"schiopodo sparacoda":1,"sobolan":1,"nogtail":1,"wampus":1,"zouwu":1,"ciclope":1,"orco":1};
   var ELFO_CREATURE_SPECIAL_EXTRACTION={"lobalug":"Il Veleno di Lobalug non viene prodotto dal normale Ciclo e non usa Remuvo: utilizza il riquadro specifico «Estrarre il Veleno» del Lobalug. Il controllo dell’eventuale estrazione illegale resta quello specifico 1d5, una sola volta per role."};
