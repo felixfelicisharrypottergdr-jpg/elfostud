@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+<!-- v138 — audit regressioni: stato details Punti Casa persistente + Azzera Bonus senza confirm nativo, 05/09/2026 -->
 <!-- v137 — Camera Blindata: rimosso il comando ridondante “Archivia questo Mese”; resta disponibile in “I tuoi Post”, 05/09/2026 -->
 <!-- v136 — Camera Blindata compatta: rimossa guida introduttiva e Bonus racchiusi in details chiuso di default, 05/09/2026 -->
 <!-- v135 — Punti Casa: automatici per tutti i Post da Settembre a Giugno incluso; Luglio e Agosto esclusi, rimossa esclusione manuale Spin-off, 05/09/2026 -->
@@ -5836,6 +5837,7 @@
     var active=HOUSE_ROLE_BONUSES.slice();
     var card=el("div","card");
     var details=document.createElement("details");details.className="house-role-details";
+    keepDetailsState(details,"camera-blindata:house-role-bonus",false);
     var summary=document.createElement("summary");summary.textContent="🏠 +2 Punti Casa — Role della stessa Casa";details.appendChild(summary);
     var detailsBody=el("div","house-role-details-body");
     detailsBody.appendChild(el("p","small-note","Se una <b>free role</b> comprende almeno altri 2 PG esclusivamente della stessa Casa, incolla qui <b>una sola volta il link della Role</b> (va bene anche il link di uno dei suoi Post). L’Elfo riconosce il <b>topic</b>: nei normali link ForumFree conta il numero <code>t=…</code>, mentre la parte <code>#entry…</code> identifica soltanto il singolo Post. Puoi registrare <b>più Role contemporaneamente</b>. Quando una Role è finita, usa «Role conclusa»: viene rimossa da questo elenco, i +2 già assegnati ai Post restano registrati e i nuovi Post non vengono più marcati automaticamente."));
@@ -8980,8 +8982,7 @@
         var clearBonus=el("button","action danger small","Azzera Bonus");clearBonus.type="button";
         clearBonus.addEventListener(EV,function(){
           if(blockIfMonthReadOnly(meseObj))return;
-          if(!confirm("Azzerare tutti i Bonus di questo Mese?"))return;
-
+          /* v138 — niente confirm nativo nell’iframe: l’azione è recuperabile con Annulla. */
           meseObj.eventoBonusDescrizione="";
           meseObj.eventoBonusPP=0;
           meseObj.eventoBonusGaleoni=0;
