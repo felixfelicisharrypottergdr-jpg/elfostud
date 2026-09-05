@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+<!-- v137 — Camera Blindata: rimosso il comando ridondante “Archivia questo Mese”; resta disponibile in “I tuoi Post”, 05/09/2026 -->
 <!-- v136 — Camera Blindata compatta: rimossa guida introduttiva e Bonus racchiusi in details chiuso di default, 05/09/2026 -->
 <!-- v135 — Punti Casa: automatici per tutti i Post da Settembre a Giugno incluso; Luglio e Agosto esclusi, rimossa esclusione manuale Spin-off, 05/09/2026 -->
 <!-- v134 — Punti Casa completi: scala mensile Settembre–Maggio, modificatore Stima dei Docenti, esclusione Spin-off, +2 Role stessa Casa e riepilogo completo, 05/09/2026 -->
@@ -8940,27 +8941,6 @@
     p.appendChild(accBadge);
     appendStaffTokenLiveCard(p);
     renderHouseRoleBonusManager(p);
-
-    /* Lo stesso comando presente in “I tuoi Post” è disponibile anche qui:
-       Camera Blindata e lista Post agiscono sul medesimo Mese. */
-    var blindataArchiveActions=el("div","month-header-actions");
-    var blindataArchiveLocked=!!(meseObj.chiuso&&archiveLocked(meseObj));
-    var blindataAccreditato=monthIsAccredited(meseObj);
-    var blindataToggleBlocked=blindataArchiveLocked||(meseObj.chiuso&&blindataAccreditato)||(fbConnected&&!accreditiVerified());
-    var blindataArchiveBtn=el("button","action small",blindataArchiveLocked?"🔒 Archivio consolidato":(meseObj.chiuso?"Riapri":"Archivia questo Mese"));
-    blindataArchiveBtn.type="button";
-    blindataArchiveBtn.disabled=blindataToggleBlocked;
-    if(meseObj.chiuso&&blindataAccreditato){blindataArchiveBtn.title="Revoca prima l'accredito del Narratore per riaprire questo Mese.";}
-    blindataArchiveBtn.addEventListener(EV,function(){
-      if(fbConnected&&!accreditiVerified()){alert("Non posso verificare lo stato dell'accredito: per sicurezza l'archivio non viene modificato.");return;}
-      if(meseObj.chiuso&&monthIsAccredited(meseObj)){alert("Questo Mese è accreditato: può restare archiviato, ma per riaprirlo il Narratore deve prima revocare l'accredito.");return;}
-      if(blockIfArchiveLocked(meseObj)){return;}
-      if(!meseObj.chiuso){meseObj.chiuso=true;archiveStamp(meseObj);}
-      else{meseObj.chiuso=false;meseObj._archivedAt="";}
-      scheduleSave(0);renderAll();
-    });
-    blindataArchiveActions.appendChild(blindataArchiveBtn);
-    p.appendChild(blindataArchiveActions);
 
     if(meseObj.chiuso){
       var deleteBox=el("div","archived-month-delete-box");
