@@ -1,4 +1,9 @@
 <!DOCTYPE html>
+<!-- v143 — ulteriore risparmio letture: ricerca PG restringibile dalla cache, Staff Token solo usi attivi, Taccuino cloud lazy; 06/09/2026 -->
+<!-- v142 — ricerca PG a prefisso: nessun elenco completo, suggerimenti dinamici max 10 con debounce/cache; 06/09/2026 -->
+<!-- v141 — ulteriore risparmio Firestore: Staff Token senza listener globale + Medimagia locale immediata/cloud max 1 volta l’ora, 06/09/2026 -->
+<!-- v140 — risparmio letture Firestore: elenco PG cloud lazy+cache 24h e controllo Medimagia limitato a 10 minuti, 06/09/2026 -->
+<!-- v139 — anti resource-exhausted: coda locale Elfo, retry con backoff, autosave accorpato e audit cloud diradato, 06/09/2026 -->
 <!-- v138 — audit regressioni: stato details Punti Casa persistente + Azzera Bonus senza confirm nativo, 05/09/2026 -->
 <!-- v137 — Camera Blindata: rimosso il comando ridondante “Archivia questo Mese”; resta disponibile in “I tuoi Post”, 05/09/2026 -->
 <!-- v136 — Camera Blindata compatta: rimossa guida introduttiva e Bonus racchiusi in details chiuso di default, 05/09/2026 -->
@@ -1598,9 +1603,9 @@
   .elfo-access-state{margin:12px 0;padding:11px 13px;border:1px solid var(--gold);border-radius:8px;background:rgba(255,255,255,.38);line-height:1.5}
   .elfo-access-state.view{border-color:#8a7042}.elfo-access-state.edit{border-color:#397247;background:rgba(46,107,62,.10)}
   .elfo-password-row{display:flex;gap:9px;align-items:flex-end;flex-wrap:wrap;margin-top:10px}.elfo-password-row>div{flex:1;min-width:220px}.elfo-password-row button{margin-top:0}
-  .pg-picker{position:relative;max-width:640px}.pg-picker-line{display:grid;grid-template-columns:minmax(0,1fr) 42px;gap:6px;align-items:stretch}
+  .pg-picker{position:relative;max-width:640px}.pg-picker-line{display:grid;grid-template-columns:minmax(0,1fr);gap:6px;align-items:stretch}
   .pg-picker-line input{margin:0}.pg-picker-arrow{margin:0!important;padding:0!important;min-width:42px;font-size:1rem}
-  .pg-picker-menu{position:absolute;z-index:90;left:0;right:48px;top:calc(100% + 4px);max-height:260px;overflow:auto;border:1px solid var(--gold);border-radius:7px;background:#fffdf5;box-shadow:0 9px 24px rgba(0,0,0,.28)}
+  .pg-picker-menu{position:absolute;z-index:90;left:0;right:0;top:calc(100% + 4px);max-height:260px;overflow:auto;border:1px solid var(--gold);border-radius:7px;background:#fffdf5;box-shadow:0 9px 24px rgba(0,0,0,.28)}
   .pg-picker-menu[hidden]{display:none}.pg-picker-menu.pg-picker-pass-through{pointer-events:none}.pg-picker-option{display:block;width:100%;margin:0!important;padding:8px 10px;border:0;border-bottom:1px solid rgba(169,128,58,.25);border-radius:0;background:#fffdf5;color:var(--ink);text-align:left;cursor:pointer;font:inherit}
   .pg-picker-option:hover,.pg-picker-option:focus{background:#efe4c4}.pg-picker-empty{padding:9px 10px;font-size:.8rem;color:#6a5a3a}
   .elfo-readonly-note{margin:10px 0 12px;padding:8px 10px;border-left:4px solid #8a7042;background:rgba(255,255,255,.28);font-size:.8rem}
@@ -1921,7 +1926,7 @@
 
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-app.js";
-  import { getFirestore, doc, getDoc, getDocs, setDoc, updateDoc, deleteDoc, deleteField, serverTimestamp, collection, addDoc, runTransaction, onSnapshot, query, where } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js";
+  import { getFirestore, doc, getDoc, getDocs, setDoc, updateDoc, deleteDoc, deleteField, serverTimestamp, collection, addDoc, runTransaction, onSnapshot, query, where, orderBy, documentId, startAt, endAt, limit } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js";
   import { getAuth, signInAnonymously, signOut, onAuthStateChanged, setPersistence, browserSessionPersistence } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-auth.js";
 
   var firebaseConfig = {
@@ -1955,14 +1960,32 @@
     var cred=await signInAnonymously(fbAuth);
     return cred.user;
   }
-  window.fbListPublicPgs = function(){
-    return getDocs(collection(fbDb,PERSON_COLLECTION)).then(function(snap){
+  function fbCanonicalPgPrefix(value){
+    var s=String(value||"").trim().replace(/\s+/g," ").toLocaleLowerCase("it-IT");
+    /* Capitalizza anche dopo spazio, apostrofo e trattino: es. D'Angelo, Jean-Luc. */
+    return s.replace(/(^|[\s'’\-])([a-zà-öø-ÿ])/g,function(_m,sep,ch){return sep+ch.toLocaleUpperCase("it-IT");});
+  }
+  window.fbSearchPublicPgs = function(prefix,maxResults){
+    var p=fbCanonicalPgPrefix(prefix);
+    if(p.length<2){return Promise.resolve([]);}
+    var n=Math.max(1,Math.min(10,parseInt(maxResults,10)||10));
+    var qref=query(
+      collection(fbDb,PERSON_COLLECTION),
+      orderBy(documentId()),
+      startAt(p),
+      endAt(p+"\uf8ff"),
+      limit(n)
+    );
+    return getDocs(qref).then(function(snap){
       var out=[];
       snap.forEach(function(d){
         var x=d.data()||{};
         if(!x._deleted&&!x._archiviato){out.push({id:d.id,passwordConfigured:x._editPasswordConfigured===true});}
       });
-      out.sort(function(a,b){return String(a.id).localeCompare(String(b.id),'it',{sensitivity:'base'});});
+      /* Se Firestore ha restituito meno del limite, questo prefisso è completo:
+         i prefissi più lunghi possono essere filtrati localmente a costo zero. */
+      try{Object.defineProperty(out,"__ffComplete",{value:snap.size<n,enumerable:false});}
+      catch(e){out.__ffComplete=snap.size<n;}
       return out;
     });
   };
@@ -2356,46 +2379,110 @@
   window.fbStaffTokenUsageId=staffTokenUsageId;
 
   window.fbWatchStaffTokenForPg=function(pgId,pgKind,onData,onError){
-    var wanted=staffTokenNormalizeName(pgId),kind=staffTokenKind(pgKind);
+    var wanted=staffTokenNormalizeName(pgId),kind=staffTokenKind(pgKind),closed=false,unsubDoc=null;
     if(!wanted){ if(typeof onData==="function")onData(null); return function(){}; }
-    return onSnapshot(collection(fbDb,"staff_token"),function(snap){
-      var found=null;
-      snap.forEach(function(d){
-        if(found)return;
-        var data=d.data()||{};
-        /* «Non è più Staffer» non cancella saldo, associazioni o storico:
-           semplicemente disabilita nuovi utilizzi negli Elfi. */
-        if(data.stafferAttivo===false)return;
-        var arr=Array.isArray(data.pgAssociati)?data.pgAssociati:[];
-        for(var i=0;i<arr.length;i++){
-          var pg=arr[i]||{};
-          if(staffTokenNormalizeName(pg.nome)===wanted && staffTokenKind(pg.tipo)===kind){
-            found={
-              staffId:d.id,
-              staffName:String(data.nomeVisualizzato||d.id),
-              balance:(parseInt(data.st_totali,10)||0)
-            };
-            break;
-          }
+
+    var cacheKey="ff_staff_owner_map_v2",cacheId="";
+    try{
+      var cache=JSON.parse(localStorage.getItem(cacheKey)||"{}"),entry=cache[kind+"|"+wanted];
+      if(entry&&entry.staffId&&Date.now()-Number(entry.at||0)<7*24*60*60*1000){cacheId=String(entry.staffId);}
+    }catch(e){}
+
+    function cacheOwner(staffId){
+      try{
+        var cache=JSON.parse(localStorage.getItem(cacheKey)||"{}");
+        if(staffId){cache[kind+"|"+wanted]={staffId:String(staffId),at:Date.now()};}
+        else{delete cache[kind+"|"+wanted];}
+        localStorage.setItem(cacheKey,JSON.stringify(cache));
+      }catch(e){}
+    }
+    function ownerFromSnap(d){
+      if(!d||!d.exists())return null;
+      var data=d.data()||{};
+      if(data.stafferAttivo===false)return null;
+      var arr=Array.isArray(data.pgAssociati)?data.pgAssociati:[];
+      for(var i=0;i<arr.length;i++){
+        var pg=arr[i]||{};
+        if(staffTokenNormalizeName(pg.nome)===wanted && staffTokenKind(pg.tipo)===kind){
+          return {staffId:d.id,staffName:String(data.nomeVisualizzato||d.id),balance:(parseInt(data.st_totali,10)||0)};
         }
-      });
-      if(typeof onData==="function")onData(found);
-    },function(e){console.error("Staff Token owner watch:",e);if(typeof onError==="function")onError(e);});
+      }
+      return null;
+    }
+    function reportError(e){
+      if(closed)return;
+      console.error("Staff Token owner watch:",e);
+      if(typeof onError==="function")onError(e);
+    }
+    function attachSpecific(staffId,allowFallbackScan){
+      if(closed||!staffId)return;
+      try{
+        unsubDoc=onSnapshot(doc(fbDb,"staff_token",staffId),function(d){
+          if(closed)return;
+          var owner=ownerFromSnap(d);
+          if(owner){
+            cacheOwner(staffId);
+            if(typeof onData==="function")onData(owner);
+          }else{
+            cacheOwner("");
+            try{if(unsubDoc)unsubDoc();}catch(e){}
+            unsubDoc=null;
+            if(allowFallbackScan){discoverOwner();}
+            else if(typeof onData==="function"){onData(null);}
+          }
+        },reportError);
+      }catch(e){reportError(e);}
+    }
+    function discoverOwner(){
+      if(closed)return;
+      getDocs(collection(fbDb,"staff_token")).then(function(snap){
+        if(closed)return;
+        var foundId="";
+        snap.forEach(function(d){if(!foundId&&ownerFromSnap(d)){foundId=d.id;}});
+        if(foundId){cacheOwner(foundId);attachSpecific(foundId,false);}
+        else{cacheOwner("");if(typeof onData==="function")onData(null);}
+      }).catch(reportError);
+    }
+
+    if(cacheId){attachSpecific(cacheId,true);}
+    else{discoverOwner();}
+    return function(){closed=true;try{if(unsubDoc)unsubDoc();}catch(e){}unsubDoc=null;};
   };
 
   window.fbWatchStaffTokenUsagesForPg=function(pgId,pgKind,onData,onError){
-    var id=String(pgId||"").trim(),kind=staffTokenKind(pgKind);
+    var id=String(pgId||"").trim(),kind=staffTokenKind(pgKind),closed=false,unsub=null,fallback=false;
     if(!id){if(typeof onData==="function")onData([]);return function(){};}
-    var q=query(collection(fbDb,"staff_token_usi"),where("pgId","==",id));
-    return onSnapshot(q,function(snap){
-      var out=[];
+    function emit(snap){
+      if(closed)return;var out=[];
       snap.forEach(function(d){
         var x=d.data()||{};
         if(staffTokenKind(x.pgKind)!==kind)return;
+        /* La query primaria contiene soltanto gli usi ancora attivi. Nel fallback
+           filtriamo comunque qui, così gli usi restituiti non pesano sulla UI. */
+        if(x.active!==true)return;
         out.push(Object.assign({id:d.id},x));
       });
       if(typeof onData==="function")onData(out);
-    },function(e){console.error("Staff Token usage watch:",e);if(typeof onError==="function")onError(e);});
+    }
+    function attach(qref,allowFallback){
+      try{
+        unsub=onSnapshot(qref,emit,function(e){
+          if(closed)return;
+          var code=String((e&&e.code)||"");
+          if(allowFallback&&!fallback&&(code==="failed-precondition"||code.indexOf("index")>=0)){
+            fallback=true;try{if(unsub)unsub();}catch(_e){}
+            attach(query(collection(fbDb,"staff_token_usi"),where("pgId","==",id)),false);
+            return;
+          }
+          console.error("Staff Token usage watch:",e);if(typeof onError==="function")onError(e);
+        });
+      }catch(e){
+        if(allowFallback&&!fallback){fallback=true;attach(query(collection(fbDb,"staff_token_usi"),where("pgId","==",id)),false);return;}
+        console.error("Staff Token usage watch:",e);if(typeof onError==="function")onError(e);
+      }
+    }
+    attach(query(collection(fbDb,"staff_token_usi"),where("pgId","==",id),where("active","==",true)),true);
+    return function(){closed=true;try{if(unsub)unsub();}catch(e){}unsub=null;};
   };
 
   function staffTokenPgIsAssociated(staffData,pgId,pgKind){
@@ -2760,12 +2847,24 @@
     if(changed&&EDIT_UNLOCKED){DATA_DIRTY=true;} /* cache ST derivata: niente scrittura passiva del PG */
     return changed;
   }
+  var STAFF_TOKEN_IDLE_STOP_TIMER=null;
+  function staffTokenCancelIdleStop(){if(STAFF_TOKEN_IDLE_STOP_TIMER){clearTimeout(STAFF_TOKEN_IDLE_STOP_TIMER);STAFF_TOKEN_IDLE_STOP_TIMER=null;}}
   function staffTokenStopWatchers(){
+    staffTokenCancelIdleStop();
     try{if(typeof STAFF_TOKEN_STATE.unsubOwner==="function")STAFF_TOKEN_STATE.unsubOwner();}catch(e){}
     try{if(typeof STAFF_TOKEN_STATE.unsubUsage==="function")STAFF_TOKEN_STATE.unsubUsage();}catch(e){}
-    STAFF_TOKEN_STATE.unsubOwner=null;STAFF_TOKEN_STATE.unsubUsage=null;
+    STAFF_TOKEN_STATE.unsubOwner=null;STAFF_TOKEN_STATE.unsubUsage=null;STAFF_TOKEN_STATE.loading=false;
+  }
+  function staffTokenSyncWatcherForStep(){
+    if(currentStep==="blindata"){staffTokenCancelIdleStop();return;}
+    if(!STAFF_TOKEN_STATE.unsubOwner&&!STAFF_TOKEN_STATE.unsubUsage)return;
+    if(STAFF_TOKEN_IDLE_STOP_TIMER)return;
+    /* Non chiudere subito cambiando pagina: riaprire un listener costa una nuova lettura.
+       Lo spegniamo solo dopo 15 minuti fuori dalla Camera Blindata. */
+    STAFF_TOKEN_IDLE_STOP_TIMER=setTimeout(function(){STAFF_TOKEN_IDLE_STOP_TIMER=null;if(currentStep!=="blindata"){staffTokenStopWatchers();}},15*60*1000);
   }
   function staffTokenEnsureWatcher(){
+    staffTokenCancelIdleStop();
     var pg=String(staffTokenCurrentPgName()||"").trim();
     if(!pg){
       if(STAFF_TOKEN_STATE.pg){staffTokenStopWatchers();}
@@ -3452,37 +3551,60 @@
     }
   };
   var LOCKED_MIGRATION_PENDING = false;
-  var PUBLIC_PG_DIRECTORY = [];
-  var PUBLIC_DIRECTORY_LOADED = false;
-  var PUBLIC_DIRECTORY_LOADING = false;
-  var PUBLIC_DIRECTORY_ERROR = "";
+  var PG_SEARCH_CACHE = {};
+  var PG_SEARCH_CACHE_TTL_MS = 10*60*1000;
   var BROWSER_PG_KEY = "ff_elfo_active_pg_studente_v1";
   var RESTORE_BROWSER_IN_FLIGHT = false;
   function rememberBrowserPg(name){try{if(name){sessionStorage.setItem(BROWSER_PG_KEY,String(name));}else{sessionStorage.removeItem(BROWSER_PG_KEY);}}catch(e){}}
   function browserPg(){try{return String(sessionStorage.getItem(BROWSER_PG_KEY)||"");}catch(e){return "";}}
-  function ensurePublicDirectory(force){
-    if(force){PUBLIC_DIRECTORY_LOADED=false;PUBLIC_DIRECTORY_ERROR="";}
-    if(PUBLIC_DIRECTORY_LOADED||PUBLIC_DIRECTORY_LOADING||!window.fbReady||!window.fbListPublicPgs){return;}
-    PUBLIC_DIRECTORY_LOADING=true;PUBLIC_DIRECTORY_ERROR="";
-    window.fbListPublicPgs().then(function(list){
-      PUBLIC_PG_DIRECTORY=Array.isArray(list)?list:[];
-      PUBLIC_DIRECTORY_LOADED=true;
-      PUBLIC_DIRECTORY_LOADING=false;
-      PUBLIC_DIRECTORY_ERROR="";
-      if(!fbConnected){renderAll();}
-    }).catch(function(e){
-      console.error(e);PUBLIC_DIRECTORY_LOADING=false;PUBLIC_DIRECTORY_LOADED=false;
-      PUBLIC_DIRECTORY_ERROR=(e&&e.code)||((e&&e.message)||"errore di caricamento");
-      if(!fbConnected){renderAll();}
+  function pgSearchKey(v){return String(v||"").trim().replace(/\s+/g," ").toLocaleLowerCase("it-IT");}
+  function pgSearchCached(prefix){
+    var key=pgSearchKey(prefix),hit=PG_SEARCH_CACHE[key];
+    if(!hit||Date.now()-Number(hit.ts||0)>PG_SEARCH_CACHE_TTL_MS){delete PG_SEARCH_CACHE[key];return null;}
+    return Array.isArray(hit.list)?hit.list.slice():[];
+  }
+  function pgSearchStore(prefix,list,complete){
+    PG_SEARCH_CACHE[pgSearchKey(prefix)]={ts:Date.now(),list:Array.isArray(list)?list.slice():[],complete:complete===true};
+  }
+  function pgSearchFromCompleteParent(prefix){
+    var key=pgSearchKey(prefix),bestKey="",best=null,now=Date.now();
+    Object.keys(PG_SEARCH_CACHE).forEach(function(k){
+      var hit=PG_SEARCH_CACHE[k];
+      if(!hit||now-Number(hit.ts||0)>PG_SEARCH_CACHE_TTL_MS){delete PG_SEARCH_CACHE[k];return;}
+      if(hit.complete===true&&k.length>=2&&k.length<key.length&&key.indexOf(k)===0&&k.length>bestKey.length){bestKey=k;best=hit;}
+    });
+    if(!best)return null;
+    var narrowed=(Array.isArray(best.list)?best.list:[]).filter(function(x){return pgSearchKey(x&&x.id||"").indexOf(key)===0;});
+    pgSearchStore(prefix,narrowed,true);
+    return narrowed.slice();
+  }
+  function publicPgSearch(prefix,force){
+    var p=String(prefix||"").trim().replace(/\s+/g," ");
+    if(p.length<2){return Promise.resolve([]);}
+    var cached=!force?pgSearchCached(p):null;
+    if(cached!==null){return Promise.resolve(cached);}
+    if(!force){var inherited=pgSearchFromCompleteParent(p);if(inherited!==null){return Promise.resolve(inherited);}}
+    if(!window.fbReady||!window.fbSearchPublicPgs){return Promise.reject({code:"not-ready"});}
+    return window.fbSearchPublicPgs(p,10).then(function(list){
+      list=Array.isArray(list)?list:[];var complete=list.__ffComplete===true;pgSearchStore(p,list,complete);return list.slice();
     });
   }
-  function prefixPgMatches(query){
-    var q=String(query||"").trim().toLocaleLowerCase("it-IT");
-    return PUBLIC_PG_DIRECTORY.filter(function(x){
-      var n=String(x&&x.id||"").toLocaleLowerCase("it-IT");
-      return !q || n.indexOf(q)===0;
+  function publicDirectoryUpsertLocal(name,passwordConfigured){
+    /* Compatibilità con le chiamate di creazione/password: aggiorna soltanto le
+       ricerche già presenti in cache, senza ricreare mai una directory completa. */
+    var id=String(name||"").trim();if(!id){return;}
+    var low=id.toLocaleLowerCase("it-IT");
+    Object.keys(PG_SEARCH_CACHE).forEach(function(key){
+      if(low.indexOf(key)!==0){return;}
+      var hit=PG_SEARCH_CACHE[key],list=hit&&Array.isArray(hit.list)?hit.list.slice():[],found=false;
+      for(var i=0;i<list.length;i++){if(String(list[i]&&list[i].id||"").toLocaleLowerCase("it-IT")===low){list[i]={id:id,passwordConfigured:passwordConfigured===true};found=true;break;}}
+      if(!found&&list.length<10){list.push({id:id,passwordConfigured:passwordConfigured===true});}
+      list.sort(function(a,b){return String(a.id).localeCompare(String(b.id),'it',{sensitivity:'base'});});
+      PG_SEARCH_CACHE[key]={ts:Date.now(),list:list.slice(0,10),complete:!!(hit&&hit.complete===true)};
     });
   }
+  /* Le vecchie versioni salvavano nel browser l'intera directory: non serve più. */
+  try{localStorage.removeItem("ff_elfo_public_directory_studenti_v2");}catch(e){}
   function readonlySafeButton(b){
     var c=String(b.className||"");
     return b.classList.contains("elfo-readonly-safe") || /copy|page-nav|step-btn|tacc-tab|tab-bottone|nav-/i.test(c);
@@ -3539,6 +3661,14 @@
   var PENDING_AUDIT_STATE = null;
   var SESSION_SNAPSHOT_DONE = false;
   var LAST_SNAPSHOT_MS = 0;
+  /* v139: protezione del documento personale contro saturazione/quota Firebase. */
+  var PERSONAL_PENDING_PREFIX = "ff_elfo_personal_pending_v1::studenti::";
+  var PERSONAL_CLOUD_RETRY_TIMER = null;
+  var PERSONAL_CLOUD_RETRY_COUNT = 0;
+  var PERSONAL_CLOUD_BACKOFF_UNTIL = 0;
+  var PERSONAL_AUTOSAVE_MIN_DELAY_MS = 800;
+  var AUDIT_MIN_INTERVAL_MS = 30000;
+  var LAST_AUDIT_WRITE_MS = 0;
 
   var STUDENTE = { nome:"", anno:"V", annoPromemoriaAgosto:0, elfoNome:"Dobby", elfoAppellativo:"Padron", elfoNomeChiamata:"", elfoTitoloPersonalizzato:false };
   var ANNO_POSTI = { "V":3, "VI":5, "VII":7 };
@@ -4365,11 +4495,71 @@
     box.appendChild(actions);overlay.appendChild(box);document.body.appendChild(overlay);
   }
 
+  function personalPgName(){return String(STUDENTE.nome||"").trim();}
+  function personalPendingKey(pgName){return PERSONAL_PENDING_PREFIX+encodeURIComponent(String(pgName||personalPgName()||"").trim().toLocaleLowerCase("it-IT"));}
+  function personalTransientSaveCode(code){
+    code=String(code||"").toLowerCase();
+    return ["resource-exhausted","unavailable","deadline-exceeded","aborted","internal"].indexOf(code)>=0;
+  }
+  function personalPendingLoad(pgName){
+    try{var raw=localStorage.getItem(personalPendingKey(pgName));if(!raw){return null;}var rec=JSON.parse(raw);return rec&&rec.state?rec:null;}catch(e){console.warn("Coda locale Elfo non leggibile",e);return null;}
+  }
+  function personalPendingStore(state,code){
+    var pgName=personalPgName();if(!pgName){return false;}
+    try{
+      var frozen=cloneStateForSave(state||collectState());
+      localStorage.setItem(personalPendingKey(pgName),JSON.stringify({savedAt:new Date().toISOString(),baseRevision:Math.max(0,parseInt(DB_REVISION,10)||0),code:String(code||"pending"),state:frozen}));
+      return true;
+    }catch(e){console.warn("Coda locale Elfo non salvata",e);return false;}
+  }
+  function personalPendingClear(pgName){try{localStorage.removeItem(personalPendingKey(pgName||personalPgName()));}catch(e){}}
+  function personalCloudRetryDelay(){return Math.min(300000,15000*Math.pow(2,Math.min(5,Math.max(0,PERSONAL_CLOUD_RETRY_COUNT))));}
+  function personalScheduleCloudRetry(){
+    if(PERSONAL_CLOUD_RETRY_TIMER||!fbConnected||!EDIT_UNLOCKED){return;}
+    var delay=personalCloudRetryDelay();PERSONAL_CLOUD_RETRY_COUNT++;PERSONAL_CLOUD_BACKOFF_UNTIL=Date.now()+delay;
+    PERSONAL_CLOUD_RETRY_TIMER=setTimeout(function(){
+      PERSONAL_CLOUD_RETRY_TIMER=null;PERSONAL_CLOUD_BACKOFF_UNTIL=0;
+      if(!fbConnected||!EDIT_UNLOCKED){return;}
+      fbStatusText="Riprovo la sincronizzazione cloud…";updateFbIndicator();
+      serializedSaveLatest().then(function(ok){
+        if(ok){PERSONAL_CLOUD_RETRY_COUNT=0;fbStatusText="Salvato su Firebase";updateFbIndicator();}
+        else if(window.fbLastSaveError&&personalTransientSaveCode(window.fbLastSaveError.code)){personalPendingStore(collectState(),window.fbLastSaveError.code);fbStatusText=saveErrorStatus();updateFbIndicator();personalScheduleCloudRetry();}
+      }).catch(function(e){console.error(e);personalPendingStore(collectState(),(e&&e.code)||"retry-error");personalScheduleCloudRetry();});
+    },delay);
+  }
+  function personalHandleTransientFailure(code,state){
+    if(!personalTransientSaveCode(code)){return false;}
+    personalPendingStore(state||collectState(),code);personalScheduleCloudRetry();return true;
+  }
+  function personalResetCloudBackoffIfSynced(){
+    var current=persistenceComparableState(collectState());
+    if(LAST_PERSISTED_STATE&&stableComparableJson(current)===stableComparableJson(LAST_PERSISTED_STATE)){
+      PERSONAL_CLOUD_RETRY_COUNT=0;PERSONAL_CLOUD_BACKOFF_UNTIL=0;
+      if(PERSONAL_CLOUD_RETRY_TIMER){clearTimeout(PERSONAL_CLOUD_RETRY_TIMER);PERSONAL_CLOUD_RETRY_TIMER=null;}
+      personalPendingClear();
+    }
+  }
+  function personalRestorePendingAfterLoad(){
+    var rec=personalPendingLoad(personalPgName());if(!rec||!rec.state){return false;}
+    var base=Math.max(0,parseInt(rec.baseRevision,10)||0),remote=Math.max(0,parseInt(DB_REVISION,10)||0);
+    if(base!==remote){fbStatusText="C'è una copia locale non sincronizzata, ma il cloud è cambiato: non la applico automaticamente";updateFbIndicator();return false;}
+    var keepPersisted=LAST_PERSISTED_STATE?cloneHistoryState(LAST_PERSISTED_STATE):null;
+    var keepAudited=LAST_AUDITED_STATE?cloneHistoryState(LAST_AUDITED_STATE):null;
+    var keepModifiedAt=LAST_MODIFIED_AT,keepModifiedBy=LAST_MODIFIED_BY,keepSession=LAST_SESSION_ID;
+    var pending=cloneStateForSave(rec.state);pending._dbRevision=remote;
+    applyState(pending);
+    DB_REVISION=remote;PG_DOC_EXISTS=true;LAST_PERSISTED_STATE=keepPersisted;LAST_AUDITED_STATE=keepAudited;LAST_MODIFIED_AT=keepModifiedAt;LAST_MODIFIED_BY=keepModifiedBy;LAST_SESSION_ID=keepSession;
+    DATA_DIRTY=true;FORCE_PERSIST_SAVE=true;fbStatusText="Recuperata una modifica locale non sincronizzata · sincronizzazione in corso";updateFbIndicator();
+    scheduleSave(0,false);return true;
+  }
+
   function saveErrorStatus(){
     var code=window.fbLastSaveError&&window.fbLastSaveError.code;
     if(code==="deleted-pg"){return "Salvataggio bloccato: questo PG è stato eliminato definitivamente dal Narratore. Le modifiche locali non sono state salvate.";}
     if(code==="not-found"){return "Salvataggio bloccato: questo PG non esiste più su Firebase. Potrebbe essere stato eliminato dal Narratore; le modifiche locali non sono state salvate.";}
     if(code==="permission-denied"){return "Salvataggio bloccato: il database è cambiato. Premi Disconnetti e ricarica il PG";}
+    if(code==="resource-exhausted"){return "Firebase è temporaneamente saturo: la modifica è conservata in questo browser e verrà ritentata automaticamente";}
+    if(code==="unavailable"||code==="deadline-exceeded"||code==="aborted"||code==="internal"){return "Cloud temporaneamente non disponibile: la modifica è conservata in questo browser e verrà ritentata automaticamente";}
     if(code==="snapshot-failed"){return "Salvataggio bloccato: non è stato possibile creare il backup di sicurezza prima della rimozione. Riprova senza chiudere la pagina";}
     if(code==="revision-conflict"){return "Salvataggio bloccato: questo PG è stato modificato in un’altra scheda o dispositivo. Le modifiche locali non sono state sovrascritte: ricarica i dati prima di continuare";}
     if(code==="accredited-month-conflict"){return "Salvataggio bloccato: il Narratore ha accreditato una Camera Blindata mentre erano presenti modifiche locali non ancora consolidate. La CB accreditata non è stata alterata: ricarica i dati prima di continuare";}
@@ -4388,10 +4578,11 @@
     var cmpNow=persistenceComparableState(stateNow);
     if(PG_DOC_EXISTS && LAST_PERSISTED_STATE && stableComparableJson(cmpNow)===stableComparableJson(LAST_PERSISTED_STATE) && !FORCE_PERSIST_SAVE){DATA_DIRTY=false;fbStatusText="Salvato su Firebase";updateFbIndicator();if(btn){btn.disabled=false;btn.textContent="Già salvato";setTimeout(function(){btn.textContent=old;},1200);}return;}
     serializedSaveLatest().then(function(ok){
+      if(!ok&&window.fbLastSaveError&&personalTransientSaveCode(window.fbLastSaveError.code)){personalHandleTransientFailure(window.fbLastSaveError.code,stateNow);}
       fbStatusText=ok?"Salvato su Firebase":saveErrorStatus();
       updateFbIndicator();
-      if(btn){btn.disabled=false;btn.textContent=ok?"Salvato!":"Riprova";setTimeout(function(){btn.textContent=old;},1200);}
-    }).catch(function(){fbStatusText="Errore nel salvataggio, riprova";updateFbIndicator();if(btn){btn.disabled=false;btn.textContent="Riprova";setTimeout(function(){btn.textContent=old;},1200);}});
+      if(btn){btn.disabled=false;btn.textContent=ok?"Salvato!":(window.fbLastSaveError&&personalTransientSaveCode(window.fbLastSaveError.code)?"Salvato localmente":"Riprova");setTimeout(function(){btn.textContent=old;},1600);}
+    }).catch(function(e){if(personalTransientSaveCode((e&&e.code)||"")){personalHandleTransientFailure(e.code,stateNow);fbStatusText=saveErrorStatus();}else{fbStatusText="Errore nel salvataggio, riprova";}updateFbIndicator();if(btn){btn.disabled=false;btn.textContent="Riprova";setTimeout(function(){btn.textContent=old;},1200);}});
   }
   function appendManualSave(container){
     if(!fbConnected || !EDIT_UNLOCKED){ return; }
@@ -5180,7 +5371,7 @@
     DISPENSA = { ingredienti:[], movimenti:[], archivioTotali:{ galeoniVendite:0, perCommercianteTipo:{}, conteggiMovimenti:{} } }; ingredienteCounter = 0; movimentoCounter = 0; resetDispensaBatch(); PG_ARCHIVIATO = false; DELETE_REQUESTED = false; PG_DOC_EXISTS = false; DB_REVISION = 0;
     PARAMETRI_SOCIALI = {popolarita:null,stima:null,bonta:null,malvagita:null}; VERIFICHE_PARAMETRI_SOCIALI = {}; SOCIAL_SYNC_META = { lastStaffFingerprint:"" };
     TUTORIAL_STATE = { completedVersion:0, dismissedVersion:0, pendingVersion:0 }; TUTORIAL_RUNTIME = { active:false, index:0 };
-    OPEN_DETAILS = {}; stopAccreditiWatch(); accreditiCache = null; ACCREDITI_LOAD_STATE="idle"; ACCREDITI_WATCH_ACTIVE=false; SAVE_CONFLICT_LOCKED=false; var conflictOverlay=document.getElementById("revision-conflict-overlay");if(conflictOverlay){conflictOverlay.remove();} LAST_MODIFIED_AT=null; LAST_MODIFIED_BY=""; LAST_SESSION_ID=""; LAST_NARRATOR_AT=null; LAST_NARRATOR_ACTION=""; DATA_DIRTY=false; FORCE_PERSIST_SAVE=false; ARCHIVE_UNLOCK_UNTIL=null; LAST_PERSISTED_STATE=null; LAST_AUDITED_STATE=null; PENDING_AUDIT_STATE=null; SESSION_SNAPSHOT_DONE=false; LAST_SNAPSHOT_MS=0; SAVE_IN_FLIGHT_PROMISE=null; SAVE_FORCE_AGAIN=false; AUTO_CONFLICT_RELOAD_PROMISE=null;
+    OPEN_DETAILS = {}; stopAccreditiWatch(); accreditiCache = null; ACCREDITI_LOAD_STATE="idle"; ACCREDITI_WATCH_ACTIVE=false; SAVE_CONFLICT_LOCKED=false; var conflictOverlay=document.getElementById("revision-conflict-overlay");if(conflictOverlay){conflictOverlay.remove();} LAST_MODIFIED_AT=null; LAST_MODIFIED_BY=""; LAST_SESSION_ID=""; LAST_NARRATOR_AT=null; LAST_NARRATOR_ACTION=""; DATA_DIRTY=false; FORCE_PERSIST_SAVE=false; ARCHIVE_UNLOCK_UNTIL=null; LAST_PERSISTED_STATE=null; LAST_AUDITED_STATE=null; PENDING_AUDIT_STATE=null; SESSION_SNAPSHOT_DONE=false; LAST_SNAPSHOT_MS=0; SAVE_IN_FLIGHT_PROMISE=null; SAVE_FORCE_AGAIN=false; AUTO_CONFLICT_RELOAD_PROMISE=null; PERSONAL_CLOUD_BACKOFF_UNTIL=0; PERSONAL_CLOUD_RETRY_COUNT=0; if(PERSONAL_CLOUD_RETRY_TIMER){clearTimeout(PERSONAL_CLOUD_RETRY_TIMER);PERSONAL_CLOUD_RETRY_TIMER=null;} LAST_AUDIT_WRITE_MS=0;
   }
 
   function collectState(){
@@ -5345,17 +5536,28 @@
     migrateArchiveDates();
   }
 
-  /* v49: il Registro del PG resta scritto atomicamente insieme al salvataggio.
-     Queste variabili/funzioni restano solo per compatibilità con il flusso di uscita. */
+  /* v139: il Registro non viene più scritto a ogni singolo autosave.
+     Le variazioni ravvicinate vengono accorpate per ridurre le write Firestore. */
   function scheduleAuditForState(savedState){
-    PENDING_AUDIT_STATE = null;
-    if(savedState){ LAST_AUDITED_STATE = cloneHistoryState(historyComparableState(savedState)); }
-    if(auditFlushTimer){ clearTimeout(auditFlushTimer); auditFlushTimer=null; }
+    if(!savedState){return;}
+    PENDING_AUDIT_STATE=cloneHistoryState(historyComparableState(savedState));
+    if(auditFlushTimer){clearTimeout(auditFlushTimer);auditFlushTimer=null;}
+    var wait=Math.max(1200,AUDIT_MIN_INTERVAL_MS-Math.max(0,Date.now()-LAST_AUDIT_WRITE_MS));
+    auditFlushTimer=setTimeout(function(){auditFlushTimer=null;flushAuditNow();},wait);
   }
   function flushAuditNow(){
-    if(auditFlushTimer){ clearTimeout(auditFlushTimer); auditFlushTimer=null; }
-    PENDING_AUDIT_STATE = null;
-    return Promise.resolve(true);
+    if(auditFlushTimer){clearTimeout(auditFlushTimer);auditFlushTimer=null;}
+    if(!PENDING_AUDIT_STATE||!LAST_AUDITED_STATE||!fbConnected||!EDIT_UNLOCKED||!window.fbWriteAudit){return Promise.resolve(true);}
+    var target=cloneHistoryState(PENDING_AUDIT_STATE),changes=[];
+    diffHistory(LAST_AUDITED_STATE,target,"",changes,0);
+    if(!changes.length){LAST_AUDITED_STATE=target;PENDING_AUDIT_STATE=null;return Promise.resolve(true);}
+    var section=historySection(changes);
+    var ev={sessionId:SESSION_ID,dbRevision:DB_REVISION,section:section,summary:"Modifiche in "+section+" ("+changes.length+(changes.length>=30?"+":"")+" variazioni)",changes:changes.slice(0,30)};
+    return Promise.resolve(window.fbWriteAudit(STUDENTE.nome,ev)).then(function(ok){
+      if(ok){LAST_AUDITED_STATE=target;PENDING_AUDIT_STATE=null;LAST_AUDIT_WRITE_MS=Date.now();return true;}
+      LAST_AUDIT_WRITE_MS=Date.now();scheduleAuditForState(target);
+      return false;
+    }).catch(function(e){console.error(e);LAST_AUDIT_WRITE_MS=Date.now();scheduleAuditForState(target);return false;});
   }
   function stateHasUsefulContent(st){
     if(!st)return false;
@@ -5413,11 +5615,13 @@
         return window.fbCreateSnapshot(STUDENTE.nome,{state:remoteBefore,reason:reason,sessionId:SESSION_ID,sizeBytes:stateSizeBytes(remoteBefore),schemaVersion:28});
       });
     }
-    var auditEvent=null, auditTarget=cloneHistoryState(auditComparable);
+    var auditEvent=null, auditTarget=cloneHistoryState(auditComparable), auditHasChanges=false;
     if(LAST_AUDITED_STATE){
       var auditChanges=[];
       diffHistory(LAST_AUDITED_STATE,auditTarget,"",auditChanges,0);
-      if(auditChanges.length){
+      auditHasChanges=!!auditChanges.length;
+      var auditDue=destructive||!LAST_AUDIT_WRITE_MS||(Date.now()-LAST_AUDIT_WRITE_MS)>=AUDIT_MIN_INTERVAL_MS;
+      if(auditChanges.length&&auditDue){
         var auditSection=historySection(auditChanges);
         auditEvent={
           section:auditSection,
@@ -5462,13 +5666,15 @@
         LAST_PERSISTED_STATE=cloneHistoryState(savedComparable);
         var savedAuditComparable=cloneHistoryState(auditComparable);
         savedAuditComparable._dbRevision=savedRevision;
-        LAST_AUDITED_STATE=cloneHistoryState(savedAuditComparable);
-        PENDING_AUDIT_STATE=null;
-        if(auditFlushTimer){clearTimeout(auditFlushTimer);auditFlushTimer=null;}
+        if(auditEvent){
+          LAST_AUDITED_STATE=cloneHistoryState(savedAuditComparable);PENDING_AUDIT_STATE=null;LAST_AUDIT_WRITE_MS=Date.now();
+          if(auditFlushTimer){clearTimeout(auditFlushTimer);auditFlushTimer=null;}
+        }else if(auditHasChanges){scheduleAuditForState(savedAuditComparable);}
         var currentComparable=persistenceComparableState(collectState());
         DATA_DIRTY=stableComparableJson(currentComparable)!==stableComparableJson(LAST_PERSISTED_STATE);
         FORCE_PERSIST_SAVE=false;
       }
+      else if(window.fbLastSaveError&&personalTransientSaveCode(window.fbLastSaveError.code)){personalHandleTransientFailure(window.fbLastSaveError.code,state);}
       else if(window.fbLastSaveError&&(window.fbLastSaveError.code==="revision-conflict"||window.fbLastSaveError.code==="accredited-month-conflict"||window.fbLastSaveError.code==="deleted-pg"||window.fbLastSaveError.code==="not-found")){lockAfterRevisionConflict(window.fbLastSaveError.code);}
       return ok;
     });
@@ -5499,7 +5705,7 @@
       });
     }
     var work=loop();
-    SAVE_IN_FLIGHT_PROMISE=work.then(function(ok){SAVE_IN_FLIGHT_PROMISE=null;return ok;},function(err){SAVE_IN_FLIGHT_PROMISE=null;throw err;});
+    SAVE_IN_FLIGHT_PROMISE=work.then(function(ok){SAVE_IN_FLIGHT_PROMISE=null;if(ok){personalResetCloudBackoffIfSynced();}return ok;},function(err){SAVE_IN_FLIGHT_PROMISE=null;throw err;});
     return SAVE_IN_FLIGHT_PROMISE;
   }
 
@@ -5514,17 +5720,23 @@
     if(!fbConnected || !window.fbReady){ return; }
     if(fbSaveTimer){ clearTimeout(fbSaveTimer); }
     fbStatusText = "Salvataggio in corso…";
+    var requestedDelay=(typeof delayMs === "number" ? delayMs : 300);
+    requestedDelay=Math.max(PERSONAL_AUTOSAVE_MIN_DELAY_MS,requestedDelay);
     fbSaveTimer = setTimeout(function(){
       var state = collectState(); var bytes=stateSizeBytes(state); var comparable=persistenceComparableState(state);
       if(bytes>900000){ fbStatusText="Salvataggio troppo grande ("+sizeLabel(bytes)+"): archivia i dati vecchi con il Narratore"; updateFbIndicator(); return; }
       var changed=!LAST_PERSISTED_STATE || stableComparableJson(comparable)!==stableComparableJson(LAST_PERSISTED_STATE);
-      if(PG_DOC_EXISTS && !changed && !FORCE_PERSIST_SAVE){ DATA_DIRTY=false; fbStatusText="Salvato su Firebase"; updateFbIndicator(); return; }
+      if(PG_DOC_EXISTS && !changed && !FORCE_PERSIST_SAVE){ DATA_DIRTY=false; fbStatusText="Salvato su Firebase"; personalResetCloudBackoffIfSynced(); updateFbIndicator(); return; }
       if(changed){ DATA_DIRTY=true; }
+      if(PERSONAL_CLOUD_BACKOFF_UNTIL>Date.now()){
+        personalPendingStore(state,(window.fbLastSaveError&&window.fbLastSaveError.code)||"cloud-backoff");
+        fbStatusText="Modifica salvata nel browser · sincronizzazione cloud in attesa";personalScheduleCloudRetry();updateFbIndicator();return;
+      }
       serializedSaveLatest().then(function(ok){
         fbStatusText = ok ? "Salvato su Firebase" : saveErrorStatus();
         updateFbIndicator();
-      }).catch(function(e){console.error(e);fbStatusText="Errore nel salvataggio, riprova";updateFbIndicator();});
-    }, (typeof delayMs === "number" ? delayMs : 300));
+      }).catch(function(e){console.error(e);if(personalTransientSaveCode((e&&e.code)||"")){personalHandleTransientFailure(e.code,state);fbStatusText=saveErrorStatus();}else{fbStatusText="Errore nel salvataggio, riprova";}updateFbIndicator();});
+    }, requestedDelay);
     updateFbIndicator();
   }
 
@@ -5666,6 +5878,18 @@
 
   var HEALING_IMPORT_PREFIX="ffgdr_elfo_healing_import_v1_";
   var HEALING_IMPORT_BUSY=false;
+  var HEALING_IMPORT_AUTO_INTERVAL_MS=60*60*1000;
+  var HEALING_IMPORT_AUTO_KEY="ffgdr_healing_auto_check_studenti_v1_";
+  function healingImportAutoAllowed(pgExact){
+    var pg=healingNormName(pgExact||"");if(!pg){return false;}
+    var key=HEALING_IMPORT_AUTO_KEY+pg,now=Date.now(),last=0;
+    try{last=parseInt(localStorage.getItem(key)||"0",10)||0;}catch(e){}
+    if(last&&now-last<HEALING_IMPORT_AUTO_INTERVAL_MS){return false;}
+    /* Segniamo subito il tentativo: se Firebase è in quota, i render successivi
+       non generano una raffica di query identiche. Il controllo manuale bypassa il limite. */
+    try{localStorage.setItem(key,String(now));}catch(e){}
+    return true;
+  }
   function healingNormName(v){return String(v||"").trim().replace(/\s+/g," ").toLocaleLowerCase("it-IT");}
   function healingRoleUrlKey(url){
     var raw=String(url||"").trim();if(!raw){return "";}
@@ -5968,8 +6192,13 @@
   }
   async function consumeHealingImportsForCurrentPg(manual){
     if(HEALING_IMPORT_BUSY||!fbConnected||!EDIT_UNLOCKED){if(manual&&!EDIT_UNLOCKED){alert("Accedi alla modifica dell’Elfo per importare una guarigione.");}return 0;}
+    var pgExact=String(STUDENTE.nome||"").trim();
+    /* Gli invii locali non costano letture: li controlliamo sempre.
+       Firebase viene interrogato automaticamente al massimo una volta l'ora;
+       il controllo manuale resta immediato. */
+    var allowCloudCheck=manual||healingImportAutoAllowed(pgExact);
     HEALING_IMPORT_BUSY=true;
-    var pgExact=String(STUDENTE.nome||"").trim(),pg=healingNormName(pgExact),found=0,updated=0,changed=false,keys=[],acceptedLocalKeys=[],acceptedCloudIds=[];
+    var pg=healingNormName(pgExact),found=0,updated=0,changed=false,keys=[],acceptedLocalKeys=[],acceptedCloudIds=[];
     function importEnvelope(env){
       if(!env||!env.payload||typeof env.payload!=="object"){return false;}
       var target=healingNormName(env.payload.targetName||"");if(target&&target!==pg){return false;}
@@ -6018,7 +6247,7 @@
     }
     try{for(var i=0;i<localStorage.length;i++){var k=localStorage.key(i)||"";if(k.indexOf(HEALING_IMPORT_PREFIX)===0){keys.push(k);}}}catch(e){}
     keys.forEach(function(k){try{var env=JSON.parse(localStorage.getItem(k)||"null");if(importEnvelope(env)){acceptedLocalKeys.push(k);}}catch(e){}});
-    if(typeof window.fbListHealingImports==="function"){
+    if(allowCloudCheck&&typeof window.fbListHealingImports==="function"){
       try{
         var cloud=await window.fbListHealingImports(pgExact);
         for(var ci=0;ci<cloud.length;ci++){
@@ -6491,7 +6720,7 @@
     if(!pg||!fbConnected||!window.fbReady){taccCloudSetStatus("Copia locale salvata · cloud in attesa del caricamento PG",false);return;}
     clearTimeout(TACC_CLOUD_TIMER);
     taccCloudSetStatus("Salvato nel browser · sincronizzazione cloud in corso…",false);
-    TACC_CLOUD_TIMER=setTimeout(function(){taccCloudPush(false);},650);
+    TACC_CLOUD_TIMER=setTimeout(function(){taccCloudPush(false);},1400);
   }
   function taccCloudSyncAfterLogin(pgName){
     var pg=normalizePgName(pgName||"");
@@ -6548,6 +6777,29 @@
       return false;
     });
   }
+  var TACC_LAZY_SYNC_PG="";
+  var TACC_LAZY_SYNC_IN_FLIGHT="";
+  function taccCloudQueueAfterLogin(pgName){
+    var pg=normalizePgName(pgName||"");
+    if(!pg||!window.fbReady){return Promise.resolve(false);}
+    /* Le copie locali pendenti restano una priorità di sicurezza e vengono recuperate
+       subito. Tutti gli altri accessi cloud al Taccuino sono rinviati alla sua pagina. */
+    var pending=EDIT_UNLOCKED?taccPendingLoad(pg):null;
+    TACC_LAZY_SYNC_PG=pg;
+    if(pending||currentStep==="taccuino"){return taccCloudEnsureLazySync();}
+    taccCloudSetStatus("Taccuino cloud in attesa · verrà caricato quando apri il Taccuino",false);
+    return Promise.resolve(true);
+  }
+  function taccCloudEnsureLazySync(){
+    var pg=normalizePgName(TACC_LAZY_SYNC_PG||taccCurrentPgName()||"");
+    if(!pg||!fbConnected||!window.fbReady){return Promise.resolve(false);}
+    if(TACC_LAZY_SYNC_IN_FLIGHT===pg){return Promise.resolve(true);}
+    /* Se lo stesso profilo è già stato realmente allineato in questa sessione, non rileggerlo. */
+    if(TACC_CLOUD_LOGIN_PG===pg&&!taccPendingLoad(pg)){TACC_LAZY_SYNC_PG="";return Promise.resolve(true);}
+    TACC_LAZY_SYNC_IN_FLIGHT=pg;TACC_LAZY_SYNC_PG="";
+    return Promise.resolve(taccCloudSyncAfterLogin(pg)).finally(function(){if(TACC_LAZY_SYNC_IN_FLIGHT===pg)TACC_LAZY_SYNC_IN_FLIGHT="";});
+  }
+
   function taccSave(){
     var pg=taccCurrentPgName(),protectionPg=taccProtectionProfile(pg);
     if(pg&&fbConnected&&!EDIT_UNLOCKED){taccCloudSetStatus("Sola visualizzazione: inserisci la Password per modificare il Taccuino.",false);return false;}
@@ -7292,7 +7544,7 @@
     if(TACC_TAB==="role"){renderTaccRole(p);}else if(TACC_TAB==="cronologia"){renderTaccCronologia(p);}else if(TACC_TAB==="png"){renderTaccPng(p);}else if(TACC_TAB==="missioni"){renderTaccMissioni(p);}else if(TACC_TAB==="extra"){renderTaccExtra(p);}else if(TACC_TAB==="import"&&EDIT_UNLOCKED){renderTaccLegacyImport(p);}else{renderTaccNoteBackup(p);}if(!EDIT_UNLOCKED){taccApplyPublicReadOnly(p);}container.appendChild(p);
   }
   window.addEventListener("storage",function(e){if(e.key===TACC_STORAGE_KEY){TACCUINO=taccLoad();taccScheduleCloudSync();if(currentStep==="taccuino"){renderAll();}}});
-  window.addEventListener("online",function(){if(EDIT_UNLOCKED&&taccCurrentPgName()){taccCloudSyncAfterLogin(taccCurrentPgName());}});
+  window.addEventListener("online",function(){if(taccCurrentPgName()){taccCloudQueueAfterLogin(taccCurrentPgName());}});
   function taccFlushPendingBestEffort(){
     if(!EDIT_UNLOCKED||!fbConnected||!window.fbReady||!taccCurrentPgName()){return;}
     if(TACC_CLOUD_TIMER){clearTimeout(TACC_CLOUD_TIMER);TACC_CLOUD_TIMER=null;}
@@ -7381,7 +7633,7 @@
     var globalActivityAlerts=buildGlobalActivityAlerts();if(globalActivityAlerts){c.appendChild(globalActivityAlerts);}
     if(currentStep === "pg"){ renderPGStep(c); }
     if(currentStep === "posts"){ renderPostsStep(c); }
-    if(currentStep === "taccuino"){ renderTaccuinoStep(c); }
+    if(currentStep === "taccuino"){ if(typeof taccCloudEnsureLazySync==="function"){setTimeout(taccCloudEnsureLazySync,0);} renderTaccuinoStep(c); }
     if(currentStep === "blindata"){ renderBlindataStep(c); }
     if(currentStep === "dispensa"){ renderDispensaStep(c); }
     if(currentStep === "postazione"){ renderPostazioneStep(c); }
@@ -7402,6 +7654,7 @@
        scheduleSave dai rispettivi handler. */
     applyReadOnlyMode(c);
     updateFbIndicator();
+    if(typeof staffTokenSyncWatcherForStep==="function"){staffTokenSyncWatcherForStep();}
     if(fbConnected&&EDIT_UNLOCKED){setTimeout(function(){consumeHealingImportsForCurrentPg(false);},0);}
     setTimeout(notifyParentHeight,0);
   }
@@ -7515,9 +7768,10 @@
         fbStatusText="Modifica autorizzata";
         if(LOCKED_MIGRATION_PENDING){FORCE_PERSIST_SAVE=true;LOCKED_MIGRATION_PENDING=false;}
       }
+      if(EDIT_UNLOCKED){personalRestorePendingAfterLoad();}
       startAccreditiWatch(nome);
       renderAll();
-      if(typeof taccCloudSyncAfterLogin==="function"){taccCloudSyncAfterLogin(nome);}
+      if(typeof taccCloudQueueAfterLogin==="function"){taccCloudQueueAfterLogin(nome);}
       if(EDIT_UNLOCKED&&FORCE_PERSIST_SAVE){scheduleSave(0,false);}
       return true;
     });
@@ -7569,7 +7823,7 @@
               if(LAST_PERSISTED_STATE){LAST_PERSISTED_STATE._editPasswordConfigured=true;LAST_PERSISTED_STATE._dbRevision=DB_REVISION;}
               if(LAST_AUDITED_STATE){LAST_AUDITED_STATE._editPasswordConfigured=true;LAST_AUDITED_STATE._dbRevision=DB_REVISION;}
               if(LOCKED_MIGRATION_PENDING){FORCE_PERSIST_SAVE=true;LOCKED_MIGRATION_PENDING=false;}
-              renderAll();if(typeof taccCloudSyncAfterLogin==="function"){taccCloudSyncAfterLogin(nome);}if(FORCE_PERSIST_SAVE){scheduleSave(0,false);}return true;
+              renderAll();if(typeof taccCloudQueueAfterLogin==="function"){taccCloudQueueAfterLogin(nome);}if(FORCE_PERSIST_SAVE){scheduleSave(0,false);}return true;
             }
             if(!silent){alert("Non è stato possibile creare la Password di modifica. Verifica che le Rules Firebase aggiornate siano state pubblicate.");}
             renderAll();return true;
@@ -7579,7 +7833,7 @@
           if(res&&res.ok){
             EDIT_UNLOCKED=true;fbStatusText="Modifica autorizzata";showPasswordSessionNoticeOnce(nome);
             if(LOCKED_MIGRATION_PENDING){FORCE_PERSIST_SAVE=true;LOCKED_MIGRATION_PENDING=false;}
-            renderAll();if(typeof taccCloudSyncAfterLogin==="function"){taccCloudSyncAfterLogin(nome);}if(FORCE_PERSIST_SAVE){scheduleSave(0,false);}return true;
+            renderAll();if(typeof taccCloudQueueAfterLogin==="function"){taccCloudQueueAfterLogin(nome);}if(FORCE_PERSIST_SAVE){scheduleSave(0,false);}return true;
           }
           if(!silent){alert("Password non corretta. L'Elfo resta comunque aperto in sola visualizzazione.");}
           renderAll();return true;
@@ -7613,7 +7867,7 @@
       LAST_MODIFIED_AT=new Date();LAST_MODIFIED_BY="pg";LAST_SESSION_ID=SESSION_ID;fbStatusText="Elfo creato · modifica autorizzata";showPasswordSessionNoticeOnce(nome);
       var st=collectState();LAST_PERSISTED_STATE=cloneHistoryState(persistenceComparableState(st));LAST_AUDITED_STATE=cloneHistoryState(historyComparableState(st));
       rememberBrowserPg(nome);resetUndoRedoHistory();startAccreditiWatch(nome);
-      ensurePublicDirectory(true);renderAll();return true;
+      publicDirectoryUpsertLocal(nome,true);renderAll();return true;
     });
   }
   function clearLoadedPg(){
@@ -7695,7 +7949,7 @@
   function restoreBrowserPgSession(){
     if(RESTORE_BROWSER_IN_FLIGHT||fbConnected){return;}
     var name=browserPg();
-    if(!name){ensurePublicDirectory(false);return;}
+    if(!name){return;}
     RESTORE_BROWSER_IN_FLIGHT=true;STUDENTE.nome=name;
     loadPgForAccess(name,null,true).finally(function(){RESTORE_BROWSER_IN_FLIGHT=false;});
   }
@@ -7716,47 +7970,52 @@
     var p=el("div","panel");p.appendChild(el("h2",null,fbConnected?"Dati del Personaggio":"Scegli il Personaggio"));
     if(!fbConnected){
 
-      ensurePublicDirectory(false);
-      p.appendChild(el("div","guide-text","Se il tuo PG è già registrato, <b>selezionalo dall’elenco</b> oppure scrivi <b>Nome e Cognome completi</b> esattamente come sono stati registrati e premi <b>«Apri Elfo»</b>. Lo aprirai in sola visualizzazione, senza password. Se invece è un nuovo PG, usa sempre Nome + Cognome: questo testo diventa il suo identificativo univoco negli Elfi."));
+      p.appendChild(el("div","guide-text","Scrivi <b>almeno 2 lettere</b> del Nome del Personaggio: l’Elfo cercherà soltanto fino a <b>10 nomi corrispondenti</b>, senza scaricare l’elenco completo. Se conosci già Nome e Cognome, puoi scriverli direttamente e premere <b>«Apri Elfo»</b>."));
       var d1=el("div");d1.appendChild(el("label",null,"Cerca o scrivi NOME E COGNOME del Personaggio"));
       var picker=el("div","pg-picker"),line=el("div","pg-picker-line"),i1=el("input");
-      i1.type="text";i1.value=STUDENTE.nome;i1.placeholder="Nome Cognome";
-      var arrow=el("button","action pg-picker-arrow elfo-readonly-safe","▾");arrow.type="button";arrow.setAttribute("aria-label","Apri elenco Personaggi");
+      i1.type="text";i1.value=STUDENTE.nome;i1.placeholder="Nome Cognome";i1.autocomplete="off";
       var menu=el("div","pg-picker-menu");menu.hidden=true;
+      var pgSearchTimer=0,pgSearchSeq=0;
       function setName(v){STUDENTE.nome=v;}
       function clearPendingNewPg(){NEW_PG_PENDING=false;NEW_PG_PASSWORD_DRAFT="";}
-      function drawMenu(open){
-        if(!PUBLIC_DIRECTORY_LOADED&&!PUBLIC_DIRECTORY_LOADING){ensurePublicDirectory(false);}
-        menu.innerHTML="";menu.classList.remove("pg-picker-pass-through");var matches=prefixPgMatches(i1.value);
-        if(PUBLIC_DIRECTORY_LOADING){menu.appendChild(el("div","pg-picker-empty","Caricamento elenco…"));}
-        else if(!PUBLIC_DIRECTORY_LOADED){
-          menu.appendChild(el("div","pg-picker-empty","Elenco cloud non disponibile"+(PUBLIC_DIRECTORY_ERROR?" ("+PUBLIC_DIRECTORY_ERROR+")":"")+". Puoi comunque scrivere Nome e Cognome esatti."));
-          var retry=el("button","pg-picker-option","↻ Ricarica elenco PG");retry.type="button";retry.addEventListener(EV,function(ev){if(ev){ev.preventDefault();ev.stopPropagation();}ensurePublicDirectory(true);drawMenu(true);});menu.appendChild(retry);
-        }
-        else if(!matches.length){menu.classList.add("pg-picker-pass-through");menu.appendChild(el("div","pg-picker-empty","Nessun Personaggio che inizi con «"+String(i1.value||"").trim()+"». Premi «Apri Elfo» per verificare il nome e, se è nuovo, crearlo."));}
-        else{
-          for(var mi=0;mi<matches.length;mi++){
-            (function(entry){
-              var ob=el("button","pg-picker-option",entry.id);ob.type="button";
-              ob.addEventListener("mousedown",function(e){e.preventDefault();});
-              ob.addEventListener(EV,function(){clearPendingNewPg();i1.value=entry.id;setName(entry.id);menu.hidden=true;loadPgForAccess(entry.id,ob,false,"");});
-              menu.appendChild(ob);
-            })(matches[mi]);
-          }
-        }
-        menu.hidden=!open;
+      function showPgSearchMessage(msg,passThrough){menu.innerHTML="";menu.classList.toggle("pg-picker-pass-through",!!passThrough);menu.appendChild(el("div","pg-picker-empty",msg));menu.hidden=false;}
+      function drawPgSearchResults(term,list){
+        menu.innerHTML="";menu.classList.remove("pg-picker-pass-through");
+        if(!Array.isArray(list)||!list.length){showPgSearchMessage("Nessun Personaggio trovato con «"+term+"». Puoi continuare a scrivere oppure premere «Apri Elfo» per verificare il nome esatto.",true);return;}
+        list.forEach(function(entry){
+          var ob=el("button","pg-picker-option",entry.id);ob.type="button";
+          ob.addEventListener("mousedown",function(e){e.preventDefault();});
+          ob.addEventListener(EV,function(){clearPendingNewPg();i1.value=entry.id;setName(entry.id);menu.hidden=true;loadPgForAccess(entry.id,ob,false,"");});
+          menu.appendChild(ob);
+        });
+        menu.hidden=false;
       }
-      /* Scrivere un nome serve solo a sceglierlo: la password viene chiesta dopo,
-         e solo se il PG esiste già ed entra in modalità modifica. */
-      i1.addEventListener("input",function(){clearPendingNewPg();setName(i1.value);drawMenu(true);});
-      arrow.addEventListener(EV,function(e){e.preventDefault();if(!PUBLIC_DIRECTORY_LOADED&&!PUBLIC_DIRECTORY_LOADING){ensurePublicDirectory(true);}drawMenu(menu.hidden);});
-      line.appendChild(i1);line.appendChild(arrow);picker.appendChild(line);picker.appendChild(menu);d1.appendChild(picker);p.appendChild(d1);
-      p.appendChild(el("p","small-note","L’elenco dei PG viene caricato dal database condiviso: <b>non dipende dal browser o dal dispositivo</b>. Cambiare browser influisce soltanto sul ricordo dell’ultimo Elfo aperto, non sull’elenco."));
-      p.appendChild(el("p","small-note","I vecchi Elfi già registrati con un identificativo di una sola parola restano apribili per non perdere collegamenti o password; <b>per i nuovi PG sono invece obbligatori Nome e Cognome</b>."));
+      function schedulePgSuggestions(){
+        clearPendingNewPg();setName(i1.value);if(pgSearchTimer){clearTimeout(pgSearchTimer);pgSearchTimer=0;}
+        var term=String(i1.value||"").trim().replace(/\s+/g," "),seq=++pgSearchSeq;
+        if(!term){menu.hidden=true;menu.innerHTML="";return;}
+        if(term.length<2){showPgSearchMessage("Scrivi almeno 2 lettere per cercare il Personaggio.",true);return;}
+        showPgSearchMessage("Cerco i Personaggi che iniziano con «"+term+"»…",true);
+        pgSearchTimer=setTimeout(function(){
+          publicPgSearch(term,false).then(function(list){
+            if(seq!==pgSearchSeq||String(i1.value||"").trim().replace(/\s+/g," ")!==term||!document.body.contains(i1)){return;}
+            drawPgSearchResults(term,list);
+          }).catch(function(e){
+            if(seq!==pgSearchSeq||!document.body.contains(i1)){return;}
+            var code=String((e&&e.code)||"");
+            showPgSearchMessage(code.indexOf("resource-exhausted")>=0?"Quota letture Firebase temporaneamente esaurita. Puoi comunque scrivere Nome e Cognome esatti e premere «Apri Elfo».":"Ricerca momentaneamente non disponibile. Puoi comunque scrivere Nome e Cognome esatti e premere «Apri Elfo».",true);
+          });
+        },400);
+      }
+      i1.addEventListener("input",schedulePgSuggestions);
+      line.appendChild(i1);picker.appendChild(line);picker.appendChild(menu);d1.appendChild(picker);p.appendChild(d1);
+      p.appendChild(el("p","small-note","La ricerca parte solo dopo una breve pausa mentre scrivi, restituisce al massimo 10 risultati e riusa le ricerche già fatte per 10 minuti: <b>non viene più scaricato l’elenco completo dei PG</b>."));
+      p.appendChild(el("p","small-note","I vecchi Elfi già registrati con un identificativo di una sola parola restano apribili; <b>per i nuovi PG sono obbligatori Nome e Cognome</b>."));
       var openBtn=el("button","action elfo-readonly-safe","Apri Elfo");openBtn.type="button";
       openBtn.addEventListener(EV,function(){
         var nome=normalizePgName(STUDENTE.nome);var nameErr=validatePgName(nome);
         if(nameErr){alert(nameErr);return;}
+        if(pgSearchTimer){clearTimeout(pgSearchTimer);pgSearchTimer=0;}++pgSearchSeq;
         clearPendingNewPg();setName(nome);i1.value=nome;menu.hidden=true;loadPgForAccess(nome,openBtn,false,"");
       });
       p.appendChild(openBtn);
@@ -7803,7 +8062,7 @@
                 if(LAST_AUDITED_STATE){LAST_AUDITED_STATE._editPasswordConfigured=true;LAST_AUDITED_STATE._dbRevision=DB_REVISION;}
                 fbStatusText="Password configurata · modifica autorizzata";showPasswordSessionNoticeOnce(STUDENTE.nome);
                 if(LOCKED_MIGRATION_PENDING){FORCE_PERSIST_SAVE=true;LOCKED_MIGRATION_PENDING=false;}
-                ensurePublicDirectory(true);renderAll();if(FORCE_PERSIST_SAVE){scheduleSave(0,false);}
+                publicDirectoryUpsertLocal(STUDENTE.nome,true);renderAll();if(FORCE_PERSIST_SAVE){scheduleSave(0,false);}
               }else{
                 setFirstPw.disabled=false;setFirstPw.textContent="Crea password e accedi alla modifica";
                 if(res&&res.code==="already-configured"){alert("Nel frattempo è già stata configurata una password per questo Elfo. Ricaricalo e utilizza la password esistente.");}
@@ -11915,7 +12174,7 @@
 
   installUniversalAutosave();
   renderAll();
-  function bootPublicPgDirectoryAndRestore(){ensurePublicDirectory(false);restoreBrowserPgSession();}
+  function bootPublicPgDirectoryAndRestore(){restoreBrowserPgSession();}
   var previousFbOnReady=window.fbOnReady;
   window.fbOnReady=function(){
     if(typeof previousFbOnReady==="function"){try{previousFbOnReady();}catch(e){console.error(e);}}
