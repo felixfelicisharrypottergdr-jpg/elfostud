@@ -1,6 +1,8 @@
 <!DOCTYPE html>
+<!-- v150 — Staff Token: diagnostica allineata a Rules v54 / Gestore v70, 07/09/2026 -->
+<!-- v149 — Staff Token: diagnostica allineata a Rules v54 / Gestore v70, 07/09/2026 -->
 <!-- v148 — Dispensa: “Azzera Dispensa” sempre visibile; disabilitato solo se la Dispensa è vuota, 07/09/2026 -->
-<!-- v147 — audit post-modifiche: diagnostica Staff Token allineata alle Rules v52 + cleanup migrazione Bonus Casa, 07/09/2026 -->
+<!-- v147 — audit post-modifiche: diagnostica Staff Token allineata alle Rules v54 + cleanup migrazione Bonus Casa, 07/09/2026 -->
 <!-- v146 — Taccuino: niente rilettura lazy cloud durante modifiche locali; liste Missioni aggiornate subito, 07/09/2026 -->
 <!-- v145 — Dispensa: import robusto da BBCode/HTML con URL e quantità interne, plurali italiani, report non bloccante e “Azzera Dispensa”; 07/09/2026 -->
 <!-- v144 — Staff Token: diagnostica aggiornata per Rules v50 e associazioni PG normalizzate, 07/09/2026 -->
@@ -2802,8 +2804,8 @@
   function staffTokenErrorText(code,operation){
     code=String(code||"");
     if(code.indexOf("permission-denied")>=0){
-      if(operation==="refund")return "Firebase ha rifiutato la restituzione dello Staff Token. Pubblica le Rules v52 e riprova: l’uso resta registrato e il saldo non viene alterato finché il rimborso non riesce.";
-      return "Firebase non consente all’Elfo di aggiornare gli Staff Token. Verifica di avere pubblicato le Rules v52 e di essere entrato in modifica con la Password del PG. Se il PG era già collegato agli ST prima della v50, apri una volta il Gestore Staff Token v68 in modalità Staff per normalizzare automaticamente l’associazione.";
+      if(operation==="refund")return "Firebase ha rifiutato la restituzione dello Staff Token. Pubblica le Rules v54 e riprova: l’uso resta registrato e il saldo non viene alterato finché il rimborso non riesce.";
+      return "Firebase non consente all’Elfo di aggiornare gli Staff Token. Verifica di avere pubblicato le Rules v54 e di essere entrato in modifica con la Password del PG. Se il PG era già collegato agli ST prima della v50, apri una volta il Gestore Staff Token v70 in modalità Staff per normalizzare automaticamente l’associazione.";
     }
     if(code==="edit-session-missing")return "Entra prima in modifica con la Password del PG.";
     if(code==="staff-token-empty")return "Non ci sono Staff Token disponibili.";
