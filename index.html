@@ -1,11 +1,15 @@
 <!DOCTYPE html>
+<!-- v157 — Bonus: fix Firestore __primary__, contatore Usi per riga, editor semplificato, rerender stabile; ST invariati, 07/09/2026 -->
+<!-- v156 — fix Bonus __primary__ Firestore + rerender stabile senza saltino iframe; ST invariati, 07/09/2026 -->
+<!-- v155 — audit finale: diagnostica allineata al Gestore ST v73; transazione ST v57 invariata, 07/09/2026 -->
+<!-- v154 — macro-audit ST v57: saldo accoppiato direttamente agli usi + diagnostica v72, 07/09/2026 -->
 <!-- v153 — macro-audit: salvataggi Firestore sanitizzati + Staff Token v2/assoc diretta; 07/09/2026 -->
 <!-- v152 — Bonus: checkbox utilizzabili e stato utilizzi salvato subito; backup locale personale; diagnostica ST mirata, 07/09/2026 -->
-<!-- v151 — Staff Token: diagnostica allineata a Rules v56; transazione invariata, 07/09/2026 -->
-<!-- v150 — Staff Token: diagnostica allineata a Rules v56 / Gestore v70, 07/09/2026 -->
-<!-- v149 — Staff Token: diagnostica allineata a Rules v56 / Gestore v70, 07/09/2026 -->
+<!-- v151 — Staff Token: diagnostica allineata a Rules v57; transazione invariata, 07/09/2026 -->
+<!-- v150 — Staff Token: diagnostica allineata a Rules v57 / Gestore v70, 07/09/2026 -->
+<!-- v149 — Staff Token: diagnostica allineata a Rules v57 / Gestore v70, 07/09/2026 -->
 <!-- v148 — Dispensa: “Azzera Dispensa” sempre visibile; disabilitato solo se la Dispensa è vuota, 07/09/2026 -->
-<!-- v147 — audit post-modifiche: diagnostica Staff Token allineata alle Rules v56 + cleanup migrazione Bonus Casa, 07/09/2026 -->
+<!-- v147 — audit post-modifiche: diagnostica Staff Token allineata alle Rules v57 + cleanup migrazione Bonus Casa, 07/09/2026 -->
 <!-- v146 — Taccuino: niente rilettura lazy cloud durante modifiche locali; liste Missioni aggiornate subito, 07/09/2026 -->
 <!-- v145 — Dispensa: import robusto da BBCode/HTML con URL e quantità interne, plurali italiani, report non bloccante e “Azzera Dispensa”; 07/09/2026 -->
 <!-- v144 — Staff Token: diagnostica aggiornata per Rules v50 e associazioni PG normalizzate, 07/09/2026 -->
@@ -1893,6 +1897,117 @@
 
 </style>
 
+<style>
+  /* Bonus v155/v157 — editor più leggibile + contatore compatto per riga */
+  .bonus-quick-help{
+    margin:4px 0 10px;
+    padding:8px 10px;
+    border-left:4px solid var(--gold);
+    border-radius:6px;
+    background:rgba(184,139,61,.10);
+    font-size:.78rem;
+    line-height:1.4;
+  }
+  details.bonus-help{
+    margin:0 0 10px;
+    padding:0;
+    border:0;
+    background:transparent;
+  }
+  details.bonus-help > summary{
+    cursor:pointer;
+    color:#6f5a32;
+    font-size:.74rem;
+    font-weight:800;
+    list-style:none;
+  }
+  details.bonus-help > summary::-webkit-details-marker{display:none;}
+  details.bonus-help > summary::before{content:"ⓘ ";color:var(--gold);}
+  details.bonus-help .small-note{margin:6px 0 0;}
+  .bonus-details .row{
+    gap:8px;
+    align-items:end;
+  }
+  .bonus-details .row > div{min-width:115px;}
+  .bonus-details label{
+    margin-bottom:3px;
+    font-size:.72rem;
+    font-weight:800;
+    color:#51452f;
+  }
+  .bonus-details input,
+  .bonus-details select{
+    padding:7px 8px;
+  }
+  .bonus-settings-row{
+    margin-top:8px;
+    padding:9px;
+    border:1px solid rgba(184,139,61,.38);
+    border-radius:8px;
+    background:rgba(255,255,255,.34);
+  }
+  .bonus-usage-status{
+    display:inline-flex;
+    align-items:center;
+    gap:6px;
+    margin-top:7px;
+    padding:5px 8px;
+    border-radius:999px;
+    font-size:.72rem;
+  }
+  .bonus-use-toggle{
+    display:inline-flex;
+    align-items:center;
+    gap:5px;
+    flex:0 0 auto;
+    cursor:pointer;
+    margin:0;
+  }
+  .bonus-use-toggle input[type="checkbox"]{
+    margin:0!important;
+    width:15px;
+    height:15px;
+  }
+  .bonus-use-counter{
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    min-width:58px;
+    min-height:22px;
+    padding:2px 7px;
+    border-radius:999px;
+    border:1px solid #b88b3d;
+    background:#fff8df;
+    color:#61491d;
+    font-size:.68rem;
+    line-height:1;
+    font-weight:900;
+    white-space:nowrap;
+  }
+  .bonus-use-counter.used{
+    background:#e7f1dc;
+    border-color:#73994c;
+    color:#416126;
+  }
+  .bonus-use-counter.exhausted{
+    background:#f8dfda;
+    border-color:#9b2f2a;
+    color:#8f211d;
+  }
+  .bonus-use-counter.missing{
+    background:#f2eee4;
+    border-color:#bcb3a2;
+    color:#786f61;
+  }
+  .cb-bonus-line{
+    align-items:center;
+    flex-wrap:wrap;
+  }
+  .cb-bonus-line > span{
+    min-width:0;
+    flex:1 1 120px;
+  }
+</style>
 </head>
 <body>
 <div class="wrap">
@@ -2289,8 +2404,16 @@
     seen.push(v);
     var out={};
     Object.keys(v).forEach(function(k){
+      var targetKey=k;
+      if(/^__.*__$/.test(k)){
+        /* Migrazione nota: il vecchio Bonus principale. Qualunque altra chiave
+           riservata viene fermata qui con un errore leggibile anziché arrivare
+           al generico invalid-argument dell'SDK Firebase. */
+        if(k==="__primary__"){targetKey="primary_bonus";}
+        else{throw fbInvalidLocalData(path+"."+k,"reserved-firestore-field-name");}
+      }
       var x=fbPrepareWriteValue(v[k],path+"."+k,false,seen);
-      if(x!==FB_WRITE_SKIP)out[k]=x;
+      if(x!==FB_WRITE_SKIP && !Object.prototype.hasOwnProperty.call(out,targetKey)){out[targetKey]=x;}
     });
     seen.pop();return out;
   }
@@ -2564,6 +2687,7 @@
       if(!assocSnap.exists())return {code:"assoc-missing"};
       var aa=assocSnap.data()||{};
       if(String(aa.staffId||"")!==staffId)return {code:"assoc-owner-mismatch",assocStaff:String(aa.staffId||"")};
+      if(String(aa.pgId||"")!==pgId||String(aa.pgKind||"")!==pgKind||aa.active===false)return {code:"assoc-data-mismatch",assocPg:String(aa.pgId||""),assocKind:String(aa.pgKind||""),active:aa.active!==false};
       var staffSnap=await getDoc(doc(fbDb,"staff_token",staffId));
       if(!staffSnap.exists())return {code:"staff-missing"};
       var st=staffSnap.data()||{};
@@ -2632,6 +2756,9 @@
           tx.set(staffRef,{
             st_totali:after,
             ultimoMovimentoId:logRef.id,
+            ultimoUsoId:usageId,
+            ultimoPgId:pgId,
+            ultimoPgKind:pgKind,
             ultimoAggiornamento:serverTimestamp()
           },{merge:true});
           tx.set(usageRef,{
@@ -2691,6 +2818,9 @@
         tx.set(staffRef,{
           st_totali:afterRefund,
           ultimoMovimentoId:logRef.id,
+          ultimoUsoId:usageId,
+          ultimoPgId:pgId,
+          ultimoPgKind:pgKind,
           ultimoAggiornamento:serverTimestamp()
         },{merge:true});
         /* Restituire lo ST cambia soltanto lo stato del consumo. Link e numero
@@ -2880,18 +3010,19 @@
       if(operation==="refund")return "Firebase ha rifiutato la restituzione dello Staff Token. L’uso resta registrato e il saldo non cambia finché il rimborso non riesce.";
       if(diagnostic){
         if(diagnostic.code==="session-missing"||diagnostic.code==="session-not-clean"||diagnostic.code==="session-mismatch")return "La sessione di modifica del PG non coincide con quella richiesta dagli Staff Token. Disconnetti e rientra con la Password di questo PG.";
-        if(diagnostic.code==="assoc-missing")return "Manca l’associazione diretta Staff Token di questo PG. Apri una volta il Gestore Staff Token v71 con la Password Staff: la migrazione la ricrea automaticamente.";
-        if(diagnostic.code==="assoc-owner-mismatch")return "L’associazione Staff Token del PG punta a un altro saldo Staffer. Apri il Gestore Staff Token v71 e correggi l’associazione.";
-        if(diagnostic.code==="balance-type")return "Il saldo Staff Token è ancora in un vecchio formato. Apri una volta il Gestore Staff Token v71 con la Password Staff per normalizzarlo.";
+        if(diagnostic.code==="assoc-missing")return "Manca l’associazione diretta Staff Token di questo PG. Apri una volta il Gestore Staff Token v73 con la Password Staff: la migrazione la ricrea automaticamente.";
+        if(diagnostic.code==="assoc-owner-mismatch")return "L’associazione Staff Token del PG punta a un altro saldo Staffer. Apri il Gestore Staff Token v73 e correggi l’associazione.";
+        if(diagnostic.code==="assoc-data-mismatch")return "L’associazione Staff Token esiste ma contiene dati incoerenti per questo PG. Apri il Gestore Staff Token v73 con la Password Staff: il controllo iniziale la ricrea e la verifica.";
+        if(diagnostic.code==="balance-type")return "Il saldo Staff Token è ancora in un vecchio formato. Apri una volta il Gestore Staff Token v73 con la Password Staff per normalizzarlo.";
         if(diagnostic.code==="staff-inactive")return "Questo Staffer è segnato come «Non è più Staffer».";
       }
-      return "Firebase ha rifiutato la transazione Staff Token. Verifica che siano pubblicate le Rules v56 e che il Gestore Staff Token v71 sia stato aperto almeno una volta con la Password Staff.";
+      return "Firebase ha rifiutato la transazione Staff Token. Verifica che siano pubblicate le Rules v57 e che il Gestore Staff Token v73 sia stato aperto almeno una volta con la Password Staff.";
     }
     if(code==="edit-session-missing")return "Entra prima in modifica con la Password del PG.";
     if(code==="staff-token-empty")return "Non ci sono Staff Token disponibili.";
     if(code==="staff-token-staffer-inactive")return "Questo Staffer è segnato come «Non è più Staffer»: gli ST già usati restano consumati, ma non sono consentiti nuovi utilizzi o restituzioni dagli Elfi.";
     if(code==="staff-token-pg-not-associated")return "Questo PG non risulta più associato allo Staffer nel Gestore Staff Token.";
-    if(code==="staff-token-rules-association-mismatch")return "L’Elfo vede l’associazione del PG, ma la forma salvata non coincide con quella autorizzata dalle Rules. Apri il Gestore Staff Token v71 con la password Staff e salva/ripara l’associazione del PG.";
+    if(code==="staff-token-rules-association-mismatch")return "L’Elfo vede l’associazione del PG, ma la forma salvata non coincide con quella autorizzata dalle Rules. Apri il Gestore Staff Token v73 con la password Staff e salva/ripara l’associazione del PG.";
     if(code==="staff-token-balance-type")return "Il saldo Staff Token di questo Staffer è salvato in un vecchio formato non numerico. Apri il Gestore Staff Token e registra/salva un movimento o una correzione del saldo per normalizzarlo.";
     if(code==="staff-token-owner-not-found")return "Non trovo il saldo dello Staffer.";
     if(code==="staff-token-owner-mismatch")return "L’uso registrato appartiene a un altro saldo Staffer.";
@@ -3012,7 +3143,7 @@
     var left=el("div","staff-token-live-main");
     left.appendChild(el("div","staff-token-live-title","<i class=\"fa-solid fa-pen-nib\"></i> Staff Token di "+staffTokenOwnerShort(STAFF_TOKEN_STATE.staffName)));
     left.appendChild(el("div","staff-token-live-note","Ogni Staff Token usato su un Post vale <b>+1 PP</b>. Il saldo si aggiorna in tempo reale anche nel Gestore."));
-    if(STAFF_TOKEN_STATE.migrationRequired)left.appendChild(el("div","staff-token-live-error","Associazione legacy rilevata: apri una volta il Gestore Staff Token v71 con la Password Staff prima di usare nuovi ST."));
+    if(STAFF_TOKEN_STATE.migrationRequired)left.appendChild(el("div","staff-token-live-error","Associazione legacy rilevata: apri una volta il Gestore Staff Token v73 con la Password Staff prima di usare nuovi ST."));
     if(STAFF_TOKEN_STATE.error)left.appendChild(el("div","staff-token-live-error",staffTokenErrorText(STAFF_TOKEN_STATE.error)));
     box.appendChild(left);
     var bal=el("div","staff-token-live-balance");
@@ -3025,7 +3156,7 @@
     if(!EDIT_UNLOCKED){if(!opts.silent)alert("Entra in modifica con la Password del PG per usare gli Staff Token.");return false;}
     var staffId=String(post.staffTokenStaffId||STAFF_TOKEN_STATE.staffId||"");
     if(enabled&&!STAFF_TOKEN_STATE.associated){if(!opts.silent)alert("Questo PG non è associato a uno Staffer nel Gestore Staff Token.");return false;}
-    if(enabled&&STAFF_TOKEN_STATE.migrationRequired){if(!opts.silent)alert("L’associazione di questo PG è ancora nel formato legacy. Apri una volta il Gestore Staff Token v71 con la Password Staff, poi rientra nell’Elfo.");return false;}
+    if(enabled&&STAFF_TOKEN_STATE.migrationRequired){if(!opts.silent)alert("L’associazione di questo PG è ancora nel formato legacy. Apri una volta il Gestore Staff Token v73 con la Password Staff, poi rientra nell’Elfo.");return false;}
     if(!staffId){if(!opts.silent)alert("Non trovo lo Staffer proprietario di questo PG.");return false;}
     if(!isValidPostLink(post.link)){if(!opts.silent)alert("Inserisci prima un link valido per il Post.");return false;}
     if(enabled&&STAFF_TOKEN_STATE.balance<=0){if(!opts.silent)alert("Non ci sono Staff Token disponibili.");return false;}
@@ -5643,6 +5774,7 @@
         var _pb=MESI[nmi].posts[_pbi];
         if(!_pb||typeof _pb!=="object"){continue;}
         if(!_pb.bonusUtilizzi||typeof _pb.bonusUtilizzi!=="object"||Array.isArray(_pb.bonusUtilizzi)){_pb.bonusUtilizzi={};}
+        normalizeBonusUsageMap(_pb);
         if(typeof _pb.staffTokenUsato!=="boolean"){_pb.staffTokenUsato=false;DATA_DIRTY=true;}
         if(typeof _pb.staffTokenStaffId!=="string"){_pb.staffTokenStaffId="";DATA_DIRTY=true;}
         if(typeof _pb.staffTokenStaffName!=="string"){_pb.staffTokenStaffName="";DATA_DIRTY=true;}
@@ -7749,6 +7881,7 @@
     return box;
   }
 
+  var FF_LAST_RENDERED_STEP="";
   function renderAll(options){
     options=options||{};
     ensureCurrentStepVisible();
@@ -7758,6 +7891,15 @@
     renderNav();
     renderTutorialUi();
     var c = document.getElementById("stepContainer");
+    /* Rerender della stessa pagina (es. click su checkbox):
+       impedisce al contenitore/iframe di collassare per un istante mentre
+       stepContainer viene svuotato e ricostruito. */
+    var ffStableSameStep=!!(c&&c.firstChild&&FF_LAST_RENDERED_STEP===currentStep);
+    var ffStableHeight=0;
+    if(ffStableSameStep){
+      try{ffStableHeight=Math.ceil(c.getBoundingClientRect().height)||0;}catch(e){}
+      if(ffStableHeight>0){c.style.minHeight=ffStableHeight+"px";}
+    }
     c.innerHTML = "";
     appendAugustSchoolYearReminder(c);
     var externalImportNotice=buildExternalImportNotice();if(externalImportNotice){c.appendChild(externalImportNotice);}
@@ -7795,7 +7937,18 @@
     updateFbIndicator();
     if(typeof staffTokenSyncWatcherForStep==="function"){staffTokenSyncWatcherForStep();}
     if(fbConnected&&EDIT_UNLOCKED){setTimeout(function(){consumeHealingImportsForCurrentPg(false);},0);}
-    setTimeout(notifyParentHeight,0);
+    FF_LAST_RENDERED_STEP=currentStep;
+    if(ffStableSameStep&&ffStableHeight>0){
+      /* Il min-height resta solo fino al frame successivo: abbastanza per evitare
+         il saltino, senza congelare l'altezza quando il contenuto cambia davvero. */
+      requestAnimationFrame(function(){
+        c.style.minHeight="";
+        if(typeof scheduleParentHeight==="function"){scheduleParentHeight();}
+        else{notifyParentHeight(true);}
+      });
+    }else{
+      setTimeout(notifyParentHeight,0);
+    }
   }
 
   /* ==================================================== */
@@ -8641,7 +8794,7 @@
 
   function primaryBonusItem(mese){
     return {
-      id:"__primary__", primary:true,
+      id:"primary_bonus", primary:true,
       descrizione:String(mese&&mese.eventoBonusDescrizione||""),
       pp:meseBonusPP(mese),
       galeoni:meseBonusGaleoni(mese),
@@ -8721,13 +8874,29 @@
     if(!post.bonusEsclusi||typeof post.bonusEsclusi!=="object"){post.bonusEsclusi={};}
     if(value){post.bonusEsclusi[b.id]=true;}else{delete post.bonusEsclusi[b.id];}
   }
+  function normalizeBonusUsageMap(post){
+    if(!post||!post.bonusUtilizzi||typeof post.bonusUtilizzi!=="object"||Array.isArray(post.bonusUtilizzi)){return false;}
+    var map=post.bonusUtilizzi,changed=false;
+    /* Versioni precedenti usavano __primary__ come chiave della mappa.
+       Firestore riserva i nomi che iniziano e finiscono con "__". */
+    if(Object.prototype.hasOwnProperty.call(map,"__primary__")){
+      if(!Object.prototype.hasOwnProperty.call(map,"primary_bonus")){
+        map.primary_bonus=map["__primary__"];
+      }
+      delete map["__primary__"];
+      changed=true;
+    }
+    if(changed){DATA_DIRTY=true;}
+    return changed;
+  }
   function getBonusUsageRecord(post,b,create){
     if(!post||!b){return null;}
     if(!post.bonusUtilizzi||typeof post.bonusUtilizzi!=="object"||Array.isArray(post.bonusUtilizzi)){
       if(!create){return null;}
       post.bonusUtilizzi={};
     }
-    var id=String(b.id);
+    normalizeBonusUsageMap(post);
+    var id=b.primary?"primary_bonus":String(b.id);
     var r=post.bonusUtilizzi[id];
     if(!r&&create){r={used:false,pp:0,galeoni:0,altro:"",link:""};post.bonusUtilizzi[id]=r;}
     if(r){
@@ -8771,6 +8940,22 @@
     return 0;
   }
   function bonusCurrentUses(b,posts){return Math.max(0,parseInt(b.usatiIniziali,10)||0)+bonusUsedThisMonth(b,posts);}
+  function bonusUsesThroughPost(b,posts,targetPost){
+    var current=Math.max(0,parseInt(b&&b.usatiIniziali,10)||0);
+    posts=Array.isArray(posts)?posts:[];
+    for(var i=0;i<posts.length;i++){
+      var p=posts[i];
+      if(p&&postUsesLimitedBonus(p,b)){current++;}
+      if(p===targetPost)break;
+    }
+    return current;
+  }
+  function bonusUseCounterText(b,posts,post){
+    var max=Math.max(0,parseInt(b&&b.maxUtilizzi,10)||0);
+    if(!b||b.modalita!=="posts")return "";
+    if(!b.usatiConfermati||!(max>0))return "Usi —/"+(max>0?max:"—");
+    return "Usi "+bonusUsesThroughPost(b,posts,post)+"/"+max;
+  }
   function bonusRemainingUses(b,posts){
     if(!(b.maxUtilizzi>0)){return Infinity;}
     return Math.max(0,b.maxUtilizzi-bonusCurrentUses(b,posts));
@@ -9066,7 +9251,22 @@
             }
             r.used=cb.checked;scheduleSave(0);renderAll();
           });
-          line.appendChild(cb);
+          if(b.modalita==="posts"){
+            var useToggle=el("label","bonus-use-toggle");
+            useToggle.title=cb.title;
+            useToggle.appendChild(cb);
+            var useClass="bonus-use-counter";
+            if(!b.usatiConfermati||!(b.maxUtilizzi>0))useClass+=" missing";
+            else{
+              var through=bonusUsesThroughPost(b,mese.posts,post);
+              if(through>=b.maxUtilizzi)useClass+=" exhausted";
+              else if(rec&&rec.used)useClass+=" used";
+            }
+            useToggle.appendChild(el("span",useClass,bonusUseCounterText(b,mese.posts,post)));
+            line.appendChild(useToggle);
+          }else{
+            line.appendChild(cb);
+          }
         }
 
         var txt=el("span");
@@ -9187,8 +9387,8 @@
     }
 
     if(mode==="posts"||mode==="manual"){
-      var initCell=el("div");initCell.appendChild(el("label",null,"Utilizzi attuali in Scheda"));
-      var init=el("input");init.type="number";init.min="0";init.step="1";init.placeholder="Obbligatorio, es. 0";
+      var initCell=el("div");initCell.appendChild(el("label",null,"Usi già consumati"));
+      var init=el("input");init.type="number";init.min="0";init.step="1";init.placeholder="Es. 1";
       var initConfirmed=getEditableBonusField(mese,bonus,isPrimary,"usatiConfermati")===true;
       init.value=initConfirmed?Math.max(0,parseInt(getEditableBonusField(mese,bonus,isPrimary,"usatiIniziali"),10)||0):"";
       init.disabled=locked;
@@ -9218,7 +9418,7 @@
       });
       initCell.appendChild(init);row.appendChild(initCell);
 
-      var maxCell=el("div");maxCell.appendChild(el("label",null,"Utilizzi totali"));
+      var maxCell=el("div");maxCell.appendChild(el("label",null,"Usi massimi"));
       var max=el("input");max.type="number";max.min="0";max.step="1";max.placeholder="Es. 10";max.value=Math.max(0,parseInt(getEditableBonusField(mese,bonus,isPrimary,"maxUtilizzi"),10)||0);max.disabled=locked;
       max.addEventListener("input",function(){if(blockIfMonthReadOnly(mese))return;var v=Math.max(0,parseInt(max.value,10)||0);setEditableBonusField(mese,bonus,isPrimary,"maxUtilizzi",v);scheduleSave(450);});
       max.addEventListener("change",function(){if(blockIfMonthReadOnly(mese))return;var v=Math.max(0,parseInt(max.value,10)||0);setEditableBonusField(mese,bonus,isPrimary,"maxUtilizzi",v);scheduleSave(0);renderAll();});
@@ -9237,15 +9437,19 @@
 
     parent.appendChild(row);
 
-    var current=allMonthBonuses(mese).filter(function(x){return String(x.id)===String(isPrimary?"__primary__":bonus.id);})[0];
+    var current=allMonthBonuses(mese).filter(function(x){return String(x.id)===String(isPrimary?"primary_bonus":bonus.id);})[0];
     if(current&&current.modalita==="posts"){
       if(!current.usatiConfermati){
-        parent.appendChild(el("div","bonus-usage-status update","Prima di segnare i post di utilizzo, indica quanti utilizzi risultano attualmente in Scheda PG. Anche 0 va inserito esplicitamente."));
+        parent.appendChild(el("div","bonus-usage-status update","⚠ Indica gli usi già consumati (anche 0)."));
       }else if(!(current.maxUtilizzi>0)){
-        parent.appendChild(el("div","bonus-usage-status update","Indica anche il numero totale di utilizzi del premio (es. 10)."));
+        parent.appendChild(el("div","bonus-usage-status update","⚠ Indica gli usi massimi del premio."));
       }else{
-        var st=el("div","bonus-usage-status "+bonusUsageClass(current,mese.posts),bonusUsageStatusText(current,mese.posts));
-        parent.appendChild(st);
+        var now=bonusCurrentUses(current,mese.posts),usedNow=bonusUsedThisMonth(current,mese.posts);
+        var cls=bonusUsageClass(current,mese.posts);
+        var text="Usi "+now+"/"+current.maxUtilizzi;
+        if(usedNow>0)text+=" · +"+usedNow+" in questo mese";
+        if(now>=current.maxUtilizzi)text+=" · ESAURITO";
+        parent.appendChild(el("div","bonus-usage-status "+cls,text));
       }
     }
   }
@@ -9255,7 +9459,7 @@
     if(!isPrimary){holder.style.marginTop="10px";holder.appendChild(el("h4",null,"Bonus "+(index+1)));}
 
     var row=el("div","row");
-    var dCell=el("div");dCell.appendChild(el("label",null,"Descrizione del Bonus"));
+    var dCell=el("div");dCell.appendChild(el("label",null,"Nome del Bonus"));
     var d=el("input");d.type="text";d.placeholder="Es. Evento, Premio FT, ricompensa trama…";d.value=String(getEditableBonusField(mese,bonus,isPrimary,"descrizione")||"");d.disabled=locked;
     d.addEventListener("input",function(){if(blockIfMonthReadOnly(mese))return;setEditableBonusField(mese,bonus,isPrimary,"descrizione",d.value);scheduleSave(450);});
     d.addEventListener("change",function(){if(blockIfMonthReadOnly(mese))return;setEditableBonusField(mese,bonus,isPrimary,"descrizione",d.value);scheduleSave(0);renderAll();});
@@ -9376,8 +9580,13 @@
     var bonusLocked = !!(meseObj.chiuso && archiveLocked(meseObj)) || monthIsAccredited(meseObj) || (fbConnected && !accreditiVerified());
     var bonusBox=el("details","card bonus-details");
     keepDetailsState(bonusBox,"camera-blindata:bonus:"+String(meseObj.id),false);
-    bonusBox.appendChild(el("summary","bonus-details-summary","🎉 Bonus"));
-    bonusBox.appendChild(el("p","small-note","Usa questo riquadro per i <b>Bonus generici che devono comparire in Camera Blindata</b>: Eventi, Premi FT e altri bonus analoghi. Se il Bonus vale soltanto su alcuni post ma <b>non ha un numero limitato di utilizzi</b>, scegli «Solo sui post selezionati». «A utilizzi sui post» resta invece riservato ai premi realmente a consumo. I <b>+2 Punti Casa per le free role della stessa Casa</b> si gestiscono nel riquadro dedicato sopra: basta registrare il link della Role."));
+    var bonusSummaryCount=activeMonthBonuses(meseObj).length;
+    bonusBox.appendChild(el("summary","bonus-details-summary","🎉 Bonus"+(bonusSummaryCount>0?" · "+bonusSummaryCount+" attivo"+(bonusSummaryCount===1?"":"i"):"")));
+    bonusBox.appendChild(el("div","bonus-quick-help","Imposta qui il premio. Se ha un numero di usi, scegli <b>A utilizzi sui post</b>: nelle righe sotto comparirà direttamente la casellina <b>Usi X/Y</b>."));
+    var bonusHelp=el("details","bonus-help");
+    bonusHelp.appendChild(el("summary",null,"Come configurare i diversi tipi di Bonus"));
+    bonusHelp.appendChild(el("p","small-note","<b>Tutti i post</b>: applicazione automatica. <b>Solo per i primi X post</b>: applicazione automatica entro il limite. <b>A utilizzi sui post</b>: spunti manualmente i post che consumano il premio. Se il risultato cambia ogni volta (es. +1d3 PP), scegli <b>Variabile per post</b>: risultato e link del tiro compariranno direttamente nella riga del post."));
+    bonusBox.appendChild(bonusHelp);
 
     appendBonusEditor(bonusBox,meseObj,primaryBonusItem(meseObj),0,bonusLocked,true);
     var extraBonuses=ensureBonusExtras(meseObj);
