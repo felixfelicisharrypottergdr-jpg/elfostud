@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+<!-- v148 — Dispensa: “Azzera Dispensa” sempre visibile; disabilitato solo se la Dispensa è vuota, 07/09/2026 -->
 <!-- v147 — audit post-modifiche: diagnostica Staff Token allineata alle Rules v52 + cleanup migrazione Bonus Casa, 07/09/2026 -->
 <!-- v146 — Taccuino: niente rilettura lazy cloud durante modifiche locali; liste Missioni aggiornate subito, 07/09/2026 -->
 <!-- v145 — Dispensa: import robusto da BBCode/HTML con URL e quantità interne, plurali italiani, report non bloccante e “Azzera Dispensa”; 07/09/2026 -->
@@ -10319,21 +10320,26 @@
 
     var inventoryBlock=el("div","dispensa-block dispensa-inventory-block");
     inventoryBlock.appendChild(el("div","dispensa-block-head","<span class=\"dispensa-block-number\">1</span><span class=\"dispensa-block-label\">Ingredienti posseduti</span>"));
-    if(DISPENSA.ingredienti.length||DISPENSA.movimenti.length){
-      var clearDispRow=el("div","dispensa-batch-actions");
-      var clearDisp=el("button","action danger small","Azzera Dispensa");clearDisp.type="button";
-      clearDisp.title="Rimuove Ingredienti e storico della Dispensa; l'azione resta recuperabile con ↶ Annulla.";
-      clearDisp.addEventListener(EV,function(){
-        DISPENSA.ingredienti=[];DISPENSA.movimenti=[];
-        DISPENSA.archivioTotali={galeoniVendite:0,perCommercianteTipo:{},conteggiMovimenti:{}};
-        ingredienteCounter=0;movimentoCounter=0;resetDispensaBatch();
-        DISPENSA_IMPORT_REPORT={added:0,doses:0,errors:[],empty:true,cleared:true};
-        scheduleSave(0);renderAll();
-      });
-      clearDispRow.appendChild(clearDisp);
-      clearDispRow.appendChild(el("span","small-note","Per ripartire da zero dopo un'importazione sbagliata. Se lo premi per errore, usa subito ↶ Annulla."));
-      inventoryBlock.appendChild(clearDispRow);
-    }
+    var hasDispensaData=!!(DISPENSA.ingredienti.length||DISPENSA.movimenti.length);
+    var clearDispRow=el("div","dispensa-batch-actions");
+    var clearDisp=el("button","action danger small","Azzera Dispensa");clearDisp.type="button";
+    clearDisp.disabled=!hasDispensaData;
+    clearDisp.title=hasDispensaData
+      ?"Rimuove Ingredienti e storico della Dispensa; l'azione resta recuperabile con ↶ Annulla."
+      :"La Dispensa è già vuota.";
+    clearDisp.addEventListener(EV,function(){
+      if(!hasDispensaData){return;}
+      DISPENSA.ingredienti=[];DISPENSA.movimenti=[];
+      DISPENSA.archivioTotali={galeoniVendite:0,perCommercianteTipo:{},conteggiMovimenti:{}};
+      ingredienteCounter=0;movimentoCounter=0;resetDispensaBatch();
+      DISPENSA_IMPORT_REPORT={added:0,doses:0,errors:[],empty:true,cleared:true};
+      scheduleSave(0);renderAll();
+    });
+    clearDispRow.appendChild(clearDisp);
+    clearDispRow.appendChild(el("span","small-note",hasDispensaData
+      ?"Per ripartire da zero dopo un'importazione sbagliata. Se lo premi per errore, usa subito ↶ Annulla."
+      :"La Dispensa è già vuota."));
+    inventoryBlock.appendChild(clearDispRow);
     if(!DISPENSA.ingredienti.length){ inventoryBlock.appendChild(el("p","small-note","Nessun Ingrediente registrato.")); }
     var classOrder=["X","XX","XXX","XXXX","XXXXX","Esseri, Non-Esseri e Spiriti","Non classificato"];
     for(var co=0;co<classOrder.length;co++){
