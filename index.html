@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+<!-- v144 — Staff Token: diagnostica aggiornata per Rules v50 e associazioni PG normalizzate, 07/09/2026 -->
 <!-- v143 — ulteriore risparmio letture: ricerca PG restringibile dalla cache, Staff Token solo usi attivi, Taccuino cloud lazy; 06/09/2026 -->
 <!-- v142 — ricerca PG a prefisso: nessun elenco completo, suggerimenti dinamici max 10 con debounce/cache; 06/09/2026 -->
 <!-- v141 — ulteriore risparmio Firestore: Staff Token senza listener globale + Medimagia locale immediata/cloud max 1 volta l’ora, 06/09/2026 -->
@@ -2797,8 +2798,8 @@
   function staffTokenErrorText(code,operation){
     code=String(code||"");
     if(code.indexOf("permission-denied")>=0){
-      if(operation==="refund")return "Firebase ha rifiutato la restituzione dello Staff Token. Pubblica le Rules v46 e riprova: l’uso resta registrato e il saldo non viene alterato finché il rimborso non riesce.";
-      return "Firebase non consente all’Elfo di aggiornare gli Staff Token. Verifica di avere pubblicato le Rules v46 e di essere entrato in modifica con la Password del PG.";
+      if(operation==="refund")return "Firebase ha rifiutato la restituzione dello Staff Token. Pubblica le Rules v50 e riprova: l’uso resta registrato e il saldo non viene alterato finché il rimborso non riesce.";
+      return "Firebase non consente all’Elfo di aggiornare gli Staff Token. Verifica di avere pubblicato le Rules v50 e di essere entrato in modifica con la Password del PG. Se il PG era già collegato agli ST prima della v50, apri una volta il Gestore Staff Token v68 in modalità Staff per normalizzare automaticamente l’associazione.";
     }
     if(code==="edit-session-missing")return "Entra prima in modifica con la Password del PG.";
     if(code==="staff-token-empty")return "Non ci sono Staff Token disponibili.";
