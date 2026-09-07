@@ -1,9 +1,11 @@
 <!DOCTYPE html>
-<!-- v151 — Staff Token: diagnostica allineata a Rules v55; transazione invariata, 07/09/2026 -->
-<!-- v150 — Staff Token: diagnostica allineata a Rules v55 / Gestore v70, 07/09/2026 -->
-<!-- v149 — Staff Token: diagnostica allineata a Rules v55 / Gestore v70, 07/09/2026 -->
+<!-- v153 — macro-audit: salvataggi Firestore sanitizzati + Staff Token v2/assoc diretta; 07/09/2026 -->
+<!-- v152 — Bonus: checkbox utilizzabili e stato utilizzi salvato subito; backup locale personale; diagnostica ST mirata, 07/09/2026 -->
+<!-- v151 — Staff Token: diagnostica allineata a Rules v56; transazione invariata, 07/09/2026 -->
+<!-- v150 — Staff Token: diagnostica allineata a Rules v56 / Gestore v70, 07/09/2026 -->
+<!-- v149 — Staff Token: diagnostica allineata a Rules v56 / Gestore v70, 07/09/2026 -->
 <!-- v148 — Dispensa: “Azzera Dispensa” sempre visibile; disabilitato solo se la Dispensa è vuota, 07/09/2026 -->
-<!-- v147 — audit post-modifiche: diagnostica Staff Token allineata alle Rules v55 + cleanup migrazione Bonus Casa, 07/09/2026 -->
+<!-- v147 — audit post-modifiche: diagnostica Staff Token allineata alle Rules v56 + cleanup migrazione Bonus Casa, 07/09/2026 -->
 <!-- v146 — Taccuino: niente rilettura lazy cloud durante modifiche locali; liste Missioni aggiornate subito, 07/09/2026 -->
 <!-- v145 — Dispensa: import robusto da BBCode/HTML con URL e quantità interne, plurali italiani, report non bloccante e “Azzera Dispensa”; 07/09/2026 -->
 <!-- v144 — Staff Token: diagnostica aggiornata per Rules v50 e associazioni PG normalizzate, 07/09/2026 -->
@@ -2255,6 +2257,56 @@
     proposedData.MESI=out;
     return proposedData;
   }
+  /* Macro-audit: Firestore rifiuta `undefined` (anche molto in profondità)
+     con invalid-argument. I confronti JSON invece lo eliminano silenziosamente:
+     questo poteva far apparire una modifica salvata per poi perderla al rientro.
+     Sanitizziamo quindi SOLO al confine Firebase, senza alterare lo stato UI. */
+  var FB_WRITE_SKIP={};
+  function fbInvalidLocalData(path,reason){
+    var e=new Error("invalid-local-data");
+    e.code="invalid-local-data";
+    e.dataPath=String(path||"state");
+    e.dataReason=String(reason||"unsupported");
+    return e;
+  }
+  function fbPrepareWriteValue(v,path,inArray,seen){
+    var typ=typeof v;
+    if(typ==="undefined"||typ==="function"||typ==="symbol"){
+      return inArray?null:FB_WRITE_SKIP;
+    }
+    if(v===null||typ!=="object")return v;
+    if(v instanceof Date)return v;
+    var proto=Object.getPrototypeOf(v);
+    if(proto&&proto!==Object.prototype&&proto!==Array.prototype)return v;
+    if(Array.isArray(v)){
+      if(inArray)throw fbInvalidLocalData(path,"nested-array");
+      if(seen.indexOf(v)>=0)throw fbInvalidLocalData(path,"cycle");
+      seen.push(v);
+      var a=v.map(function(x,i){return fbPrepareWriteValue(x,path+"["+i+"]",true,seen);});
+      seen.pop();return a;
+    }
+    if(seen.indexOf(v)>=0)throw fbInvalidLocalData(path,"cycle");
+    seen.push(v);
+    var out={};
+    Object.keys(v).forEach(function(k){
+      var x=fbPrepareWriteValue(v[k],path+"."+k,false,seen);
+      if(x!==FB_WRITE_SKIP)out[k]=x;
+    });
+    seen.pop();return out;
+  }
+  function fbPrepareWriteData(v,path){
+    var out=fbPrepareWriteValue(v,path||"state",false,[]);
+    return out===FB_WRITE_SKIP?{}:out;
+  }
+  function fbAssertWriteSize(v){
+    try{
+      var json=JSON.stringify(v),bytes=(typeof TextEncoder!=="undefined")?(new TextEncoder()).encode(json).length:json.length;
+      if(bytes>1000000){
+        var e=new Error("state-too-large");e.code="state-too-large";e.bytes=bytes;throw e;
+      }
+    }catch(e){if(e&&e.code==="state-too-large")throw e;}
+  }
+
   window.fbSaveState = function(pgId, dataObj, sessionId, mustAlreadyExist, auditObj, baselineObj){
     var ref = doc(fbDb, PERSON_COLLECTION, pgId);
     var accCollection = PERSON_COLLECTION === "personaggi_adulti" ? "accrediti_adulti" : "accrediti_studenti";
@@ -2295,6 +2347,8 @@
       next._lastModifiedAt = serverTimestamp();
       next._lastModifiedBy = "pg";
       next._lastSessionId = String(sessionId || "");
+      next = fbPrepareWriteData(next,"state");
+      fbAssertWriteSize(next);
       tx.set(ref, next, {merge:true});
       if(auditRef && auditObj){
         var ev = Object.assign({}, auditObj || {});
@@ -2303,6 +2357,7 @@
         ev.sessionId = String(sessionId || "");
         ev.dbRevision = next._dbRevision;
         ev.at = serverTimestamp();
+        ev = fbPrepareWriteData(ev,"audit");
         tx.set(auditRef, ev);
       }
       return {revision:next._dbRevision,committedState:next};
@@ -2382,79 +2437,66 @@
       String(payload.postId==null?"":payload.postId),
       String(payload.globalNo==null?"":payload.globalNo)
     ].join("|");
-    return "st_"+staffTokenHash(raw);
+    return "st2_"+staffTokenHash(raw);
   }
   window.fbStaffTokenUsageId=staffTokenUsageId;
 
   window.fbWatchStaffTokenForPg=function(pgId,pgKind,onData,onError){
-    var wanted=staffTokenNormalizeName(pgId),kind=staffTokenKind(pgKind),closed=false,unsubDoc=null;
-    if(!wanted){ if(typeof onData==="function")onData(null); return function(){}; }
+    var id=String(pgId||"").trim(),kind=staffTokenKind(pgKind),closed=false,unsubAssoc=null,unsubStaff=null,legacyScanned=false;
+    if(!id){if(typeof onData==="function")onData(null);return function(){};}
+    var assocId=kind+"|"+id;
 
-    var cacheKey="ff_staff_owner_map_v2",cacheId="";
-    try{
-      var cache=JSON.parse(localStorage.getItem(cacheKey)||"{}"),entry=cache[kind+"|"+wanted];
-      if(entry&&entry.staffId&&Date.now()-Number(entry.at||0)<7*24*60*60*1000){cacheId=String(entry.staffId);}
-    }catch(e){}
-
-    function cacheOwner(staffId){
-      try{
-        var cache=JSON.parse(localStorage.getItem(cacheKey)||"{}");
-        if(staffId){cache[kind+"|"+wanted]={staffId:String(staffId),at:Date.now()};}
-        else{delete cache[kind+"|"+wanted];}
-        localStorage.setItem(cacheKey,JSON.stringify(cache));
-      }catch(e){}
-    }
-    function ownerFromSnap(d){
-      if(!d||!d.exists())return null;
-      var data=d.data()||{};
-      if(data.stafferAttivo===false)return null;
-      var arr=Array.isArray(data.pgAssociati)?data.pgAssociati:[];
-      for(var i=0;i<arr.length;i++){
-        var pg=arr[i]||{};
-        if(staffTokenNormalizeName(pg.nome)===wanted && staffTokenKind(pg.tipo)===kind){
-          return {staffId:d.id,staffName:String(data.nomeVisualizzato||d.id),balance:(parseInt(data.st_totali,10)||0)};
-        }
-      }
-      return null;
-    }
     function reportError(e){
       if(closed)return;
       console.error("Staff Token owner watch:",e);
       if(typeof onError==="function")onError(e);
     }
-    function attachSpecific(staffId,allowFallbackScan){
+    function stopStaff(){try{if(unsubStaff)unsubStaff();}catch(e){}unsubStaff=null;}
+    function emitStaff(staffId,migrationRequired){
       if(closed||!staffId)return;
-      try{
-        unsubDoc=onSnapshot(doc(fbDb,"staff_token",staffId),function(d){
-          if(closed)return;
-          var owner=ownerFromSnap(d);
-          if(owner){
-            cacheOwner(staffId);
-            if(typeof onData==="function")onData(owner);
-          }else{
-            cacheOwner("");
-            try{if(unsubDoc)unsubDoc();}catch(e){}
-            unsubDoc=null;
-            if(allowFallbackScan){discoverOwner();}
-            else if(typeof onData==="function"){onData(null);}
-          }
-        },reportError);
-      }catch(e){reportError(e);}
+      stopStaff();
+      unsubStaff=onSnapshot(doc(fbDb,"staff_token",staffId),function(d){
+        if(closed)return;
+        if(!d.exists()){if(typeof onData==="function")onData(null);return;}
+        var data=d.data()||{};
+        if(data.stafferAttivo===false){if(typeof onData==="function")onData(null);return;}
+        if(typeof onData==="function")onData({
+          staffId:d.id,
+          staffName:String(data.nomeVisualizzato||d.id),
+          balance:(typeof data.st_totali==="number"&&Number.isFinite(data.st_totali))?data.st_totali:(parseInt(data.st_totali,10)||0),
+          migrationRequired:migrationRequired===true
+        });
+      },reportError);
     }
-    function discoverOwner(){
-      if(closed)return;
+    function legacyScan(){
+      if(closed||legacyScanned)return;legacyScanned=true;
       getDocs(collection(fbDb,"staff_token")).then(function(snap){
         if(closed)return;
-        var foundId="";
-        snap.forEach(function(d){if(!foundId&&ownerFromSnap(d)){foundId=d.id;}});
-        if(foundId){cacheOwner(foundId);attachSpecific(foundId,false);}
-        else{cacheOwner("");if(typeof onData==="function")onData(null);}
+        var found="";
+        snap.forEach(function(d){
+          if(found)return;
+          var data=d.data()||{},arr=Array.isArray(data.pgAssociati)?data.pgAssociati:[];
+          if(data.stafferAttivo===false)return;
+          if(arr.some(function(pg){return staffTokenNormalizeName(pg&&pg.nome)===staffTokenNormalizeName(id)&&staffTokenKind(pg&&pg.tipo)===kind;})){found=d.id;}
+        });
+        if(found)emitStaff(found,true);
+        else if(typeof onData==="function")onData(null);
       }).catch(reportError);
     }
 
-    if(cacheId){attachSpecific(cacheId,true);}
-    else{discoverOwner();}
-    return function(){closed=true;try{if(unsubDoc)unsubDoc();}catch(e){}unsubDoc=null;};
+    try{
+      unsubAssoc=onSnapshot(doc(fbDb,"staff_token_assoc",assocId),function(a){
+        if(closed)return;
+        if(a.exists()){
+          var x=a.data()||{};
+          if(x.active!==false&&String(x.pgId||"")===id&&staffTokenKind(x.pgKind)===kind&&String(x.staffId||"")){
+            legacyScanned=true;emitStaff(String(x.staffId),false);return;
+          }
+        }
+        stopStaff();legacyScan();
+      },function(e){reportError(e);legacyScan();});
+    }catch(e){reportError(e);legacyScan();}
+    return function(){closed=true;try{if(unsubAssoc)unsubAssoc();}catch(e){}stopStaff();unsubAssoc=null;};
   };
 
   window.fbWatchStaffTokenUsagesForPg=function(pgId,pgKind,onData,onError){
@@ -2464,7 +2506,7 @@
       if(closed)return;var out=[];
       snap.forEach(function(d){
         var x=d.data()||{};
-        if(staffTokenKind(x.pgKind)!==kind)return;
+        if(x.pgKind!=null&&String(x.pgKind)!==""&&staffTokenKind(x.pgKind)!==kind)return;
         /* La query primaria contiene soltanto gli usi ancora attivi. Nel fallback
            filtriamo comunque qui, così gli usi restituiti non pesano sulla UI. */
         if(x.active!==true)return;
@@ -2505,6 +2547,32 @@
     return g>0 ? "Post globale n° "+g : "Post della Camera Blindata";
   }
 
+  window.fbDiagnoseStaffToken=async function(payload){
+    payload=Object.assign({},payload||{});
+    var pgId=String(payload.pgId||"").trim(),pgKind=staffTokenKind(payload.pgKind),staffId=String(payload.staffId||"").trim();
+    try{
+      await authReady();
+      var user=fbAuth.currentUser;
+      if(!user)return {code:"auth-missing"};
+      if(isNarratorUser(user))return {code:"narrator-auth"};
+      var sessSnap=await getDoc(doc(fbDb,EDIT_SESSION_COLLECTION,user.uid));
+      if(!sessSnap.exists())return {code:"session-missing"};
+      var s=sessSnap.data()||{};
+      if(Object.prototype.hasOwnProperty.call(s,"proof"))return {code:"session-not-clean"};
+      if(String(s.pgId||"")!==pgId||String(s.tipo||"")!==ELFO_TYPE)return {code:"session-mismatch",sessionPg:String(s.pgId||""),sessionType:String(s.tipo||"")};
+      var assocSnap=await getDoc(doc(fbDb,"staff_token_assoc",pgKind+"|"+pgId));
+      if(!assocSnap.exists())return {code:"assoc-missing"};
+      var aa=assocSnap.data()||{};
+      if(String(aa.staffId||"")!==staffId)return {code:"assoc-owner-mismatch",assocStaff:String(aa.staffId||"")};
+      var staffSnap=await getDoc(doc(fbDb,"staff_token",staffId));
+      if(!staffSnap.exists())return {code:"staff-missing"};
+      var st=staffSnap.data()||{};
+      if(st.stafferAttivo===false)return {code:"staff-inactive"};
+      if(typeof st.st_totali!=="number"||!Number.isFinite(st.st_totali))return {code:"balance-type",value:st.st_totali};
+      return {code:"rules-denied-unclassified",balance:st.st_totali,assoc:true,session:true};
+    }catch(e){return {code:"diagnostic-failed",detail:(e&&e.code)||((e&&e.message)||"error")};}
+  };
+
   window.fbSetStaffTokenUsage=async function(payload){
     payload=Object.assign({},payload||{});
     var pgId=String(payload.pgId||"").trim();
@@ -2529,13 +2597,13 @@
         var staffSnap=await tx.get(staffRef);
         if(!staffSnap.exists())throw new Error("staff-token-owner-not-found");
         var staff=staffSnap.data()||{};
+        if(typeof staff.st_totali!=="number"||!Number.isFinite(staff.st_totali))throw new Error("staff-token-balance-type");
         var usageSnap=await tx.get(usageRef);
         var usage=usageSnap.exists()?usageSnap.data():null;
-        var balance=parseInt(staff.st_totali,10)||0;
+        var balance=staff.st_totali;
 
         if(enable){
           if(staff.stafferAttivo===false)throw new Error("staff-token-staffer-inactive");
-          if(!staffTokenPgIsAssociated(staff,pgId,pgKind))throw new Error("staff-token-pg-not-associated");
           if(usage&&usage.active===true){
             /* Un uso già attivo può arrivare qui dopo un refresh/race locale.
                Se nel frattempo è cambiato il link del Post, Rules v44 richiedono
@@ -2567,6 +2635,7 @@
             ultimoAggiornamento:serverTimestamp()
           },{merge:true});
           tx.set(usageRef,{
+            schemaVersion:2,
             active:true,
             staffId:staffId,
             staffName:staffName,
@@ -2662,8 +2731,11 @@
       return Object.assign({ok:true},result||{});
     }catch(e){
       console.error("Staff Token transaction:",e);
-      var code=(e&&e.code)||((e&&e.message)||"staff-token-error");
-      return {ok:false,code:code,raw:e};
+      var code=(e&&e.code)||((e&&e.message)||"staff-token-error"),diagnostic=null;
+      if(String(code).indexOf("permission-denied")>=0&&window.fbDiagnoseStaffToken){
+        try{diagnostic=await window.fbDiagnoseStaffToken(payload);}catch(_e){}
+      }
+      return {ok:false,code:code,raw:e,diagnostic:diagnostic};
     }
   };
 
@@ -2716,7 +2788,7 @@
      ================================================================ */
   var STAFF_TOKEN_KIND="studenti";
   var STAFF_TOKEN_STATE={
-    pg:"",associated:false,loading:false,error:"",
+    pg:"",associated:false,loading:false,error:"",migrationRequired:false,
     staffId:"",staffName:"",balance:0,
     usageLoaded:false,usageError:"",usageById:{},
     unsubOwner:null,unsubUsage:null
@@ -2802,16 +2874,25 @@
     for(var i=0;i<limit;i++){if(posts[i]&&isValidPostLink(posts[i].link)&&staffTokenIsUsed(posts[i],mese))n++;}
     return n;
   }
-  function staffTokenErrorText(code,operation){
+  function staffTokenErrorText(code,operation,diagnostic){
     code=String(code||"");
     if(code.indexOf("permission-denied")>=0){
-      if(operation==="refund")return "Firebase ha rifiutato la restituzione dello Staff Token. Pubblica le Rules v55 e riprova: l’uso resta registrato e il saldo non viene alterato finché il rimborso non riesce.";
-      return "Firebase non consente all’Elfo di aggiornare gli Staff Token. Verifica di avere pubblicato le Rules v55 e di essere entrato in modifica con la Password del PG. Se il PG era già collegato agli ST prima della v50, apri una volta il Gestore Staff Token v70 in modalità Staff per normalizzare automaticamente l’associazione.";
+      if(operation==="refund")return "Firebase ha rifiutato la restituzione dello Staff Token. L’uso resta registrato e il saldo non cambia finché il rimborso non riesce.";
+      if(diagnostic){
+        if(diagnostic.code==="session-missing"||diagnostic.code==="session-not-clean"||diagnostic.code==="session-mismatch")return "La sessione di modifica del PG non coincide con quella richiesta dagli Staff Token. Disconnetti e rientra con la Password di questo PG.";
+        if(diagnostic.code==="assoc-missing")return "Manca l’associazione diretta Staff Token di questo PG. Apri una volta il Gestore Staff Token v71 con la Password Staff: la migrazione la ricrea automaticamente.";
+        if(diagnostic.code==="assoc-owner-mismatch")return "L’associazione Staff Token del PG punta a un altro saldo Staffer. Apri il Gestore Staff Token v71 e correggi l’associazione.";
+        if(diagnostic.code==="balance-type")return "Il saldo Staff Token è ancora in un vecchio formato. Apri una volta il Gestore Staff Token v71 con la Password Staff per normalizzarlo.";
+        if(diagnostic.code==="staff-inactive")return "Questo Staffer è segnato come «Non è più Staffer».";
+      }
+      return "Firebase ha rifiutato la transazione Staff Token. Verifica che siano pubblicate le Rules v56 e che il Gestore Staff Token v71 sia stato aperto almeno una volta con la Password Staff.";
     }
     if(code==="edit-session-missing")return "Entra prima in modifica con la Password del PG.";
     if(code==="staff-token-empty")return "Non ci sono Staff Token disponibili.";
     if(code==="staff-token-staffer-inactive")return "Questo Staffer è segnato come «Non è più Staffer»: gli ST già usati restano consumati, ma non sono consentiti nuovi utilizzi o restituzioni dagli Elfi.";
     if(code==="staff-token-pg-not-associated")return "Questo PG non risulta più associato allo Staffer nel Gestore Staff Token.";
+    if(code==="staff-token-rules-association-mismatch")return "L’Elfo vede l’associazione del PG, ma la forma salvata non coincide con quella autorizzata dalle Rules. Apri il Gestore Staff Token v71 con la password Staff e salva/ripara l’associazione del PG.";
+    if(code==="staff-token-balance-type")return "Il saldo Staff Token di questo Staffer è salvato in un vecchio formato non numerico. Apri il Gestore Staff Token e registra/salva un movimento o una correzione del saldo per normalizzarlo.";
     if(code==="staff-token-owner-not-found")return "Non trovo il saldo dello Staffer.";
     if(code==="staff-token-owner-mismatch")return "L’uso registrato appartiene a un altro saldo Staffer.";
     return "Non riesco ad aggiornare gli Staff Token ("+code+").";
@@ -2876,7 +2957,7 @@
     var pg=String(staffTokenCurrentPgName()||"").trim();
     if(!pg){
       if(STAFF_TOKEN_STATE.pg){staffTokenStopWatchers();}
-      STAFF_TOKEN_STATE.pg="";STAFF_TOKEN_STATE.associated=false;STAFF_TOKEN_STATE.loading=false;
+      STAFF_TOKEN_STATE.pg="";STAFF_TOKEN_STATE.associated=false;STAFF_TOKEN_STATE.loading=false;STAFF_TOKEN_STATE.migrationRequired=false;
       return;
     }
     if(STAFF_TOKEN_STATE.pg===pg&&(STAFF_TOKEN_STATE.unsubOwner||STAFF_TOKEN_STATE.loading))return;
@@ -2900,6 +2981,7 @@
         var oldAssoc=STAFF_TOKEN_STATE.associated,oldId=STAFF_TOKEN_STATE.staffId,oldBalance=STAFF_TOKEN_STATE.balance;
         STAFF_TOKEN_STATE.loading=false;STAFF_TOKEN_STATE.error="";
         STAFF_TOKEN_STATE.associated=!!owner;
+        STAFF_TOKEN_STATE.migrationRequired=!!(owner&&owner.migrationRequired);
         STAFF_TOKEN_STATE.staffId=owner?String(owner.staffId||""):"";
         STAFF_TOKEN_STATE.staffName=owner?String(owner.staffName||""):"";
         STAFF_TOKEN_STATE.balance=owner?(parseInt(owner.balance,10)||0):0;
@@ -2930,6 +3012,7 @@
     var left=el("div","staff-token-live-main");
     left.appendChild(el("div","staff-token-live-title","<i class=\"fa-solid fa-pen-nib\"></i> Staff Token di "+staffTokenOwnerShort(STAFF_TOKEN_STATE.staffName)));
     left.appendChild(el("div","staff-token-live-note","Ogni Staff Token usato su un Post vale <b>+1 PP</b>. Il saldo si aggiorna in tempo reale anche nel Gestore."));
+    if(STAFF_TOKEN_STATE.migrationRequired)left.appendChild(el("div","staff-token-live-error","Associazione legacy rilevata: apri una volta il Gestore Staff Token v71 con la Password Staff prima di usare nuovi ST."));
     if(STAFF_TOKEN_STATE.error)left.appendChild(el("div","staff-token-live-error",staffTokenErrorText(STAFF_TOKEN_STATE.error)));
     box.appendChild(left);
     var bal=el("div","staff-token-live-balance");
@@ -2942,6 +3025,7 @@
     if(!EDIT_UNLOCKED){if(!opts.silent)alert("Entra in modifica con la Password del PG per usare gli Staff Token.");return false;}
     var staffId=String(post.staffTokenStaffId||STAFF_TOKEN_STATE.staffId||"");
     if(enabled&&!STAFF_TOKEN_STATE.associated){if(!opts.silent)alert("Questo PG non è associato a uno Staffer nel Gestore Staff Token.");return false;}
+    if(enabled&&STAFF_TOKEN_STATE.migrationRequired){if(!opts.silent)alert("L’associazione di questo PG è ancora nel formato legacy. Apri una volta il Gestore Staff Token v71 con la Password Staff, poi rientra nell’Elfo.");return false;}
     if(!staffId){if(!opts.silent)alert("Non trovo lo Staffer proprietario di questo PG.");return false;}
     if(!isValidPostLink(post.link)){if(!opts.silent)alert("Inserisci prima un link valido per il Post.");return false;}
     if(enabled&&STAFF_TOKEN_STATE.balance<=0){if(!opts.silent)alert("Non ci sono Staff Token disponibili.");return false;}
@@ -2960,7 +3044,7 @@
     try{
       var res=await window.fbSetStaffTokenUsage(payload);
       if(!res||!res.ok){
-        if(!opts.silent)alert(staffTokenErrorText(res&&res.code,enabled?"spend":"refund"));
+        if(!opts.silent)alert(staffTokenErrorText(res&&res.code,enabled?"spend":"refund",res&&res.diagnostic));
         return false;
       }
       post.staffTokenUsato=enabled===true;
@@ -4513,6 +4597,20 @@
   function personalPendingLoad(pgName){
     try{var raw=localStorage.getItem(personalPendingKey(pgName));if(!raw){return null;}var rec=JSON.parse(raw);return rec&&rec.state?rec:null;}catch(e){console.warn("Coda locale Elfo non leggibile",e);return null;}
   }
+  var PERSONAL_PENDING_LOCAL_TIMER=null;
+  function personalPendingStoreSoon(code){
+    if(!personalPgName()){return;}
+    if(PERSONAL_PENDING_LOCAL_TIMER){clearTimeout(PERSONAL_PENDING_LOCAL_TIMER);}
+    PERSONAL_PENDING_LOCAL_TIMER=setTimeout(function(){
+      PERSONAL_PENDING_LOCAL_TIMER=null;
+      if(!DATA_DIRTY){return;}
+      personalPendingStore(collectState(),code||"local-edit");
+    },250);
+  }
+  function personalPendingFlushLocal(){
+    if(PERSONAL_PENDING_LOCAL_TIMER){clearTimeout(PERSONAL_PENDING_LOCAL_TIMER);PERSONAL_PENDING_LOCAL_TIMER=null;}
+    if(DATA_DIRTY&&personalPgName()){personalPendingStore(collectState(),"local-edit");}
+  }
   function personalPendingStore(state,code){
     var pgName=personalPgName();if(!pgName){return false;}
     try{
@@ -4572,6 +4670,18 @@
     if(code==="snapshot-failed"){return "Salvataggio bloccato: non è stato possibile creare il backup di sicurezza prima della rimozione. Riprova senza chiudere la pagina";}
     if(code==="revision-conflict"){return "Salvataggio bloccato: questo PG è stato modificato in un’altra scheda o dispositivo. Le modifiche locali non sono state sovrascritte: ricarica i dati prima di continuare";}
     if(code==="accredited-month-conflict"){return "Salvataggio bloccato: il Narratore ha accreditato una Camera Blindata mentre erano presenti modifiche locali non ancora consolidate. La CB accreditata non è stata alterata: ricarica i dati prima di continuare";}
+    if(code==="state-too-large"){
+      var rawSize=window.fbLastSaveError&&window.fbLastSaveError.raw, kb=rawSize&&rawSize.bytes?Math.round(rawSize.bytes/1024):null;
+      return "Salvataggio bloccato: il documento del PG è troppo grande"+(kb?" ("+kb+" KB)":"")+". La copia locale resta disponibile; serve alleggerire lo storico prima di continuare";
+    }
+    if(code==="invalid-local-data"){
+      var raw=window.fbLastSaveError&&window.fbLastSaveError.raw;
+      return "Salvataggio bloccato da un dato locale non valido"+(raw&&raw.dataPath?" ("+raw.dataPath+")":"")+". La copia locale resta disponibile: non chiudere la pagina e segnala questo messaggio allo Staff";
+    }
+    if(code==="invalid-argument"){
+      var rawArg=window.fbLastSaveError&&window.fbLastSaveError.raw,detail=rawArg&&rawArg.message?String(rawArg.message):"";
+      return "Firebase ha rifiutato un dato del salvataggio"+(detail?" — "+detail.slice(0,220):"")+". La copia locale resta disponibile";
+    }
     return "Errore nel salvataggio, riprova";
   }
   function manualSaveNow(btn){
@@ -5724,6 +5834,10 @@
     if(registraModifica !== false){
       captureUndoHistory(true);
       DATA_DIRTY = true;
+      /* v nuovo: ogni modifica personale riceve subito anche una copia locale
+         debounced. Se la pagina viene chiusa prima del commit cloud, al rientro
+         la coda locale può essere recuperata invece di perdere l'ultimo aggiornamento. */
+      personalPendingStoreSoon("local-edit");
     }
     if(SAVE_CONFLICT_LOCKED){fbStatusText="Salvataggio bloccato: ricarica il Tool";updateFbIndicator();return;}
     if(!fbConnected || !window.fbReady){ return; }
@@ -5747,6 +5861,14 @@
       }).catch(function(e){console.error(e);if(personalTransientSaveCode((e&&e.code)||"")){personalHandleTransientFailure(e.code,state);fbStatusText=saveErrorStatus();}else{fbStatusText="Errore nel salvataggio, riprova";}updateFbIndicator();});
     }, requestedDelay);
     updateFbIndicator();
+  }
+
+  if(!window.__ELFO_PERSONAL_PENDING_VISIBILITY_BOUND){
+    window.__ELFO_PERSONAL_PENDING_VISIBILITY_BOUND=true;
+    document.addEventListener("visibilitychange",function(){
+      if(document.visibilityState==="hidden"){personalPendingFlushLocal();}
+    });
+    window.addEventListener("pagehide",function(){personalPendingFlushLocal();});
   }
 
   function updateFbIndicator(){
@@ -8928,13 +9050,19 @@
           var isSelectedMode=b.modalita==="selected";
           var setupMissing=!isSelectedMode&&(!b.usatiConfermati||!(b.maxUtilizzi>0));
           var exhausted=!isSelectedMode&&b.maxUtilizzi>0&&bonusCurrentUses(b,mese.posts)>=b.maxUtilizzi&&!cb.checked;
-          cb.disabled=!!locked||!isValidPostLink(post.link)||setupMissing||exhausted;
-          cb.title=isSelectedMode?"Spuntato = questo post riceve il Bonus":(setupMissing?"Prima indica Utilizzi attuali in Scheda e Utilizzi totali":(exhausted?"Premio esaurito":"Spuntato = utilizzo del premio su questo post"));
+          cb.disabled=!!locked||!isValidPostLink(post.link)||exhausted;
+          cb.title=isSelectedMode?"Spuntato = questo post riceve il Bonus":(setupMissing?"Se mancano gli utilizzi dell’oggetto, l’Elfo te lo segnalerà al click":(exhausted?"Premio esaurito":"Spuntato = utilizzo del premio su questo post"));
           cb.addEventListener("change",function(){
             if(blockIfMonthReadOnly(mese)){renderAll();return;}
-            var r=getBonusUsageRecord(post,b,true);
-            if(!isSelectedMode&&cb.checked && b.maxUtilizzi>0 && bonusCurrentUses(b,mese.posts)>=b.maxUtilizzi && !r.used){
-              alert("Questo Bonus ha già raggiunto "+b.maxUtilizzi+"/"+b.maxUtilizzi+" utilizzi.");renderAll();return;
+            var live=allMonthBonuses(mese).filter(function(x){return String(x.id)===String(b.id);})[0]||b;
+            if(!isSelectedMode&&cb.checked&&(!live.usatiConfermati||!(live.maxUtilizzi>0))){
+              cb.checked=false;
+              alert("Prima indica nel riquadro Bonus gli «Utilizzi attuali in Scheda» (anche 0) e gli «Utilizzi totali» dell’oggetto.");
+              renderAll();return;
+            }
+            var r=getBonusUsageRecord(post,live,true);
+            if(!isSelectedMode&&cb.checked && live.maxUtilizzi>0 && bonusCurrentUses(live,mese.posts)>=live.maxUtilizzi && !r.used){
+              alert("Questo Bonus ha già raggiunto "+live.maxUtilizzi+"/"+live.maxUtilizzi+" utilizzi.");renderAll();return;
             }
             r.used=cb.checked;scheduleSave(0);renderAll();
           });
@@ -9064,6 +9192,18 @@
       var initConfirmed=getEditableBonusField(mese,bonus,isPrimary,"usatiConfermati")===true;
       init.value=initConfirmed?Math.max(0,parseInt(getEditableBonusField(mese,bonus,isPrimary,"usatiIniziali"),10)||0):"";
       init.disabled=locked;
+      init.addEventListener("input",function(){
+        if(blockIfMonthReadOnly(mese))return;
+        if(String(init.value).trim()===""){
+          setEditableBonusField(mese,bonus,isPrimary,"usatiConfermati",false);
+        }else{
+          var v=Math.max(0,parseInt(init.value,10)||0),mx=Math.max(0,parseInt(getEditableBonusField(mese,bonus,isPrimary,"maxUtilizzi"),10)||0);
+          if(mx>0)v=Math.min(v,mx);
+          setEditableBonusField(mese,bonus,isPrimary,"usatiIniziali",v);
+          setEditableBonusField(mese,bonus,isPrimary,"usatiConfermati",true);
+        }
+        scheduleSave(450);
+      });
       init.addEventListener("change",function(){
         if(blockIfMonthReadOnly(mese))return;
         if(String(init.value).trim()===""){
@@ -9080,6 +9220,7 @@
 
       var maxCell=el("div");maxCell.appendChild(el("label",null,"Utilizzi totali"));
       var max=el("input");max.type="number";max.min="0";max.step="1";max.placeholder="Es. 10";max.value=Math.max(0,parseInt(getEditableBonusField(mese,bonus,isPrimary,"maxUtilizzi"),10)||0);max.disabled=locked;
+      max.addEventListener("input",function(){if(blockIfMonthReadOnly(mese))return;var v=Math.max(0,parseInt(max.value,10)||0);setEditableBonusField(mese,bonus,isPrimary,"maxUtilizzi",v);scheduleSave(450);});
       max.addEventListener("change",function(){if(blockIfMonthReadOnly(mese))return;var v=Math.max(0,parseInt(max.value,10)||0);setEditableBonusField(mese,bonus,isPrimary,"maxUtilizzi",v);scheduleSave(0);renderAll();});
       maxCell.appendChild(max);row.appendChild(maxCell);
     }
