@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- v169 — rimozione completa del vecchio riconoscimento automatico sezioni ForumFree; 08/09/2026 -->
+<!-- v170 — correzione premi Role fuori conteggio; 08/09/2026 -->
 <!-- v165 — fix mirato post-password: ricalcolo altezza ritardato dopo sblocco modifica; rollback automatismi So-Tutto non necessari; 08/09/2026 -->
 <!-- v163 — fix altezza iframe: misura robusta scrollHeight + bounding box; include controllo sezioni escluse v162; nessuna lettura Firebase aggiuntiva; 08/09/2026 -->
 <!-- v162 — I tuoi Post: blocco automatico sezioni 0 Galeoni/fuori conteggio via bridge ForumFree; nessuna lettura Firebase aggiuntiva; include So-Tutto e tutti i fix v161; 08/09/2026 -->
@@ -3926,9 +3926,9 @@
   /* ROLE FUORI CONTEGGIO — Linea dell'Età / Giratempo / Trix Tristis */
   /* ==================================================== */
   var SPECIAL_ROLE_TYPES = {
-    linea_eta:{label:"Linea dell'Età",ppPerPost:1,galeoniPerRole:0,minPosts:0},
-    giratempo:{label:"Giratempo",ppPerPost:0,galeoniPerRole:50,minPosts:5},
-    trix_tristis:{label:"Trix Tristis",ppPerPost:0.5,galeoniPerRole:0,minPosts:0}
+    linea_eta:{label:"Linea dell'Età",ppPerPost:0.5,galeoniPerRole:0,minPosts:0},
+    giratempo:{label:"Giratempo",ppPerPost:1,galeoniPerRole:0,minPosts:0},
+    trix_tristis:{label:"Trix Tristis",ppPerPost:0,galeoniPerRole:50,minPosts:5}
   };
   function specialRoleTypeInfo(type){return SPECIAL_ROLE_TYPES[String(type||"")]||null;}
   function specialRoleTopicKey(url){
@@ -8899,7 +8899,7 @@
           var sri=specialRoleTypeInfo(post.specialRoleType),sr= specialRoleRewardForPost(post);
           var txt="↪ "+(sri?sri.label:"Role fuori conteggio");
           if(sr.pp>0)txt+=" · +"+sr.pp+" PP";
-          if(sri&&sri.galeoniPerRole>0)txt+=" · premio Role: 50 G al 5° Post";
+          if(sri&&sri.galeoniPerRole>0)txt+=" · premio Role: "+sri.galeoniPerRole+" G al "+sri.minPosts+"° Post";
           tdLink.appendChild(el("span","small-note special-role-post-note",txt));
         }
         var existingDuplicate=findDuplicateGeneralPostLink(post.link,post);
