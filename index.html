@@ -1,5 +1,6 @@
 <!DOCTYPE html>
-<!-- v164 — fix mirato post-password: ricalcolo altezza ritardato dopo sblocco modifica; rollback automatismi So-Tutto non necessari; 08/09/2026 -->
+<!-- v168 — Role fuori conteggio: titolo details rinominato con le tre sezioni; 08/09/2026 -->
+<!-- v165 — fix mirato post-password: ricalcolo altezza ritardato dopo sblocco modifica; rollback automatismi So-Tutto non necessari; 08/09/2026 -->
 <!-- v163 — fix altezza iframe: misura robusta scrollHeight + bounding box; include controllo sezioni escluse v162; nessuna lettura Firebase aggiuntiva; 08/09/2026 -->
 <!-- v162 — I tuoi Post: blocco automatico sezioni 0 Galeoni/fuori conteggio via bridge ForumFree; nessuna lettura Firebase aggiuntiva; include So-Tutto e tutti i fix v161; 08/09/2026 -->
 <!-- v161 — strutture: gerarchia uniforme + numeri Postazione automatici; avvisi solo per import automatici esterni; include v160; 08/09/2026 -->
@@ -1812,6 +1813,11 @@
   details.bonus-details > summary.bonus-details-summary::before{content:"▶";display:inline-block;width:1.2em;color:var(--gold);font-size:.8em;}
   details.bonus-details[open] > summary.bonus-details-summary::before{content:"▼";}
   details.bonus-details[open] > summary.bonus-details-summary{margin-bottom:10px;}
+
+  .special-role-manager{margin:10px 0 14px!important}
+  .special-role-manager>summary{font-size:.92rem}
+  .special-role-body{padding:8px 10px 10px}
+  .special-role-post-note{display:block;margin-top:4px;font-weight:800;color:#6b4b18}
 </style>
 
 <style id="elfo-v41-harvest-style">
@@ -3908,11 +3914,174 @@
 
   var POSTS = [];
   var MESI = [];
+  var SPECIAL_ROLE_REGISTRY = [];
   var HOUSE_ROLE_BONUSES = [];
   var meseCounter = 0;
   var postCounter = 0;
   var globalPostCounter = 0;
   var ARCHIVIO_DB = { periodiche:[], ultima:null };
+
+
+  /* ==================================================== */
+  /* ROLE FUORI CONTEGGIO — Linea dell'Età / Giratempo / Trix Tristis */
+  /* ==================================================== */
+  var SPECIAL_ROLE_TYPES = {
+    linea_eta:{label:"Linea dell'Età",ppPerPost:1,galeoniPerRole:0,minPosts:0},
+    giratempo:{label:"Giratempo",ppPerPost:0,galeoniPerRole:50,minPosts:5},
+    trix_tristis:{label:"Trix Tristis",ppPerPost:0.5,galeoniPerRole:0,minPosts:0}
+  };
+  function specialRoleTypeInfo(type){return SPECIAL_ROLE_TYPES[String(type||"")]||null;}
+  function specialRoleTopicKey(url){
+    var raw=String(url||"").trim();if(!raw)return "";
+    try{
+      var u=new URL(raw,location.href),t=String(u.searchParams.get("t")||u.searchParams.get("showtopic")||"").trim();
+      if(t)return "t:"+t;
+    }catch(e){}
+    var m=raw.match(/[?&](?:t|showtopic)=(\d+)/i);if(m)return "t:"+m[1];
+    var p=raw.match(/\/t\/(\d+)/i);if(p)return "t:"+p[1];
+    return "";
+  }
+  function normalizeSpecialRoleRegistry(list){
+    list=Array.isArray(list)?list:[];var out=[],seen={};
+    for(var i=0;i<list.length;i++){
+      var x=list[i]||{},key=String(x.key||specialRoleTopicKey(x.url||"")),info=specialRoleTypeInfo(x.type);
+      if(!key||!info||seen[key])continue;seen[key]=1;
+      out.push({id:String(x.id||("special_"+Date.now().toString(36)+"_"+i)),url:String(x.url||""),key:key,type:String(x.type||""),label:info.label});
+    }
+    return out;
+  }
+  function specialRoleEntryByKey(key){
+    key=String(key||"");SPECIAL_ROLE_REGISTRY=normalizeSpecialRoleRegistry(SPECIAL_ROLE_REGISTRY);
+    for(var i=0;i<SPECIAL_ROLE_REGISTRY.length;i++){if(String(SPECIAL_ROLE_REGISTRY[i].key)===key)return SPECIAL_ROLE_REGISTRY[i];}
+    return null;
+  }
+  function isSpecialRolePost(post){return !!(post&&specialRoleTypeInfo(post.specialRoleType)&&String(post.specialRoleKey||""));}
+  function specialRoleRewardForPost(post){
+    var info=post&&specialRoleTypeInfo(post.specialRoleType);if(!info)return {pp:0,galeoni:0};
+    return {pp:Number(info.ppPerPost)||0,galeoni:0};
+  }
+  function specialRoleMatchedPosts(entry){
+    var out=[];if(!entry)return out;
+    for(var mi=0;mi<MESI.length;mi++){
+      var mese=MESI[mi],posts=Array.isArray(mese&&mese.posts)?mese.posts:[];
+      for(var pi=0;pi<posts.length;pi++){
+        var p=posts[pi];if(!p||!isValidPostLink(p.link))continue;
+        if(String(p.specialRoleKey||"")===String(entry.key)||specialRoleTopicKey(p.link)===String(entry.key)){out.push({mese:mese,post:p});}
+      }
+    }
+    return out;
+  }
+  function specialRoleTotals(entry){
+    var matches=specialRoleMatchedPosts(entry),info=specialRoleTypeInfo(entry&&entry.type),count=matches.length,pp=0,g=0;
+    if(info){
+      pp=count*(Number(info.ppPerPost)||0);
+      if((Number(info.galeoniPerRole)||0)>0 && count>=Math.max(0,parseInt(info.minPosts,10)||0))g=Number(info.galeoniPerRole)||0;
+    }
+    return {posts:count,pp:pp,galeoni:g,minPosts:info?Math.max(0,parseInt(info.minPosts,10)||0):0};
+  }
+  function syncSpecialRoleForPost(post){
+    if(!post)return false;
+    var key=specialRoleTopicKey(post.link),entry=key?specialRoleEntryByKey(key):null;
+    if(entry){
+      post.specialRoleKey=entry.key;post.specialRoleType=entry.type;post.specialRoleLabel=entry.label;
+      post.globalNo=null;
+      return true;
+    }
+    /* Se il Post era già stato marcato da una Role poi conclusa, conserva lo stato.
+       Se invece il link viene sostituito con un altro topic, rimuovi il vecchio marcatore. */
+    if(isSpecialRolePost(post) && key && key!==String(post.specialRoleKey||"")){
+      post.specialRoleKey="";post.specialRoleType="";post.specialRoleLabel="";
+    }
+    return false;
+  }
+  function registerSpecialRole(url,type){
+    var key=specialRoleTopicKey(url),info=specialRoleTypeInfo(type);
+    if(!key){return {ok:false,error:"Incolla un link ForumFree valido della Role (deve contenere t=…)."};}
+    if(!info){return {ok:false,error:"Scegli la sezione della Role."};}
+    if(specialRoleEntryByKey(key)){return {ok:false,error:"Questa Role è già registrata tra le Role fuori conteggio."};}
+    /* Protezione: se dei Post di questo topic sono già usati da lavorazioni attive,
+       non possiamo togliere retroattivamente il N. globale senza rompere i riferimenti. */
+    for(var mi=0;mi<MESI.length;mi++){
+      var posts=Array.isArray(MESI[mi]&&MESI[mi].posts)?MESI[mi].posts:[];
+      for(var pi=0;pi<posts.length;pi++){
+        var p=posts[pi];if(!p||specialRoleTopicKey(p.link)!==key)continue;
+        if(typeof globalPostReferenceLabels==="function"){
+          var refs=globalPostReferenceLabels(p);
+          if(refs&&refs.length){return {ok:false,error:"Un Post di questa Role è già usato da una lavorazione attiva ("+refs.join("; ")+"). Chiudi o correggi prima quel riferimento."};}
+        }
+      }
+    }
+    var entry={id:"special_"+Date.now().toString(36)+"_"+Math.random().toString(36).slice(2,7),url:String(url||"").trim(),key:key,type:String(type),label:info.label};
+    SPECIAL_ROLE_REGISTRY.push(entry);SPECIAL_ROLE_REGISTRY=normalizeSpecialRoleRegistry(SPECIAL_ROLE_REGISTRY);
+    var changed=0;
+    for(var m=0;m<MESI.length;m++){
+      var ps=Array.isArray(MESI[m]&&MESI[m].posts)?MESI[m].posts:[];
+      for(var pidx=0;pidx<ps.length;pidx++){
+        var p2=ps[pidx];if(p2&&specialRoleTopicKey(p2.link)===key){
+          p2.specialRoleKey=key;p2.specialRoleType=String(type);p2.specialRoleLabel=info.label;p2.globalNo=null;changed++;
+        }
+      }
+    }
+    return {ok:true,entry:entry,matched:changed};
+  }
+  function finalizeSpecialRole(key){
+    key=String(key||"");var entry=specialRoleEntryByKey(key);if(!entry)return false;
+    SPECIAL_ROLE_REGISTRY=SPECIAL_ROLE_REGISTRY.filter(function(x){return String(x.key)!==key;});
+    /* I Post già giocati mantengono il marcatore e i premi; non conserviamo lo storico
+       della Role nel registro attivo. */
+    return true;
+  }
+  function specialRoleRewardText(entry){
+    var t=specialRoleTotals(entry),info=specialRoleTypeInfo(entry&&entry.type);if(!info)return "—";
+    var parts=[t.posts+" Post"];
+    if(t.pp>0)parts.push((Math.round(t.pp*10)/10)+" PP");
+    if(info.galeoniPerRole>0){
+      if(t.posts>=t.minPosts)parts.push(info.galeoniPerRole+" Galeoni");
+      else parts.push("0 Galeoni · "+t.posts+"/"+t.minPosts+" Post per 50 Galeoni");
+    }else parts.push("0 Galeoni");
+    return parts.join(" · ");
+  }
+  function renderSpecialRoleManager(parent){
+    SPECIAL_ROLE_REGISTRY=normalizeSpecialRoleRegistry(SPECIAL_ROLE_REGISTRY);
+    var det=el("details","stage special-role-manager");keepDetailsState(det,"posts:special-role-manager",false);
+    det.appendChild(el("summary",null,"↪ Linea dell’Età · Giratempo · Trix Tristis ("+SPECIAL_ROLE_REGISTRY.length+")"));
+    var body=el("div","special-role-body");
+    body.appendChild(el("p","small-note","Per <b>Linea dell’Età</b>, <b>Giratempo</b> e <b>Trix Tristis</b> registra una volta il link della Role. Tutti i Post dello stesso topic verranno riconosciuti automaticamente in «I tuoi Post», ma <b>non riceveranno N. globale</b>, non entreranno in Camera Blindata e non faranno avanzare Coltivazioni, Allevamenti, Pozioni o Guarigioni."));
+    if(SPECIAL_ROLE_REGISTRY.length){
+      for(var i=0;i<SPECIAL_ROLE_REGISTRY.length;i++){(function(entry){
+        var row=el("div","healing-role-row"),main=el("div");
+        main.appendChild(el("strong",null,entry.label));
+        main.appendChild(document.createElement("br"));
+        var a=document.createElement("a");a.href=entry.url;a.target="_blank";a.rel="noopener noreferrer";a.className="tacc-link";a.textContent=entry.url;main.appendChild(a);
+        main.appendChild(document.createElement("br"));
+        main.appendChild(el("span","small-note","Premi maturati: "+specialRoleRewardText(entry)));
+        row.appendChild(main);
+        var done=el("button","action small","Role conclusa");done.type="button";done.disabled=!EDIT_UNLOCKED;
+        done.addEventListener(EV,function(){
+          if(!EDIT_UNLOCKED){alert("Accedi alla modifica dell’Elfo.");return;}
+          finalizeSpecialRole(entry.key);scheduleSave(0);renderAll();
+        });
+        row.appendChild(done);body.appendChild(row);
+      })(SPECIAL_ROLE_REGISTRY[i]);}
+    }else{
+      body.appendChild(el("p","small-note","Nessuna Role fuori conteggio attiva."));
+    }
+    var add=el("div","row"),c1=el("div"),c2=el("div");
+    c1.appendChild(el("label",null,"Link della Role"));
+    var inp=el("input");inp.type="text";inp.placeholder="https://.../?t=...";inp.disabled=!EDIT_UNLOCKED;c1.appendChild(inp);
+    c2.appendChild(el("label",null,"Sezione"));
+    var sel=el("select");sel.disabled=!EDIT_UNLOCKED;
+    [["","— scegli —"],["linea_eta","Linea dell’Età"],["giratempo","Giratempo"],["trix_tristis","Trix Tristis"]].forEach(function(o){var op=el("option");op.value=o[0];op.textContent=o[1];sel.appendChild(op);});c2.appendChild(sel);
+    add.appendChild(c1);add.appendChild(c2);body.appendChild(add);
+    var btn=el("button","action small","+ Registra Role");btn.type="button";btn.disabled=!EDIT_UNLOCKED;
+    btn.addEventListener(EV,function(){
+      if(!EDIT_UNLOCKED){alert("Accedi alla modifica dell’Elfo.");return;}
+      var res=registerSpecialRole(inp.value,sel.value);
+      if(!res.ok){alert(res.error);return;}
+      scheduleSave(0);renderAll();
+    });body.appendChild(btn);
+    det.appendChild(body);parent.appendChild(det);
+  }
 
   function ensurePermanentGlobalNumbers(){
     var maxN = Math.max(0, num(globalPostCounter, 0));
@@ -3930,7 +4099,7 @@
       var posts = Array.isArray(MESI[mi].posts) ? MESI[mi].posts : [];
       for(var pi=0;pi<posts.length;pi++){
         var post = posts[pi];
-        if(!post || !isValidPostLink(post.link)){ continue; }
+        if(!post || !isValidPostLink(post.link) || isSpecialRolePost(post)){ continue; }
         var n = parseInt(post.globalNo,10);
         if(isNaN(n) || n <= 0){ maxN++; post.globalNo = maxN; DATA_DIRTY=true; }
       }
@@ -3938,7 +4107,7 @@
     globalPostCounter = maxN;
   }
   function ensurePostGlobalNo(post){
-    if(!post || !isValidPostLink(post.link)){ return; }
+    if(!post || !isValidPostLink(post.link) || isSpecialRolePost(post)){ return; }
     var n = parseInt(post.globalNo,10);
     if(isNaN(n) || n <= 0){ globalPostCounter++; post.globalNo = globalPostCounter; }
     else if(n > globalPostCounter){ globalPostCounter = n; }
@@ -3952,7 +4121,7 @@
   function generalPostHasPersistenceContent(post){
     if(!post){return false;}
     if(String(post.link||"").trim() || String(post.nota||"").trim() || String(post.pp||"").trim()){return true;}
-    if((parseInt(post.globalNo,10)||0)>0 || post.eventoBonusEscluso===true || post.staffTokenUsato===true){return true;}
+    if((parseInt(post.globalNo,10)||0)>0 || isSpecialRolePost(post) || post.eventoBonusEscluso===true || post.staffTokenUsato===true){return true;}
     if(post.bonusUtilizzi && typeof post.bonusUtilizzi==="object" && Object.keys(post.bonusUtilizzi).length){return true;}
     return false;
   }
@@ -5682,7 +5851,7 @@
   }
 
   function resetDataState(){
-    POSTS = []; MESI = []; HOUSE_ROLE_BONUSES = []; meseCounter = 0; postCounter = 0; globalPostCounter = 0; ARCHIVIO_DB = { periodiche:[], ultima:null };
+    POSTS = []; MESI = []; SPECIAL_ROLE_REGISTRY = []; HOUSE_ROLE_BONUSES = []; meseCounter = 0; postCounter = 0; globalPostCounter = 0; ARCHIVIO_DB = { periodiche:[], ultima:null };
     STUDENTE = { nome:"", anno:"V", annoPromemoriaAgosto:0, elfoNome:"Dobby", elfoAppellativo:"Padron", elfoNomeChiamata:"", elfoTitoloPersonalizzato:false };
     STRUTTURE = { taccuino:false, dispensa:false, postazione:false, cubicolo:false, recinto:false, esporta:false };
     POSTAZIONE_FAC = { descrizione:"", distillatoriMax:0 }; CALDERONI = []; calderoneCounter = 0; ARCHIVIO_CALDERONI = [];
@@ -5701,7 +5870,7 @@
       RICHIESTA_ELIMINAZIONE: DELETE_REQUESTED,
       _tutorialState: tutorialNormalizeState(TUTORIAL_STATE),
       STUDENTE: STUDENTE,
-      MESI: mesiForPersistence(), HOUSE_ROLE_BONUSES: normalizeHouseRoleBonuses(HOUSE_ROLE_BONUSES), meseCounter: meseCounter, postCounter: postCounter, globalPostCounter: globalPostCounter, ARCHIVIO_DB: ARCHIVIO_DB,
+      MESI: mesiForPersistence(), SPECIAL_ROLE_REGISTRY: normalizeSpecialRoleRegistry(SPECIAL_ROLE_REGISTRY), HOUSE_ROLE_BONUSES: normalizeHouseRoleBonuses(HOUSE_ROLE_BONUSES), meseCounter: meseCounter, postCounter: postCounter, globalPostCounter: globalPostCounter, ARCHIVIO_DB: ARCHIVIO_DB,
       PARAMETRI_SOCIALI: PARAMETRI_SOCIALI, VERIFICHE_PARAMETRI_SOCIALI: VERIFICHE_PARAMETRI_SOCIALI, SOCIAL_SYNC_META: SOCIAL_SYNC_META,
       STRUTTURE: STRUTTURE,
       DISPENSA: DISPENSA, ingredienteCounter: ingredienteCounter, movimentoCounter: movimentoCounter, _dispensaBatchDraft: cloneHistoryState(DISPENSA_BATCH),
@@ -5741,6 +5910,7 @@
     if(isNaN(_annoProm)||_annoProm<0){_annoProm=0;}
     if(STUDENTE.annoPromemoriaAgosto!==_annoProm){STUDENTE.annoPromemoriaAgosto=_annoProm;DATA_DIRTY=true;}
     if(data.MESI){ MESI = data.MESI; }
+    SPECIAL_ROLE_REGISTRY = normalizeSpecialRoleRegistry(data.SPECIAL_ROLE_REGISTRY);
     HOUSE_ROLE_BONUSES = normalizeHouseRoleBonuses(data.HOUSE_ROLE_BONUSES);
     if(data.meseCounter){ meseCounter = data.meseCounter; }
     if(data.postCounter){ postCounter = data.postCounter; }
@@ -6302,7 +6472,7 @@
     return socialNumber(PARAMETRI_SOCIALI&&PARAMETRI_SOCIALI.stima);
   }
   function houseAutomaticPostEligible(mese,post){
-    return !!(houseSchoolMonth(mese)&&post&&isValidPostLink(post.link));
+    return !!(houseSchoolMonth(mese)&&post&&isValidPostLink(post.link)&&!isSpecialRolePost(post));
   }
   function houseRolePointsOnPost(post,mese){
     return houseAutomaticPostEligible(mese,post)&&houseRoleAssigned(post)&&post.houseRoleBonusExcluded!==true?2:0;
@@ -8539,7 +8709,9 @@
     var p = el("div", "panel");
     p.appendChild(el("h2", null, "I tuoi Post"));
     p.appendChild(el("div", "guide-text",
-      "Organizzati per Mese: apri un Mese e aggiungi i post al suo interno, senza doverlo riscrivere ogni volta. Ogni post con link riceve un <b>numero globale permanente</b>: una volta assegnato non cambia più, anche se in futuro il Narratore archivia e rimuove dal database mesi molto vecchi. È <b>qui</b> che trovi il N. globale da indicare in Pulizia del Calderone, Coltivazioni e Allevamento; i relativi conteggi avanzano poi automaticamente. I conteggi di Postazione, Cubicolo e Recinto possono quindi continuare in sicurezza da un mese all'altro. I Post delle sezioni <b>Giratempo, Trix Tristis e Linea dell’Età</b> vengono verificati prima del salvataggio: se appartengono a una di queste sezioni non entrano in I tuoi Post, non ricevono N. globale e non alimentano Galeoni o altri conteggi."));
+      "Organizzati per Mese: apri un Mese e aggiungi i post al suo interno, senza doverlo riscrivere ogni volta. Ogni post con link riceve un <b>numero globale permanente</b>: una volta assegnato non cambia più, anche se in futuro il Narratore archivia e rimuove dal database mesi molto vecchi. È <b>qui</b> che trovi il N. globale da indicare in Pulizia del Calderone, Coltivazioni e Allevamento; i relativi conteggi avanzano poi automaticamente. I conteggi di Postazione, Cubicolo e Recinto possono quindi continuare in sicurezza da un mese all'altro. Le Role di <b>Linea dell’Età, Giratempo e Trix Tristis</b> si registrano nel riquadro «Role fuori conteggio» qui sotto: i loro Post restano visibili in «I tuoi Post» con i premi specifici della sezione, ma non ricevono N. globale, non entrano in Camera Blindata e non fanno avanzare lavorazioni o Guarigioni."));
+    renderSpecialRoleManager(p);
+
     var legacyDupMonths = duplicateMonthNames();
     if(legacyDupMonths.length){
       p.appendChild(el("div", "warning-alert", "⚠ Sono presenti Mesi con lo stesso nome già salvati in precedenza: <b>" + legacyDupMonths.join(", ") + "</b>. Rinomina una delle voci per evitare ambiguità nel Riepilogo mensile del Narratore."));
@@ -8604,7 +8776,7 @@
       if(!archivedMese || !archivedMese.chiuso){ continue; }
       var archivedPosts = Array.isArray(archivedMese.posts) ? archivedMese.posts : [];
       for(var agp=0;agp<archivedPosts.length;agp++){
-        if(archivedPosts[agp] && isValidPostLink(archivedPosts[agp].link)){ archivedGlobalCount++; }
+        if(archivedPosts[agp] && isValidPostLink(archivedPosts[agp].link) && !isSpecialRolePost(archivedPosts[agp])){ archivedGlobalCount++; }
       }
     }
     globalDet.appendChild(el("summary", null, "Storico numerazione globale — Mesi archiviati (" + archivedGlobalCount + ")"));
@@ -8720,7 +8892,8 @@
           if(!globalSpan){ return; }
           var valid = isValidPostLink(post.link);
           var gn = parseInt(post.globalNo,10);
-          globalSpan.textContent = valid && !isNaN(gn) && gn>0 ? String(gn) : "—";
+          if(isSpecialRolePost(post)){globalSpan.textContent="Fuori conteggio";}
+          else{globalSpan.textContent = valid && !isNaN(gn) && gn>0 ? String(gn) : "—";}
         }
         var lastAcceptedPostLink=String(post.link||"");
         var sectionCheckSerial=0,sectionCheckTimer=0;
@@ -8735,6 +8908,7 @@
           if(String(candidate||"").trim()){ensurePersistentGeneralPostId(post);}
           post.link=candidate;
           lastAcceptedPostLink=candidate;
+          syncSpecialRoleForPost(post);
           ensurePostGlobalNo(post);
           refreshInlineGlobal();
           syncHouseRoleBonusForPost(post,mese);
@@ -8755,7 +8929,6 @@
           refreshInlineGlobal();
         }
         function verifyAndCommitGeneralPostLink(candidate,delay){
-          var serial=++sectionCheckSerial;
           if(staffTokenIsUsed(post,mese)&&!isValidPostLink(candidate)){
             iLink.value=lastAcceptedPostLink;alert("Questo Post usa uno Staff Token. Rimuovi prima lo Staff Token, poi potrai eliminare il link.");refreshInlineGlobal();return;
           }
@@ -8764,22 +8937,11 @@
           }
           var hit=findDuplicateGeneralPostLink(candidate,post);
           if(hit){rejectDuplicatePostLink(candidate,hit);return;}
-          var topicId=forumfreeTopicIdFromPostLink(candidate);
-          if(!topicId){commitGeneralPostLink(candidate,delay);return;}
-          iLink.classList.add("post-link-checking");
-          requestForumfreeSectionCheck(candidate).then(function(result){
-            if(serial!==sectionCheckSerial || String(iLink.value||"")!==String(candidate||"")){return;}
-            iLink.classList.remove("post-link-checking");
-            if(!result || result.status!=="ok"){rejectUnverifiedForumSection();return;}
-            var sid=String(result.sectionId||"");
-            var excluded=result.excluded===true || !!FF_EXCLUDED_POST_SECTIONS[sid];
-            if(excluded){rejectExcludedForumSection(candidate,result);return;}
-            commitGeneralPostLink(candidate,delay);
-          });
+          commitGeneralPostLink(candidate,delay);
         }
         function scheduleForumSectionCommit(candidate,delay){
           if(sectionCheckTimer){clearTimeout(sectionCheckTimer);}
-          sectionCheckTimer=setTimeout(function(){verifyAndCommitGeneralPostLink(candidate,delay);},420);
+          sectionCheckTimer=setTimeout(function(){verifyAndCommitGeneralPostLink(candidate,delay);},80);
         }
 
         iLink.addEventListener("paste",function(){
@@ -8812,6 +8974,13 @@
           verifyAndCommitGeneralPostLink(candidate,0);
         });
         tdLink.appendChild(iLink);
+        if(isSpecialRolePost(post)){
+          var sri=specialRoleTypeInfo(post.specialRoleType),sr= specialRoleRewardForPost(post);
+          var txt="↪ "+(sri?sri.label:"Role fuori conteggio");
+          if(sr.pp>0)txt+=" · +"+sr.pp+" PP";
+          if(sri&&sri.galeoniPerRole>0)txt+=" · premio Role: 50 G al 5° Post";
+          tdLink.appendChild(el("span","small-note special-role-post-note",txt));
+        }
         var existingDuplicate=findDuplicateGeneralPostLink(post.link,post);
         if(existingDuplicate&&isValidPostLink(post.link)){iLink.classList.add("post-link-duplicate");tdLink.appendChild(el("span","post-link-duplicate-note","⚠ Questo link è già presente in un altro Post generale."));}
 
@@ -9166,7 +9335,7 @@
   }
 
   function postEligibleForBonus(post,b,posts){
-    if(!post||!isValidPostLink(post.link)){return false;}
+    if(!post||!isValidPostLink(post.link)||isSpecialRolePost(post)){return false;}
     if(b.modalita==="all"){return true;}
     if(b.modalita==="selected"){return postUsesLimitedBonus(post,b);}
     if(b.modalita==="posts"){return postUsesLimitedBonus(post,b);}
@@ -9306,13 +9475,13 @@
   }
   function cumulativePP(posts,endExclusive,mese){return cumulativeBasePP(posts,endExclusive)+eventBonusTotal(mese,posts,endExclusive);}
   function cumulativeGWithEvent(posts,endExclusive,mese){
-    var linked=0;for(var i=0;i<endExclusive;i++){if(posts[i]&&isValidPostLink(posts[i].link))linked++;}
+    var linked=0;for(var i=0;i<endExclusive;i++){if(posts[i]&&isValidPostLink(posts[i].link)&&!isSpecialRolePost(posts[i]))linked++;}
     return cumulativeG(linked)+eventBonusGaleoniTotal(mese,posts,endExclusive);
   }
   function latestCreditInfo(mese,posts){
     posts=Array.isArray(posts)?posts:[];
     var idx=-1,linkedPos=0;
-    for(var i=0;i<posts.length;i++){if(posts[i]&&isValidPostLink(posts[i].link)){linkedPos++;idx=i;}}
+    for(var i=0;i<posts.length;i++){if(posts[i]&&isValidPostLink(posts[i].link)&&!isSpecialRolePost(posts[i])){linkedPos++;idx=i;}}
     if(idx<0){return null;}
     var post=posts[idx];
     return {
@@ -12846,7 +13015,6 @@
     if(html){
       pushHeight(html.scrollHeight);
       pushHeight(html.offsetHeight);
-      pushHeight(html.clientHeight);
     }
 
     return Math.max.apply(Math,values);
