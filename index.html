@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- v170 — correzione premi Role fuori conteggio; 08/09/2026 -->
+<!-- v171 — premi Role fuori conteggio accanto al N. globale + avviso Lista della Spesa; 08/09/2026 -->
 <!-- v165 — fix mirato post-password: ricalcolo altezza ritardato dopo sblocco modifica; rollback automatismi So-Tutto non necessari; 08/09/2026 -->
 <!-- v163 — fix altezza iframe: misura robusta scrollHeight + bounding box; include controllo sezioni escluse v162; nessuna lettura Firebase aggiuntiva; 08/09/2026 -->
 <!-- v162 — I tuoi Post: blocco automatico sezioni 0 Galeoni/fuori conteggio via bridge ForumFree; nessuna lettura Firebase aggiuntiva; include So-Tutto e tutti i fix v161; 08/09/2026 -->
@@ -1818,6 +1818,7 @@
   .special-role-manager>summary{font-size:.92rem}
   .special-role-body{padding:8px 10px 10px}
   .special-role-post-note{display:block;margin-top:4px;font-weight:800;color:#6b4b18}
+  .special-role-reward-box{display:inline-block;margin-left:7px;padding:3px 7px;border:1px solid rgba(169,128,58,.55);border-radius:7px;background:rgba(255,248,224,.82);font-size:.72rem;font-weight:800;white-space:nowrap;color:#6b4b18;vertical-align:middle}
 </style>
 
 <style id="elfo-v41-harvest-style">
@@ -4033,13 +4034,27 @@
   }
   function specialRoleRewardText(entry){
     var t=specialRoleTotals(entry),info=specialRoleTypeInfo(entry&&entry.type);if(!info)return "—";
-    var parts=[t.posts+" Post"];
-    if(t.pp>0)parts.push((Math.round(t.pp*10)/10)+" PP");
-    if(info.galeoniPerRole>0){
-      if(t.posts>=t.minPosts)parts.push(info.galeoniPerRole+" Galeoni");
-      else parts.push("0 Galeoni · "+t.posts+"/"+t.minPosts+" Post per 50 Galeoni");
-    }else parts.push("0 Galeoni");
+    var pp=Math.round((Number(t.pp)||0)*10)/10;
+    var g=Number(t.galeoni)||0;
+    var parts=[pp+" PP",g+" G"];
+    if(info.galeoniPerRole>0 && t.posts<t.minPosts){parts.push(t.posts+"/"+t.minPosts+" Post");}
     return parts.join(" · ");
+  }
+  function specialRoleRuleText(entry){
+    var info=specialRoleTypeInfo(entry&&entry.type);if(!info)return "—";
+    var pp=(Math.round((Number(info.ppPerPost)||0)*10)/10)+" PP/Post";
+    if((Number(info.galeoniPerRole)||0)>0){
+      return pp+" · "+info.galeoniPerRole+" Galeoni/Role (almeno "+info.minPosts+" Post)";
+    }
+    return pp+" · 0 Galeoni/Post";
+  }
+  function specialRoleRewardEntryForPost(post){
+    if(!post||!isSpecialRolePost(post))return null;
+    return {
+      key:String(post.specialRoleKey||specialRoleTopicKey(post.link)||""),
+      type:String(post.specialRoleType||""),
+      label:String(post.specialRoleLabel||"")
+    };
   }
   function renderSpecialRoleManager(parent){
     SPECIAL_ROLE_REGISTRY=normalizeSpecialRoleRegistry(SPECIAL_ROLE_REGISTRY);
@@ -4054,12 +4069,16 @@
         main.appendChild(document.createElement("br"));
         var a=document.createElement("a");a.href=entry.url;a.target="_blank";a.rel="noopener noreferrer";a.className="tacc-link";a.textContent=entry.url;main.appendChild(a);
         main.appendChild(document.createElement("br"));
-        main.appendChild(el("span","small-note","Premi maturati: "+specialRoleRewardText(entry)));
+        main.appendChild(el("span","small-note","Guadagni: "+specialRoleRuleText(entry)));
         row.appendChild(main);
         var done=el("button","action small","Role conclusa");done.type="button";done.disabled=!EDIT_UNLOCKED;
         done.addEventListener(EV,function(){
           if(!EDIT_UNLOCKED){alert("Accedi alla modifica dell’Elfo.");return;}
+          var premio=specialRoleRewardText(entry);
           finalizeSpecialRole(entry.key);scheduleSave(0);renderAll();
+          setTimeout(function(){
+            alert("Role conclusa. Premio maturato: "+premio+". Ricordati di richiederlo nella Lista della Spesa.");
+          },0);
         });
         row.appendChild(done);body.appendChild(row);
       })(SPECIAL_ROLE_REGISTRY[i]);}
@@ -8823,7 +8842,7 @@
         var tr = el("tr");
         tr.appendChild(el("td", null, "" + (idx+1)));
         var tdLink = el("td");
-        var globalSpan = null;
+        var globalSpan = null, specialRewardSpan = null;
         var refLabels=globalPostReferenceLabels(post);
         var iLink = el("input"); iLink.type="text"; iLink.value = post.link; iLink.placeholder="https://..."; iLink.disabled = contentLocked;
         if(refLabels.length){iLink.title="Il Post globale n° "+post.globalNo+" è usato da: "+refLabels.join("; ")+". Puoi sostituire il link con un altro URL valido, ma non lasciarlo vuoto o non valido.";}
@@ -8833,6 +8852,16 @@
           var gn = parseInt(post.globalNo,10);
           if(isSpecialRolePost(post)){globalSpan.textContent="Fuori conteggio";}
           else{globalSpan.textContent = valid && !isNaN(gn) && gn>0 ? String(gn) : "—";}
+          if(specialRewardSpan){
+            if(isSpecialRolePost(post)){
+              var rewardEntry=specialRoleRewardEntryForPost(post);
+              specialRewardSpan.textContent="Premi: "+specialRoleRewardText(rewardEntry);
+              specialRewardSpan.style.display="";
+            }else{
+              specialRewardSpan.textContent="";
+              specialRewardSpan.style.display="none";
+            }
+          }
         }
         var lastAcceptedPostLink=String(post.link||"");
         var sectionCheckSerial=0,sectionCheckTimer=0;
@@ -8896,11 +8925,8 @@
         });
         tdLink.appendChild(iLink);
         if(isSpecialRolePost(post)){
-          var sri=specialRoleTypeInfo(post.specialRoleType),sr= specialRoleRewardForPost(post);
-          var txt="↪ "+(sri?sri.label:"Role fuori conteggio");
-          if(sr.pp>0)txt+=" · +"+sr.pp+" PP";
-          if(sri&&sri.galeoniPerRole>0)txt+=" · premio Role: "+sri.galeoniPerRole+" G al "+sri.minPosts+"° Post";
-          tdLink.appendChild(el("span","small-note special-role-post-note",txt));
+          var sri=specialRoleTypeInfo(post.specialRoleType);
+          tdLink.appendChild(el("span","small-note special-role-post-note","↪ "+(sri?sri.label:"Role fuori conteggio")));
         }
         var existingDuplicate=findDuplicateGeneralPostLink(post.link,post);
         if(existingDuplicate&&isValidPostLink(post.link)){iLink.classList.add("post-link-duplicate");tdLink.appendChild(el("span","post-link-duplicate-note","⚠ Questo link è già presente in un altro Post generale."));}
@@ -8939,7 +8965,10 @@
         if(showInlineGlobal){
           var tdGlobal = el("td", "global-number-cell");
           globalSpan = el("span", "global-post-number global-month-tone-" + (Math.max(0,MESI.indexOf(mese)) % 3), "—");
-          tdGlobal.appendChild(globalSpan); tr.appendChild(tdGlobal); refreshInlineGlobal();
+          tdGlobal.appendChild(globalSpan);
+          specialRewardSpan=el("span","special-role-reward-box","");
+          tdGlobal.appendChild(specialRewardSpan);
+          tr.appendChild(tdGlobal); refreshInlineGlobal();
         }
         var tdRm = el("td");
         var rmBtn = el("button", "action danger small", "Rimuovi");
