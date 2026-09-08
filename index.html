@@ -1,4 +1,6 @@
 <!DOCTYPE html>
+<!-- v160 — audit finale Laboratori/Missioni: premio So-Tutto collegabile direttamente dal Taccuino, auto-associazione alla Role quando possibile, nessun falso avviso Bagaglio; 08/09/2026 -->
+<!-- v159 — macro-audit Postazione/contatori + Missione So-Tutto-Sull'Argomento: N. globale in I tuoi Post, Pulizia chiara, premio PP automatico; include tutti i fix v158; 08/09/2026 -->
 <!-- v158 — Dispensa: alias Nogtail/Hodag + nome Pugnacio uniformato; include tutti i fix v157, 07/09/2026 -->
 <!-- v157 — Bonus: fix Firestore __primary__, contatore Usi per riga, editor semplificato, rerender stabile; ST invariati, 07/09/2026 -->
 <!-- v156 — fix Bonus __primary__ Firestore + rerender stabile senza saltino iframe; ST invariati, 07/09/2026 -->
@@ -2285,7 +2287,8 @@
         usatiIniziali:Math.max(0,parseInt(b.usatiIniziali,10)||0),
         usatiConfermati:b.usatiConfermati===true,
         variabileSu:["pp","galeoni","altro"].indexOf(b.variabileSu)>=0?b.variabileSu:"pp",
-        utilizziManuali:Math.max(0,parseInt(b.utilizziManuali,10)||0)
+        utilizziManuali:Math.max(0,parseInt(b.utilizziManuali,10)||0),
+        aggiornaBagaglio:b.aggiornaBagaglio!==false
       };
     });
     return base;
@@ -2731,7 +2734,7 @@
           if(staff.stafferAttivo===false)throw new Error("staff-token-staffer-inactive");
           if(usage&&usage.active===true){
             /* Un uso già attivo può arrivare qui dopo un refresh/race locale.
-               Se nel frattempo è cambiato il link del Post, Rules v44 richiedono
+               Se nel frattempo è cambiato il link del Post, le Rules correnti richiedono
                che uso e log di spesa restino coerenti nello STESSO commit. */
             var activeLogId=String(usage.spendLogId||"").trim();
             if(!activeLogId)throw new Error("staff-token-spend-log-missing");
@@ -7109,6 +7112,10 @@
     {id:"fh_estroversi",name:"Gli Estroversi",kind:"people",note:"Servono PG diversi e role diverse nello stesso anno scolastico. Le role estive valgono per l'anno scolastico che deve iniziare; non valgono le role di gruppo. Il conteggio dei PG diversi è tra i progressi che possono proseguire nel «Popolare» al passaggio Adulto, secondo la regola transitoria.",thresholds:[5,10,15],periodLabel:"Anno scolastico",peopleLabel:"PG diverso + role diversa"},
     {id:"fh_influencer",name:"L'Influencer — Livello Facile",kind:"counters",note:"La missione è riscattabile ogni 3 post in cui il PG pubblicizza attivamente il/i proprio/i Club; i post possono trovarsi in role diverse.",counters:[{key:"post",label:"Post di pubblicizzazione",repeatEvery:3,unit:"post"}]},
     {id:"fh_quidditch",name:"Il Quidditch Addicted",kind:"counters",note:"Conta le partite ufficiali e/o amichevoli giocate dal PG.",counters:[{key:"partite",label:"Partite giocate",thresholds:[1,3,5],unit:"partite"}]},
+    {id:"fh_sotutto",name:"Il So-Tutto-Sull'Argomento",kind:"fixedReward",note:"La semplice citazione non basta: il PG deve spiegare o raccontare l'evento a un altro PG per almeno uno o più post. Quando registri il premio in Camera Blindata usa il preset dedicato: l'Elfo crea un Bonus a 1 utilizzo e aggiunge automaticamente i PP quando spunti un post della role.",levels:[
+      {key:"facile",label:"Livello Facile",requirement:"Spiegare a un altro PG un evento Canon della Saga di Harry Potter accaduto nel Mondo Magico.",pp:1,other:"+1 Bontà o Malvagità"},
+      {key:"medio",label:"Livello Medio",requirement:"Spiegare a un altro PG un evento Canon della Trama accaduto ONGame e finito sui giornali.",pp:2,other:"+1.5 Bontà o Malvagità"}
+    ]},
     {id:"fh_spendaccione",name:"Lo Spendaccione",kind:"counters",note:"Conta solo i Galeoni spesi per role nelle Locande di Hogsmeade. Il premio è riscattabile ogni 50 G; non valgono le Locande di Diagon e Notturn Alley.",counters:[{key:"spesa",label:"Spesa nelle Locande di Hogsmeade",repeatEvery:50,unit:"G"}]},
     {id:"fh_venditore",name:"Il Venditore (Studente)",kind:"counters",note:"Vendite presso lo Zoppo ruolate in una o più role di almeno 5 post; le vendite fatte esclusivamente OFFGame non valgono.",counters:[{key:"legali",label:"Vendite Legali",goal:100,unit:"G"},{key:"illegali",label:"Vendite Illegali",goal:50,unit:"G"}]},
     {id:"fh_buono",name:"Il Buono — Livello Medio",kind:"counters",note:"Conta gli acquisti presso i Negozi Virtuosi ruolati in una o più role di almeno 5 post; gli acquisti esclusivamente OFFGame non valgono.",counters:[{key:"spesa",label:"Acquisti nei Negozi Virtuosi",goal:500,unit:"G"}]},
@@ -7400,6 +7407,104 @@
         var lr=el("div","tacc-mini-row"),ll=taccInput("Titolo / riferimento",""),lu=taccInput("Link della Role","");lu.input.type="url";lr.appendChild(ll.wrap);lr.appendChild(lu.wrap);var lb=el("button","action","+ Registra Role");lb.type="button";lb.addEventListener(EV,function(){r.roles.push({id:taccId("relrole"),label:String(ll.input.value||"").trim()||("Role "+(total+1)),url:String(lu.input.value||"").trim()});taccSave();renderAll();});lr.appendChild(lb);item.appendChild(lr);
         var d=el("button","action danger","Rimuovi PG");d.type="button";d.addEventListener(EV,function(){if(confirm("Rimuovere questo PG dal conteggio condiviso Amiconi/Compari?")){TACCUINO.relations=TACCUINO.relations.filter(function(x){return x.id!==r.id;});taccSave();renderAll();}});item.appendChild(d);card.appendChild(item);
       });
+    }else if(def.kind==="fixedReward"){
+      (def.levels||[]).forEach(function(lv){
+        card.appendChild(el("div","guide-text","<b>"+lv.label+"</b> — "+lv.requirement+"<br><b>Premio:</b> +"+lv.pp+" PP · "+lv.other));
+      });
+      card.appendChild(el("div","small-note","⚠ Se nella <b>stessa Role</b> completi più Missioni del FantaHogwarts, per ogni tipologia di premio vale soltanto il premio più alto, non la somma, salvo le Missioni a completamento."));
+
+      function appendRewardMonthPicker(parent,selectedIndex){
+        var w=el("div"),lab=el("label",null,"Mese del premio"),sel=el("select");
+        if(!MESI.length){
+          var no=el("option",null,"Nessun Mese disponibile");no.value="";sel.appendChild(no);sel.disabled=true;
+        }else{
+          for(var mi=0;mi<MESI.length;mi++){
+            var m=MESI[mi]||{},op=el("option",null,(m.nome||("Mese "+(mi+1)))+(m.chiuso?" [archiviato]":""));
+            op.value=String(mi);if(mi===selectedIndex)op.selected=true;sel.appendChild(op);
+          }
+        }
+        w.appendChild(lab);w.appendChild(sel);parent.appendChild(w);return sel;
+      }
+      function prepareRewardForCompletion(entry,monthIndex,showFeedback){
+        var idx=parseInt(monthIndex,10);
+        if(!(idx>=0&&idx<MESI.length)){if(showFeedback)alert("Non c'è un Mese disponibile in cui preparare il premio.");return {ok:false};}
+        var mese=MESI[idx];
+        if(blockIfMonthReadOnly(mese)){return {ok:false};}
+        var result=addSoTuttoMissionBonus(mese,entry.level,entry.id);
+        var matched=applySoTuttoBonusToRolePost(mese,result.bonus,entry.url);
+        scheduleSave(0);
+        meseSelezionatoBlindataIdx=idx;
+        if(showFeedback){
+          if(matched){
+            alert("Premio preparato in "+String(mese.nome||("Mese "+(idx+1)))+" e applicato automaticamente a un Post della Role: +"+result.cfg.pp+" PP.");
+          }else{
+            alert("Premio preparato in "+String(mese.nome||("Mese "+(idx+1)))+". Non ho trovato nella Camera Blindata un Post appartenente al link della Role: apri il Mese e spunta una sola casella «Usi 0/1» del Bonus.");
+          }
+        }
+        return {ok:true,result:result,matched:matched};
+      }
+
+      var completati=taccEntries(state,"completamenti");
+      if(completati.length){
+        var doneList=el("ul","tacc-people-list");
+        completati.forEach(function(e){
+          var lv=(def.levels||[]).find(function(x){return x.key===e.level;})||(def.levels||[])[0]||{label:"Livello",pp:0,other:""};
+          var li=el("li"),main=el("div","tacc-people-main");
+          main.appendChild(el("strong",null,lv.label+" · +"+lv.pp+" PP"));
+          if(e.label){main.appendChild(document.createElement("br"));main.appendChild(document.createTextNode(e.label));}
+          if(e.url){main.appendChild(document.createElement("br"));var al=document.createElement("a");al.href=e.url;al.target="_blank";al.rel="noopener noreferrer";al.className="tacc-link";al.textContent="Apri Role";main.appendChild(al);}
+
+          var linked=findSoTuttoRewardBySource(e.id);
+          if(linked){
+            var usedRefs=bonusUsedPostRefs(Object.assign({primary:false},linked.bonus),Array.isArray(linked.month.posts)?linked.month.posts:[]);
+            main.appendChild(document.createElement("br"));
+            main.appendChild(el("span","small-note","✓ Premio preparato in "+String(linked.month.nome||("Mese "+(linked.monthIndex+1)))+(usedRefs.length?" · applicato a "+usedRefs.join(", "):" · da associare a un Post in Camera Blindata")));
+          }else if(MESI.length){
+            var rewardRow=el("div","tacc-mini-row"),rewardMonth=appendRewardMonthPicker(rewardRow,MESI.length-1),rewardBtn=el("button","action small","Prepara premio PP");
+            rewardBtn.type="button";rewardBtn.addEventListener(EV,function(){prepareRewardForCompletion(e,rewardMonth.value,true);renderAll();});rewardRow.appendChild(rewardBtn);main.appendChild(rewardRow);
+          }
+          li.appendChild(main);
+
+          var rmDone=el("button","action danger","Rimuovi");rmDone.type="button";rmDone.title="Rimuove il promemoria dal Taccuino; un premio già preparato in Camera Blindata resta invariato.";
+          rmDone.addEventListener(EV,function(){for(var ci=completati.length-1;ci>=0;ci--){if(completati[ci].id===e.id)completati.splice(ci,1);}taccSave();renderAll();});
+          li.appendChild(rmDone);doneList.appendChild(li);
+        });
+        card.appendChild(doneList);
+      }else{
+        card.appendChild(el("div","tacc-empty","Nessun completamento ancora registrato."));
+      }
+
+      var fr=el("div","tacc-mini-row"),levelWrap=el("div");levelWrap.appendChild(el("label",null,"Livello"));var levelSel=el("select");
+      (def.levels||[]).forEach(function(lv){var op=el("option");op.value=lv.key;op.textContent=lv.label+" (+"+lv.pp+" PP)";levelSel.appendChild(op);});levelWrap.appendChild(levelSel);fr.appendChild(levelWrap);
+      var refRole=taccInput("Titolo / riferimento Role",""),urlRole=taccInput("Link della Role","");urlRole.input.type="url";fr.appendChild(refRole.wrap);fr.appendChild(urlRole.wrap);
+
+      var monthSel=appendRewardMonthPicker(fr,MESI.length?MESI.length-1:-1);
+      var autoWrap=el("label","tacc-checkline"),autoReward=el("input");autoReward.type="checkbox";autoReward.checked=true;autoWrap.appendChild(autoReward);autoWrap.appendChild(document.createTextNode(" Prepara anche il premio PP in Camera Blindata"));fr.appendChild(autoWrap);
+
+      var reg=el("button","action","+ Registra completamento");reg.type="button";
+      reg.addEventListener(EV,function(){
+        var selectedMonth=parseInt(monthSel.value,10);
+        if(autoReward.checked){
+          if(!(selectedMonth>=0&&selectedMonth<MESI.length)){alert("Crea prima un Mese oppure togli la spunta a «Prepara anche il premio PP».");return;}
+          if(blockIfMonthReadOnly(MESI[selectedMonth]))return;
+        }
+        var entry={id:taccId("sotutto"),level:String(levelSel.value||"facile"),label:String(refRole.input.value||"").trim(),url:String(urlRole.input.value||"").trim()};
+        completati.push(entry);
+        if(taccSave()===false){
+          completati.pop();
+          alert("Il completamento non è stato salvato nel Taccuino: non preparo il premio per evitare dati incoerenti.");
+          renderAll();return;
+        }
+        var prep=null;
+        if(autoReward.checked){prep=prepareRewardForCompletion(entry,selectedMonth,false);}
+        renderAll();
+        if(prep&&prep.ok){
+          if(prep.matched){alert("Missione registrata: +"+prep.result.cfg.pp+" PP applicati automaticamente a un Post della Role.");}
+          else{alert("Missione registrata e premio +"+prep.result.cfg.pp+" PP preparato. Non ho trovato un Post con lo stesso topic: in Camera Blindata spunta una sola casella del Bonus.");}
+        }
+      });
+      fr.appendChild(reg);card.appendChild(fr);
+      card.appendChild(el("p","small-note","Se lasci attiva la spunta, l’Elfo crea automaticamente il premio fisso (+1/+2 PP). Se il link della Role corrisponde a un Post già registrato nel Mese scelto, il premio viene applicato subito; altrimenti resta pronto in Camera Blindata e dovrai spuntare un solo Post."));
     }else if(def.kind==="people"){
       var addp=el("div","tacc-mini-row"),pn=taccInput("Nome PG","") ,pr=taccInput("Link / riferimento Role","");pr.input.type="url";addp.appendChild(pn.wrap);addp.appendChild(pr.wrap);var pab=el("button","action","+ Aggiungi");pab.type="button";pab.addEventListener(EV,function(){var name=String(pn.input.value||"").trim();if(!name){alert("Scrivi il nome del PG.");return;}if(state.people.some(function(x){return String(x.name||"").trim().toLowerCase()===name.toLowerCase();})){alert("Questo PG è già presente in questo conteggio.");return;}state.people.push({id:taccId("person"),name:name,role:String(pr.input.value||"").trim()});taccSave();renderAll();});addp.appendChild(pab);card.appendChild(addp);
       if(state.peopleCountExtra>0){var extra=taccInput("Conteggio importato senza nominativi",state.peopleCountExtra,"number");extra.input.type="number";extra.input.min="0";extra.input.step="1";extra.input.addEventListener("input",function(){state.peopleCountExtra=Math.max(0,parseInt(extra.input.value,10)||0);taccSave();});extra.input.addEventListener("change",function(){renderAll();});card.appendChild(extra.wrap);card.appendChild(el("div","small-note","Sono progressi riconosciuti dal vecchio Taccuino ma privi di un nominativo recuperabile. Puoi correggerli manualmente se necessario."));}
@@ -7412,7 +7517,7 @@
 
   function renderTaccMissioni(container){
     var title=TACC_MODE==="studente"?"FantaHogwarts — Missioni da tenere d'occhio":"FantaWiz — Missioni da tenere d'occhio";container.appendChild(el("h3",null,title));
-    container.appendChild(el("p","small-note","Qui compaiono soltanto le Missioni che richiedono davvero un conteggio nel tempo. Nascondere una Missione non cancella i suoi dati: se la riaggiungi, ritrovi il progresso precedente."));
+    container.appendChild(el("p","small-note","Qui puoi tenere sotto controllo le Missioni con progressi cumulativi e alcune Missioni a premio fisso gestite direttamente dall’Elfo. Nascondere una Missione non cancella i suoi dati: se la riaggiungi, ritrovi il progresso precedente."));
     var defs=taccMissionDefs(),available=defs.filter(function(d){return !taccMissionState(d.id).active;});
     var addCard=el("div","tacc-card"),row=el("div","tacc-grid-2"),selWrap=el("div");selWrap.appendChild(el("label",null,"Missione da aggiungere"));var sel=document.createElement("select");var blank=document.createElement("option");blank.value="";blank.textContent="Seleziona…";sel.appendChild(blank);available.forEach(function(d){var o=document.createElement("option");o.value=d.id;o.textContent=d.name;sel.appendChild(o);});selWrap.appendChild(sel);row.appendChild(selWrap);var add=el("button","action","+ Aggiungi al Taccuino");add.type="button";add.style.alignSelf="end";add.disabled=!available.length;add.addEventListener(EV,function(){if(!sel.value){return;}taccMissionState(sel.value).active=true;taccSave();renderAll();});row.appendChild(add);addCard.appendChild(row);container.appendChild(addCard);
     var active=defs.filter(function(d){return taccMissionState(d.id).active;});if(!active.length){container.appendChild(el("div","tacc-empty","Nessuna Missione attualmente tenuta d'occhio."));return;}active.forEach(function(d){renderTaccMissionCard(container,d);});
@@ -7566,13 +7671,17 @@
     String(section.raw||"").split(/\r?\n/).forEach(function(line){if(!/about|pinterest|scheda\s+png/i.test(taccLegacyPlain(line))){return;}taccLegacyLinks(line).forEach(function(x){if(!x.url||TACCUINO.links.some(function(y){return taccLegacyUrlKey(y&&y.url)===taccLegacyUrlKey(x.url);})){return;}TACCUINO.links.push({id:taccId("link"),label:x.label||"Link personale",url:x.url});stats.links++;});});
   }
   function taccLegacyMissionAliases(def){
-    var n=String(def&&def.name||"").replace(/\s*[—-].*$/," ").replace(/\s*\([^\)]*\)\s*$/," ").replace(/\s+/g," ").trim(),a=[n];
+    /* Il vecchio parser eliminava tutto dal primo "-" in poi: con nomi reali
+       come "Il So-Tutto-Sull'Argomento" produceva l'alias troppo generico
+       "Il So". Tagliamo solo i separatori di livello scritti con spazi. */
+    var n=String(def&&def.name||"").replace(/\s+—\s+.*$/," ").replace(/\s+-\s+.*$/," ").replace(/\s*\([^\)]*\)\s*$/," ").replace(/\s+/g," ").trim(),a=[n];
     if(/Gli Amiconi/i.test(n)){a.push("Gli amiconi","I Compari");}
     if(/I Compari/i.test(n)){a.push("I compari","Gli Amiconi");}
     /* Passaggio VII anno → Adulto: il conteggio dei PG diversi è il secondo
        progresso esplicitamente trasversale segnalato dal regolamento. */
     if(def&&def.id==="fw_popolare"){a.push("Gli Estroversi","Gli estroversi");}
     if(/Il Venditore/i.test(n)){a.push("Il venditore");}
+    if(def&&def.id==="fh_sotutto"){a.push("Il So-Tutto-Sull'Argomento","Il So-Tutto-Sull'-Argomento","Il So-Tutto-Sull’Argomento");}
     return a.filter(Boolean);
   }
   function taccLegacyMissionSourceMode(section){
@@ -8421,7 +8530,7 @@
     var p = el("div", "panel");
     p.appendChild(el("h2", null, "I tuoi Post"));
     p.appendChild(el("div", "guide-text",
-      "Organizzati per Mese: apri un Mese e aggiungi i post al suo interno, senza doverlo riscrivere ogni volta. Ogni post con link riceve un <b>numero globale permanente</b>: una volta assegnato non cambia più, anche se in futuro il Narratore archivia e rimuove dal database mesi molto vecchi. I conteggi di Postazione, Cubicolo e Recinto possono quindi continuare in sicurezza da un mese all'altro."));
+      "Organizzati per Mese: apri un Mese e aggiungi i post al suo interno, senza doverlo riscrivere ogni volta. Ogni post con link riceve un <b>numero globale permanente</b>: una volta assegnato non cambia più, anche se in futuro il Narratore archivia e rimuove dal database mesi molto vecchi. È <b>qui</b> che trovi il N. globale da indicare in Pulizia del Calderone, Coltivazioni e Allevamento; i relativi conteggi avanzano poi automaticamente. I conteggi di Postazione, Cubicolo e Recinto possono quindi continuare in sicurezza da un mese all'altro."));
     var legacyDupMonths = duplicateMonthNames();
     if(legacyDupMonths.length){
       p.appendChild(el("div", "warning-alert", "⚠ Sono presenti Mesi con lo stesso nome già salvati in precedenza: <b>" + legacyDupMonths.join(", ") + "</b>. Rinomina una delle voci per evitare ambiguità nel Riepilogo mensile del Narratore."));
@@ -8764,6 +8873,54 @@
   function meseBonusAltro(mese){ return String(mese && mese.eventoBonusAltro != null ? mese.eventoBonusAltro : "").trim(); }
   function newBonusId(){ return "b_"+Date.now().toString(36)+"_"+Math.random().toString(36).slice(2,8); }
 
+  function soTuttoMissionConfig(level){
+    return String(level||"facile")==="medio"
+      ? {key:"medio",label:"Livello Medio",pp:2,other:"+1.5 Bontà o Malvagità"}
+      : {key:"facile",label:"Livello Facile",pp:1,other:"+1 Bontà o Malvagità"};
+  }
+  function findSoTuttoRewardBySource(sourceId){
+    sourceId=String(sourceId||"");if(!sourceId)return null;
+    for(var mi=0;mi<MESI.length;mi++){
+      var extras=ensureBonusExtras(MESI[mi]);
+      for(var bi=0;bi<extras.length;bi++){
+        if(String(extras[bi]&&extras[bi].sourceMissionCompletionId||"")===sourceId){
+          return {month:MESI[mi],monthIndex:mi,bonus:extras[bi]};
+        }
+      }
+    }
+    return null;
+  }
+  function addSoTuttoMissionBonus(mese,level,sourceId){
+    var cfg=soTuttoMissionConfig(level),existing=sourceId?findSoTuttoRewardBySource(sourceId):null;
+    if(existing){return {cfg:cfg,bonus:existing.bonus,month:existing.month,monthIndex:existing.monthIndex,duplicate:true};}
+    var bonus={
+      id:newBonusId(),
+      descrizione:"Missione — Il So-Tutto-Sull'Argomento — "+cfg.label,
+      pp:cfg.pp,galeoni:0,altro:cfg.other,
+      modalita:"posts",primiPost:0,valore:"fixed",
+      maxUtilizzi:1,usatiIniziali:0,usatiConfermati:true,
+      variabileSu:"pp",utilizziManuali:0,aggiornaBagaglio:false,
+      sourceMission:"fh_sotutto",
+      sourceMissionCompletionId:String(sourceId||"")
+    };
+    ensureBonusExtras(mese).push(bonus);
+    return {cfg:cfg,bonus:bonus,month:mese,monthIndex:MESI.indexOf(mese),duplicate:false};
+  }
+  function applySoTuttoBonusToRolePost(mese,bonus,roleUrl){
+    if(!mese||!bonus)return null;
+    var key=healingRoleUrlKey(roleUrl||"");if(!key)return null;
+    var posts=Array.isArray(mese.posts)?mese.posts:[];
+    for(var i=0;i<posts.length;i++){
+      var p=posts[i];
+      if(!p||!isValidPostLink(p.link)){continue;}
+      if(healingRoleUrlKey(p.link)!==key){continue;}
+      var usage=getBonusUsageRecord(p,bonus,true);
+      usage.used=true;
+      return {post:p,index:i};
+    }
+    return null;
+  }
+
   function normalizeBonusMode(v){return ["all","selected","posts","first","manual"].indexOf(v)>=0?v:"all";}
   function normalizeBonusValueMode(v){return ["fixed","variable"].indexOf(v)>=0?v:"fixed";}
   function normalizeVariableTarget(v){return ["pp","galeoni","altro"].indexOf(v)>=0?v:"pp";}
@@ -8788,6 +8945,7 @@
       b.variabileSu=normalizeVariableTarget(b.variabileSu);
       b.utilizziManuali=Math.max(0,parseInt(b.utilizziManuali,10)||0);
       if(b.maxUtilizzi>0){b.utilizziManuali=Math.min(b.utilizziManuali,Math.max(0,b.maxUtilizzi-b.usatiIniziali));}
+      b.aggiornaBagaglio=b.aggiornaBagaglio!==false;
       mese.bonusAggiuntivi[i]=b;
     }
     return mese.bonusAggiuntivi;
@@ -8827,7 +8985,8 @@
         usatiIniziali:Math.max(0,parseInt(b.usatiIniziali,10)||0),
         usatiConfermati:b.usatiConfermati===true,
         variabileSu:normalizeVariableTarget(b.variabileSu),
-        utilizziManuali:Math.max(0,parseInt(b.utilizziManuali,10)||0)
+        utilizziManuali:Math.max(0,parseInt(b.utilizziManuali,10)||0),
+        aggiornaBagaglio:b.aggiornaBagaglio!==false
       });
     }
     return out;
@@ -8928,9 +9087,7 @@
       if(!post||!isValidPostLink(post.link)){continue;}
       localNo++;
       if(!postUsesLimitedBonus(post,b)){continue;}
-      var globalNo=parseInt(post.globalNo,10);
       var label="Post "+localNo;
-      if(!isNaN(globalNo)&&globalNo>0){label+=" (N. globale "+globalNo+")";}
       out.push(label);
     }
     return out;
@@ -8971,6 +9128,11 @@
   function bonusUsageStatusText(b,posts){
     if(!(b.maxUtilizzi>0)){return "";}
     var start=Math.max(0,parseInt(b.usatiIniziali,10)||0),monthUsed=bonusUsedThisMonth(b,posts),current=start+monthUsed;
+    if(b.aggiornaBagaglio===false){
+      if(current>=b.maxUtilizzi){return current+"/"+b.maxUtilizzi+" — premio utilizzato.";}
+      if(monthUsed>0){return current+"/"+b.maxUtilizzi+" — premio applicato.";}
+      return current+"/"+b.maxUtilizzi+" utilizzi del premio.";
+    }
     if(current>=b.maxUtilizzi){return current+"/"+b.maxUtilizzi+" — ESAURITO: rimuovere dal Bagaglio in Scheda PG.";}
     if(monthUsed>0){return current+"/"+b.maxUtilizzi+" — aggiornare nel Bagaglio in Scheda PG (da "+start+"/"+b.maxUtilizzi+" a "+current+"/"+b.maxUtilizzi+").";}
     return current+"/"+b.maxUtilizzi+" utilizzi.";
@@ -8980,6 +9142,7 @@
     for(var i=0;i<bonuses.length;i++){
       var b=bonuses[i];
       if((b.modalita!=="posts"&&b.modalita!=="manual")||!(b.maxUtilizzi>0)){continue;}
+      if(b.aggiornaBagaglio===false){continue;}
       var used=bonusUsedThisMonth(b,posts);
       if(used<=0){continue;}
       var current=bonusCurrentUses(b,posts);
@@ -9586,8 +9749,19 @@
     bonusBox.appendChild(el("div","bonus-quick-help","Imposta qui il premio. Se ha un numero di usi, scegli <b>A utilizzi sui post</b>: nelle righe sotto comparirà direttamente la casellina <b>Usi X/Y</b>."));
     var bonusHelp=el("details","bonus-help");
     bonusHelp.appendChild(el("summary",null,"Come configurare i diversi tipi di Bonus"));
-    bonusHelp.appendChild(el("p","small-note","<b>Tutti i post</b>: applicazione automatica. <b>Solo per i primi X post</b>: applicazione automatica entro il limite. <b>A utilizzi sui post</b>: spunti manualmente i post che consumano il premio. Se il risultato cambia ogni volta (es. +1d3 PP), scegli <b>Variabile per post</b>: risultato e link del tiro compariranno direttamente nella riga del post."));
+    bonusHelp.appendChild(el("p","small-note","<b>Tutti i post</b>: applicazione automatica. <b>Solo per i primi X post</b>: applicazione automatica entro il limite. <b>Solo sui post selezionati</b>: premio fisso applicato alle righe che scegli. <b>A utilizzi sui post</b>: spunti manualmente i post che consumano il premio. Se il risultato cambia ogni volta (es. +1d3 PP), scegli <b>Variabile per post</b>: risultato e link del tiro compariranno direttamente nella riga del post."));
     bonusBox.appendChild(bonusHelp);
+
+    if(!bonusLocked){
+      var missionPreset=el("details","bonus-help");
+      missionPreset.appendChild(el("summary",null,"Aggiungi premio Missione FantaHogwarts"));
+      missionPreset.appendChild(el("p","small-note","<b>Il So-Tutto-Sull'Argomento:</b> questa è una scorciatoia manuale se non hai preparato il premio dal Taccuino. L’Elfo crea un Bonus fisso a <b>1 utilizzo</b>; spunta un solo post della role e +1/+2 PP entreranno automaticamente nel totale del mese. Se nella stessa Role completi più Missioni FH, per ciascun tipo di premio vale soltanto quello più alto, salvo Missioni a completamento."));
+      var missionActions=el("div","bonus-actions");
+      var easyMission=el("button","action small","+ So-Tutto Facile (+1 PP)");easyMission.type="button";easyMission.addEventListener(EV,function(){if(blockIfMonthReadOnly(meseObj))return;addSoTuttoMissionBonus(meseObj,"facile");scheduleSave(0);renderAll();});missionActions.appendChild(easyMission);
+      var mediumMission=el("button","action small","+ So-Tutto Medio (+2 PP)");mediumMission.type="button";mediumMission.addEventListener(EV,function(){if(blockIfMonthReadOnly(meseObj))return;addSoTuttoMissionBonus(meseObj,"medio");scheduleSave(0);renderAll();});missionActions.appendChild(mediumMission);
+      missionPreset.appendChild(missionActions);
+      bonusBox.appendChild(missionPreset);
+    }
 
     appendBonusEditor(bonusBox,meseObj,primaryBonusItem(meseObj),0,bonusLocked,true);
     var extraBonuses=ensureBonusExtras(meseObj);
@@ -9751,7 +9925,7 @@
     staffTokenHistorical=staffTokenMonthHasHistory(postiDelMese,meseObj);
     var staffTokenColumn=STAFF_TOKEN_STATE.associated||staffTokenHistorical;
     var staffTokenHead=staffTokenColumn?"<th>ST</th>":"";
-    tblLive.appendChild(el("tr", null, "<th>N.</th><th>Link</th><th>Galeoni accumulati</th><th>N. globale</th><th>Bonus / Punti Casa</th>"+staffTokenHead+"<th>Totali</th>"));
+    tblLive.appendChild(el("tr", null, "<th>N.</th><th>Link</th><th>Galeoni accumulati</th><th>Bonus / Punti Casa</th>"+staffTokenHead+"<th>Totali</th>"));
 
     var showUpToLive = postiDelMese.length;
     if(showUpToLive < 1){ showUpToLive = 0; }
@@ -9775,16 +9949,6 @@
       }
       tr.appendChild(el("td","g-value",(cumulativeG(linkedUpTo) + eventBonusGaleoniTotal(meseObj, postiDelMese, li + 1)) + " G"));
 
-      var globalTd=el("td");
-      var globalNo=parseInt(lp.globalNo,10);
-      var monthTone=Math.max(0,MESI.indexOf(meseObj)) % 3;
-      if(!isNaN(globalNo) && globalNo>0){
-        globalTd.appendChild(el("span","global-post-number global-month-tone-"+monthTone,String(globalNo)));
-      }else{
-        globalTd.appendChild(el("span","cb-bonus-none","—"));
-      }
-      tr.appendChild(globalTd);
-
       tr.appendChild(makeEventBonusExclusionCell(lp,meseObj,bonusLocked));
       if(staffTokenColumn){
         tr.appendChild(STAFF_TOKEN_STATE.associated
@@ -9803,7 +9967,7 @@
     }
 
     if(showUpToLive === 0 || totFilled===0){
-      p.appendChild(el("p", "small-note", "Nessun post ancora in questo Mese: aggiungine allo Step precedente per vedere qui Galeoni, N. globale, Bonus e totali."));
+      p.appendChild(el("p", "small-note", "Nessun post ancora in questo Mese: aggiungine allo Step precedente per vedere qui Galeoni, Bonus e totali."));
     } else {
       p.appendChild(el("h4", null, "Progressivo del mese"));
       p.appendChild(tblLive);
@@ -10920,8 +11084,7 @@
     var archP=el("button","action small","Archivia Pozione conclusa"); archP.addEventListener(EV,function(){CALDERONI=CALDERONI.filter(function(x){return x.id!==postaz.id;});archiveStamp(postaz);ARCHIVIO_CALDERONI.push(postaz);scheduleSave(0);renderAll();}); actionWrap.appendChild(archP);
     var rm=el("button","action danger small","Rimuovi"); rm.addEventListener(EV,function(){CALDERONI=CALDERONI.filter(function(x){return x.id!==postaz.id;});scheduleSave(0);renderAll();}); actionWrap.appendChild(rm); h.appendChild(actionWrap); card.appendChild(h);
 
-    var row0=el("div","row"); var dNum=el("div"); dNum.appendChild(el("label",null,"Numero Postazione")); var iNum=el("input"); iNum.type="text"; iNum.value=postaz.numero; iNum.addEventListener("change",function(){postaz.numero=iNum.value;renderAll();}); dNum.appendChild(iNum); row0.appendChild(dNum);
-    var dGlobalStart=el("div"); dGlobalStart.appendChild(el("label",null,"Dal post globale n°")); var iGlobalStart=el("input"); iGlobalStart.type="number"; iGlobalStart.min="1"; iGlobalStart.step="1"; iGlobalStart.value=Math.max(1,num(postaz.startIndex,nextGlobalPostNumber())); iGlobalStart.addEventListener("change",function(){var proposed=Math.max(1,num(iGlobalStart.value,1));if(!validateGlobalIntervalOrAlert(proposed,Math.max(0,num(postaz.postRichiesti,0)))){iGlobalStart.value=postaz.startIndex;return;}postaz.startIndex=proposed;scheduleSave(0);renderAll();}); dGlobalStart.appendChild(iGlobalStart); row0.appendChild(dGlobalStart);
+    var row0=el("div","row"); var dNum=el("div"); dNum.appendChild(el("label",null,"Numero Postazione")); var iNum=el("input"); iNum.type="text"; iNum.value=postaz.numero; iNum.addEventListener("change",function(){postaz.numero=iNum.value;scheduleSave(0);renderAll();}); dNum.appendChild(iNum); row0.appendChild(dNum);
     card.appendChild(row0);
 
     var row1=el("div","row"); var dDataT=el("div"); dDataT.appendChild(el("label",null,"Data di creazione (GG/MM/AAAA)")); var iDataT=buildDateInput(postaz.dataTesto,function(v){postaz.dataTesto=v;}); dDataT.appendChild(iDataT); row1.appendChild(dDataT);
@@ -11061,13 +11224,20 @@
     iEsito.addEventListener("input",function(){postaz.imbottPercent=iEsito.value;});
     dEsito.appendChild(iEsito); row.appendChild(dEsito);
 
-    var dPost=el("div"); dPost.appendChild(el("label",null,"N° di post d'attesa"));
+    var dPost=el("div"); dPost.appendChild(el("label",null,"Post necessari"));
     var iPost=el("input"); iPost.type="number"; iPost.min="0"; iPost.step="1";
     iPost.value=Math.max(0,num(postaz.postRichiesti,0));
     iPost.addEventListener("change",function(){var proposed=Math.max(0,num(iPost.value,0));if(!validateGlobalIntervalOrAlert(postaz.startIndex,proposed)){iPost.value=postaz.postRichiesti;return;}postaz.postRichiesti=proposed;scheduleSave(0);renderAll();});
     dPost.appendChild(iPost); row.appendChild(dPost);
 
+    var dStart=el("div"); dStart.appendChild(el("label",null,"Dal post globale n°"));
+    var iStart=el("input"); iStart.type="number"; iStart.min="1"; iStart.step="1";
+    iStart.value=Math.max(1,num(postaz.startIndex,nextGlobalPostNumber()));
+    iStart.addEventListener("change",function(){var proposed=Math.max(1,num(iStart.value,1));if(!validateGlobalIntervalOrAlert(proposed,Math.max(0,num(postaz.postRichiesti,0)))){iStart.value=postaz.startIndex;return;}postaz.startIndex=proposed;scheduleSave(0);renderAll();});
+    dStart.appendChild(iStart); row.appendChild(dStart);
+
     wrap.appendChild(row);
+    wrap.appendChild(el("p","small-note","Il N. globale si trova in <b>I tuoi Post</b>. Non devi registrare qui i singoli post: la Pulizia avanza automaticamente quando quei Post vengono aggiunti all’Elfo."));
 
     var modRow=el("div","entity-secondary-field");
     modRow.appendChild(el("label",null,"Modificatori applicati (facoltativo)"));
@@ -11627,7 +11797,7 @@
     iPost.addEventListener("change", function(){
       var proposed=Math.max(0,num(iPost.value,0));
       if(!validateGlobalIntervalOrAlert(sub.startIndex,proposed)){iPost.value=sub.postRichiesti;return;}
-      sub.postRichiesti=proposed;renderAll();
+      sub.postRichiesti=proposed;scheduleSave(0);renderAll();
     });
     dPost.appendChild(iPost); row.appendChild(dPost);
 
@@ -11636,7 +11806,7 @@
     iStart.addEventListener("change", function(){
       var proposed=Math.max(1,num(iStart.value,1));
       if(!validateGlobalIntervalOrAlert(proposed,sub.postRichiesti)){iStart.value=sub.startIndex;return;}
-      sub.startIndex=proposed;renderAll();
+      sub.startIndex=proposed;scheduleSave(0);renderAll();
     });
     dStart.appendChild(iStart); row.appendChild(dStart);
     wrap.appendChild(row);
@@ -11745,7 +11915,7 @@
     if(!targets.length){return null;}
     var box=el("div","guide-text current-global-counter");
     box.appendChild(el("div","structure-block-head","Avvio conteggi — "+stage.label));
-    box.appendChild(el("p","small-note","Imposta qui il numero del primo Post globale da conteggiare. Le stesse caselle restano disponibili anche dentro il dettaglio del singolo Ciclo."));
+    box.appendChild(el("p","small-note","Il N. globale si trova in <b>I tuoi Post</b>. Imposta qui il primo Post da conteggiare: il progresso avanza automaticamente. Le stesse caselle restano disponibili anche dentro il dettaglio del singolo Ciclo."));
     targets.forEach(function(t){
       var sub=normalizeSubEntry(t.sub),row=el("div","row");
       var dName=el("div");dName.appendChild(el("label",null,"Conteggio"));dName.appendChild(el("div","shared-responsible-name","<b>"+t.label+"</b>"));row.appendChild(dName);
