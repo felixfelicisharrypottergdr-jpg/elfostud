@@ -1,4 +1,6 @@
 <!DOCTYPE html>
+<!-- v163 — controllo sezioni: non memorizza errori temporanei, così Riprova funziona senza ricaricare; 0 letture Firebase aggiuntive; include tutti i fix v162; 08/09/2026 -->
+<!-- v162 — I tuoi Post: blocco automatico sezioni 0 Galeoni/fuori conteggio via bridge ForumFree; nessuna lettura Firebase aggiuntiva; include So-Tutto e tutti i fix v161; 08/09/2026 -->
 <!-- v161 — strutture: gerarchia uniforme + numeri Postazione automatici; avvisi solo per import automatici esterni; include v160; 08/09/2026 -->
 <!-- v160 — audit finale Laboratori/Missioni: premio So-Tutto collegabile direttamente dal Taccuino, auto-associazione alla Role quando possibile, nessun falso avviso Bagaglio; 08/09/2026 -->
 <!-- v159 — macro-audit Postazione/contatori + Missione So-Tutto-Sull'Argomento: N. globale in I tuoi Post, Pulizia chiara, premio PP automatico; include tutti i fix v158; 08/09/2026 -->
@@ -1709,6 +1711,8 @@
   .healing-post-badge.done{border-color:#8fb79a;background:#dcebdd;color:#315c46;}
 
   /* v33 — raccolto Piante + segnalazione link duplicati */
+  .post-link-checking{outline:2px solid rgba(184,134,11,.7)!important;box-shadow:0 0 0 2px rgba(184,134,11,.12)!important}
+
   .post-link-duplicate{border-color:#9b2f36!important;box-shadow:0 0 0 2px rgba(155,47,54,.13)!important;background:#fff3f3!important;}
   .post-link-duplicate-note{display:block;margin-top:5px;color:#85272e;font-size:.76rem;font-weight:800;}
   .plant-harvest-resolution{margin:12px 0;padding:13px 14px;border:1px solid #9dbb91;border-left:5px solid #496c45;border-radius:10px;background:#edf6e9;color:#2d4b2d;}
@@ -4508,6 +4512,71 @@
     if(!hit){return "Questo link è già stato inserito nei Post generali.";}
     var gn=parseInt(hit.post&&hit.post.globalNo,10),mese=String(hit.mese&&hit.mese.nome||hit.mese&&hit.mese.mese||"").trim();
     return "Link duplicato: è già presente"+(gn>0?" come Post globale n° "+gn:"")+(mese?" nel mese «"+mese+"»":"")+". Non viene aggiunto una seconda volta.";
+  }
+  var FF_EXCLUDED_POST_SECTIONS={
+    "65050396":"Giratempo",
+    "65067677":"Trix Tristis",
+    "65067678":"Linea dell'Età"
+  };
+  var FF_SECTION_CHECK_PENDING={};
+  var FF_SECTION_CHECK_CACHE={};
+  var FF_SECTION_CHECK_SEQ=0;
+
+  function forumfreeTopicIdFromPostLink(value){
+    var normalized=safeHttpUrl(value);if(!normalized){return "";}
+    try{
+      var u=new URL(normalized),host=String(u.hostname||"").toLowerCase().replace(/^www\./,"");
+      if(!/forumfree\.it$/i.test(host)){return "";}
+      return String(u.searchParams.get("t")||"").trim();
+    }catch(e){return "";}
+  }
+  function ffTrustedForumParentOrigin(origin){
+    try{
+      var h=String(new URL(String(origin||"")).hostname||"").toLowerCase();
+      return h==="felixfelicisharrypottergdr.forumfree.it" || /\.forumfree\.it$/i.test(h);
+    }catch(e){return false;}
+  }
+  function ffResolveSectionCheck(requestId,payload){
+    var p=FF_SECTION_CHECK_PENDING[String(requestId||"")];
+    if(!p){return;}
+    delete FF_SECTION_CHECK_PENDING[String(requestId||"")];
+    if(p.timer){clearTimeout(p.timer);}
+    var out=payload&&typeof payload==="object"?payload:{status:"error",reason:"invalid-response"};
+    /* Cache solo dei controlli riusciti: un errore temporaneo/timeout deve poter
+       essere ritentato subito senza obbligare l'utente a ricaricare l'Elfo. */
+    if(out.topicId && out.status==="ok"){
+      FF_SECTION_CHECK_CACHE[String(out.topicId)]=out;
+    }
+    p.resolve(out);
+  }
+  function requestForumfreeSectionCheck(value){
+    var topicId=forumfreeTopicIdFromPostLink(value);
+    if(!topicId){return Promise.resolve({status:"not-forumfree",excluded:false,topicId:""});}
+    if(FF_SECTION_CHECK_CACHE[topicId]){return Promise.resolve(FF_SECTION_CHECK_CACHE[topicId]);}
+    if(window.parent===window){
+      return Promise.resolve({status:"error",reason:"no-forum-parent",excluded:false,topicId:topicId});
+    }
+    var requestId="ffsec_"+(++FF_SECTION_CHECK_SEQ)+"_"+Date.now().toString(36);
+    return new Promise(function(resolve){
+      var timer=setTimeout(function(){
+        if(!FF_SECTION_CHECK_PENDING[requestId]){return;}
+        delete FF_SECTION_CHECK_PENDING[requestId];
+        resolve({status:"error",reason:"timeout",excluded:false,topicId:topicId});
+      },6500);
+      FF_SECTION_CHECK_PENDING[requestId]={resolve:resolve,timer:timer};
+      try{
+        window.parent.postMessage({
+          tipo:"felix-forum-section-check",
+          requestId:requestId,
+          topicId:topicId,
+          url:safeHttpUrl(value),
+          excludedSections:FF_EXCLUDED_POST_SECTIONS
+        },"*");
+      }catch(e){
+        clearTimeout(timer);delete FF_SECTION_CHECK_PENDING[requestId];
+        resolve({status:"error",reason:"postmessage-failed",excluded:false,topicId:topicId});
+      }
+    });
   }
   function forumBbUrl(url,label){
     var normalized=safeHttpUrl(url);
@@ -8537,7 +8606,7 @@
     var p = el("div", "panel");
     p.appendChild(el("h2", null, "I tuoi Post"));
     p.appendChild(el("div", "guide-text",
-      "Organizzati per Mese: apri un Mese e aggiungi i post al suo interno, senza doverlo riscrivere ogni volta. Ogni post con link riceve un <b>numero globale permanente</b>: una volta assegnato non cambia più, anche se in futuro il Narratore archivia e rimuove dal database mesi molto vecchi. È <b>qui</b> che trovi il N. globale da indicare in Pulizia del Calderone, Coltivazioni e Allevamento; i relativi conteggi avanzano poi automaticamente. I conteggi di Postazione, Cubicolo e Recinto possono quindi continuare in sicurezza da un mese all'altro."));
+      "Organizzati per Mese: apri un Mese e aggiungi i post al suo interno, senza doverlo riscrivere ogni volta. Ogni post con link riceve un <b>numero globale permanente</b>: una volta assegnato non cambia più, anche se in futuro il Narratore archivia e rimuove dal database mesi molto vecchi. È <b>qui</b> che trovi il N. globale da indicare in Pulizia del Calderone, Coltivazioni e Allevamento; i relativi conteggi avanzano poi automaticamente. I conteggi di Postazione, Cubicolo e Recinto possono quindi continuare in sicurezza da un mese all'altro. I Post delle sezioni <b>Giratempo, Trix Tristis e Linea dell’Età</b> vengono verificati prima del salvataggio: se appartengono a una di queste sezioni non entrano in I tuoi Post, non ricevono N. globale e non alimentano Galeoni o altri conteggi."));
     var legacyDupMonths = duplicateMonthNames();
     if(legacyDupMonths.length){
       p.appendChild(el("div", "warning-alert", "⚠ Sono presenti Mesi con lo stesso nome già salvati in precedenza: <b>" + legacyDupMonths.join(", ") + "</b>. Rinomina una delle voci per evitare ambiguità nel Riepilogo mensile del Narratore."));
@@ -8721,6 +8790,7 @@
           globalSpan.textContent = valid && !isNaN(gn) && gn>0 ? String(gn) : "—";
         }
         var lastAcceptedPostLink=String(post.link||"");
+        var sectionCheckSerial=0,sectionCheckTimer=0;
         function rejectDuplicatePostLink(candidate,hit){
           iLink.value=lastAcceptedPostLink;
           iLink.classList.add("post-link-duplicate");
@@ -8728,14 +8798,63 @@
           setTimeout(function(){if(document.body.contains(iLink)){iLink.classList.remove("post-link-duplicate");}},1800);
           refreshInlineGlobal();
         }
+        function commitGeneralPostLink(candidate,delay){
+          if(String(candidate||"").trim()){ensurePersistentGeneralPostId(post);}
+          post.link=candidate;
+          lastAcceptedPostLink=candidate;
+          ensurePostGlobalNo(post);
+          refreshInlineGlobal();
+          syncHouseRoleBonusForPost(post,mese);
+          scheduleSave(delay==null?0:delay);
+          if(staffTokenIsUsed(post,mese)){syncStaffTokenReference(post,mese);}
+        }
+        function rejectExcludedForumSection(candidate,result){
+          iLink.value=lastAcceptedPostLink;
+          iLink.classList.remove("post-link-checking");
+          var secName=String(result&&result.sectionName||FF_EXCLUDED_POST_SECTIONS[String(result&&result.sectionId||"")]||"questa sezione");
+          alert("Questo Post appartiene a «"+secName+"», una sezione fuori dalla Camera Blindata e dai conteggi. Il link non è stato registrato e non riceve alcun N. globale.");
+          refreshInlineGlobal();
+        }
+        function rejectUnverifiedForumSection(){
+          iLink.value=lastAcceptedPostLink;
+          iLink.classList.remove("post-link-checking");
+          alert("Non sono riuscito a verificare la sezione ForumFree di questo Post. Per sicurezza il link non è stato registrato. Assicurati di usare l’iframe aggiornato con il controllo sezioni e riprova.");
+          refreshInlineGlobal();
+        }
+        function verifyAndCommitGeneralPostLink(candidate,delay){
+          var serial=++sectionCheckSerial;
+          if(staffTokenIsUsed(post,mese)&&!isValidPostLink(candidate)){
+            iLink.value=lastAcceptedPostLink;alert("Questo Post usa uno Staff Token. Rimuovi prima lo Staff Token, poi potrai eliminare il link.");refreshInlineGlobal();return;
+          }
+          if(refLabels.length && isValidPostLink(post.link) && !isValidPostLink(candidate)){
+            iLink.value=lastAcceptedPostLink;alert("Il Post globale n° "+post.globalNo+" è ancora usato da una lavorazione attiva ("+refLabels.join("; ")+"). Il link non può essere cancellato o reso non valido finché quel riferimento è in uso.");refreshInlineGlobal();return;
+          }
+          var hit=findDuplicateGeneralPostLink(candidate,post);
+          if(hit){rejectDuplicatePostLink(candidate,hit);return;}
+          var topicId=forumfreeTopicIdFromPostLink(candidate);
+          if(!topicId){commitGeneralPostLink(candidate,delay);return;}
+          iLink.classList.add("post-link-checking");
+          requestForumfreeSectionCheck(candidate).then(function(result){
+            if(serial!==sectionCheckSerial || String(iLink.value||"")!==String(candidate||"")){return;}
+            iLink.classList.remove("post-link-checking");
+            if(!result || result.status!=="ok"){rejectUnverifiedForumSection();return;}
+            var sid=String(result.sectionId||"");
+            var excluded=result.excluded===true || !!FF_EXCLUDED_POST_SECTIONS[sid];
+            if(excluded){rejectExcludedForumSection(candidate,result);return;}
+            commitGeneralPostLink(candidate,delay);
+          });
+        }
+        function scheduleForumSectionCommit(candidate,delay){
+          if(sectionCheckTimer){clearTimeout(sectionCheckTimer);}
+          sectionCheckTimer=setTimeout(function(){verifyAndCommitGeneralPostLink(candidate,delay);},420);
+        }
+
         iLink.addEventListener("paste",function(){
           setTimeout(function(){
             if(blockIfMonthReadOnly(mese)){return;}
             var candidate=iLink.value;
-            if(staffTokenIsUsed(post,mese)&&!isValidPostLink(candidate)){iLink.value=lastAcceptedPostLink;alert("Questo Post usa uno Staff Token. Rimuovi prima lo Staff Token, poi potrai eliminare il link.");refreshInlineGlobal();return;}
-            var hit=findDuplicateGeneralPostLink(candidate,post);
-            if(hit){rejectDuplicatePostLink(candidate,hit);return;}
-            if(String(candidate||"").trim()){ensurePersistentGeneralPostId(post);}post.link=candidate;lastAcceptedPostLink=candidate;ensurePostGlobalNo(post);refreshInlineGlobal();syncHouseRoleBonusForPost(post,mese);scheduleSave(0);if(staffTokenIsUsed(post,mese)){syncStaffTokenReference(post,mese);}
+            if(sectionCheckTimer){clearTimeout(sectionCheckTimer);sectionCheckTimer=0;}
+            verifyAndCommitGeneralPostLink(candidate,0);
           },0);
         });
         iLink.addEventListener("input", function(){
@@ -8745,20 +8864,19 @@
           if(refLabels.length && isValidPostLink(post.link) && !isValidPostLink(candidate)){refreshInlineGlobal();return;}
           var hit=findDuplicateGeneralPostLink(candidate,post);
           if(hit&&isValidPostLink(candidate)){return;}
-          if(String(candidate||"").trim()){ensurePersistentGeneralPostId(post);}post.link=candidate;lastAcceptedPostLink=candidate;ensurePostGlobalNo(post);refreshInlineGlobal();scheduleSave(450);
+          if(forumfreeTopicIdFromPostLink(candidate)){
+            scheduleForumSectionCommit(candidate,450);
+            return;
+          }
+          ++sectionCheckSerial;
+          if(sectionCheckTimer){clearTimeout(sectionCheckTimer);sectionCheckTimer=0;}
+          commitGeneralPostLink(candidate,450);
         });
         iLink.addEventListener("change", function(){
           if(blockIfMonthReadOnly(mese)){return;}
           var candidate=iLink.value;
-          if(staffTokenIsUsed(post,mese)&&!isValidPostLink(candidate)){
-            iLink.value=post.link;alert("Questo Post usa uno Staff Token. Rimuovi prima lo Staff Token, poi potrai eliminare il link.");return;
-          }
-          if(refLabels.length && isValidPostLink(post.link) && !isValidPostLink(candidate)){
-            iLink.value=post.link; alert("Il Post globale n° "+post.globalNo+" è ancora usato da una lavorazione attiva ("+refLabels.join("; ")+"). Il link non può essere cancellato o reso non valido finché quel riferimento è in uso."); return;
-          }
-          var hit=findDuplicateGeneralPostLink(candidate,post);
-          if(hit){rejectDuplicatePostLink(candidate,hit);return;}
-          if(String(candidate||"").trim()){ensurePersistentGeneralPostId(post);}post.link=candidate;lastAcceptedPostLink=candidate;ensurePostGlobalNo(post);refreshInlineGlobal();scheduleSave(0);if(staffTokenIsUsed(post,mese)){syncStaffTokenReference(post,mese);}
+          if(sectionCheckTimer){clearTimeout(sectionCheckTimer);sectionCheckTimer=0;}
+          verifyAndCommitGeneralPostLink(candidate,0);
         });
         tdLink.appendChild(iLink);
         var existingDuplicate=findDuplicateGeneralPostLink(post.link,post);
@@ -12872,6 +12990,10 @@
   window.addEventListener("message",function(event){
     if(event.data && event.data.tipo==="felix-tool-height-request"){
       notifyParentHeight(true);
+      return;
+    }
+    if(event.source===window.parent && ffTrustedForumParentOrigin(event.origin) && event.data && event.data.tipo==="felix-forum-section-result"){
+      ffResolveSectionCheck(event.data.requestId,event.data);
     }
   });
 
