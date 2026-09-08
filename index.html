@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- v168 — Role fuori conteggio: titolo details rinominato con le tre sezioni; 08/09/2026 -->
+<!-- v169 — rimozione completa del vecchio riconoscimento automatico sezioni ForumFree; 08/09/2026 -->
 <!-- v165 — fix mirato post-password: ricalcolo altezza ritardato dopo sblocco modifica; rollback automatismi So-Tutto non necessari; 08/09/2026 -->
 <!-- v163 — fix altezza iframe: misura robusta scrollHeight + bounding box; include controllo sezioni escluse v162; nessuna lettura Firebase aggiuntiva; 08/09/2026 -->
 <!-- v162 — I tuoi Post: blocco automatico sezioni 0 Galeoni/fuori conteggio via bridge ForumFree; nessuna lettura Firebase aggiuntiva; include So-Tutto e tutti i fix v161; 08/09/2026 -->
@@ -4683,67 +4683,6 @@
     var gn=parseInt(hit.post&&hit.post.globalNo,10),mese=String(hit.mese&&hit.mese.nome||hit.mese&&hit.mese.mese||"").trim();
     return "Link duplicato: è già presente"+(gn>0?" come Post globale n° "+gn:"")+(mese?" nel mese «"+mese+"»":"")+". Non viene aggiunto una seconda volta.";
   }
-  var FF_EXCLUDED_POST_SECTIONS={
-    "65050396":"Giratempo",
-    "65067677":"Trix Tristis",
-    "65067678":"Linea dell'Età"
-  };
-  var FF_SECTION_CHECK_PENDING={};
-  var FF_SECTION_CHECK_CACHE={};
-  var FF_SECTION_CHECK_SEQ=0;
-
-  function forumfreeTopicIdFromPostLink(value){
-    var normalized=safeHttpUrl(value);if(!normalized){return "";}
-    try{
-      var u=new URL(normalized),host=String(u.hostname||"").toLowerCase().replace(/^www\./,"");
-      if(!/forumfree\.it$/i.test(host)){return "";}
-      return String(u.searchParams.get("t")||"").trim();
-    }catch(e){return "";}
-  }
-  function ffTrustedForumParentOrigin(origin){
-    try{
-      var h=String(new URL(String(origin||"")).hostname||"").toLowerCase();
-      return h==="felixfelicisharrypottergdr.forumfree.it" || /\.forumfree\.it$/i.test(h);
-    }catch(e){return false;}
-  }
-  function ffResolveSectionCheck(requestId,payload){
-    var p=FF_SECTION_CHECK_PENDING[String(requestId||"")];
-    if(!p){return;}
-    delete FF_SECTION_CHECK_PENDING[String(requestId||"")];
-    if(p.timer){clearTimeout(p.timer);}
-    var out=payload&&typeof payload==="object"?payload:{status:"error",reason:"invalid-response"};
-    if(out.topicId){FF_SECTION_CHECK_CACHE[String(out.topicId)]=out;}
-    p.resolve(out);
-  }
-  function requestForumfreeSectionCheck(value){
-    var topicId=forumfreeTopicIdFromPostLink(value);
-    if(!topicId){return Promise.resolve({status:"not-forumfree",excluded:false,topicId:""});}
-    if(FF_SECTION_CHECK_CACHE[topicId]){return Promise.resolve(FF_SECTION_CHECK_CACHE[topicId]);}
-    if(window.parent===window){
-      return Promise.resolve({status:"error",reason:"no-forum-parent",excluded:false,topicId:topicId});
-    }
-    var requestId="ffsec_"+(++FF_SECTION_CHECK_SEQ)+"_"+Date.now().toString(36);
-    return new Promise(function(resolve){
-      var timer=setTimeout(function(){
-        if(!FF_SECTION_CHECK_PENDING[requestId]){return;}
-        delete FF_SECTION_CHECK_PENDING[requestId];
-        resolve({status:"error",reason:"timeout",excluded:false,topicId:topicId});
-      },6500);
-      FF_SECTION_CHECK_PENDING[requestId]={resolve:resolve,timer:timer};
-      try{
-        window.parent.postMessage({
-          tipo:"felix-forum-section-check",
-          requestId:requestId,
-          topicId:topicId,
-          url:safeHttpUrl(value),
-          excludedSections:FF_EXCLUDED_POST_SECTIONS
-        },"*");
-      }catch(e){
-        clearTimeout(timer);delete FF_SECTION_CHECK_PENDING[requestId];
-        resolve({status:"error",reason:"postmessage-failed",excluded:false,topicId:topicId});
-      }
-    });
-  }
   function forumBbUrl(url,label){
     var normalized=safeHttpUrl(url);
     var text=String(label==null?"":label);
@@ -8915,19 +8854,6 @@
           scheduleSave(delay==null?0:delay);
           if(staffTokenIsUsed(post,mese)){syncStaffTokenReference(post,mese);}
         }
-        function rejectExcludedForumSection(candidate,result){
-          iLink.value=lastAcceptedPostLink;
-          iLink.classList.remove("post-link-checking");
-          var secName=String(result&&result.sectionName||FF_EXCLUDED_POST_SECTIONS[String(result&&result.sectionId||"")]||"questa sezione");
-          alert("Questo Post appartiene a «"+secName+"», una sezione fuori dalla Camera Blindata e dai conteggi. Il link non è stato registrato e non riceve alcun N. globale.");
-          refreshInlineGlobal();
-        }
-        function rejectUnverifiedForumSection(){
-          iLink.value=lastAcceptedPostLink;
-          iLink.classList.remove("post-link-checking");
-          alert("Non sono riuscito a verificare la sezione ForumFree di questo Post. Per sicurezza il link non è stato registrato. Assicurati di usare l’iframe aggiornato con il controllo sezioni e riprova.");
-          refreshInlineGlobal();
-        }
         function verifyAndCommitGeneralPostLink(candidate,delay){
           if(staffTokenIsUsed(post,mese)&&!isValidPostLink(candidate)){
             iLink.value=lastAcceptedPostLink;alert("Questo Post usa uno Staff Token. Rimuovi prima lo Staff Token, poi potrai eliminare il link.");refreshInlineGlobal();return;
@@ -8959,13 +8885,8 @@
           if(refLabels.length && isValidPostLink(post.link) && !isValidPostLink(candidate)){refreshInlineGlobal();return;}
           var hit=findDuplicateGeneralPostLink(candidate,post);
           if(hit&&isValidPostLink(candidate)){return;}
-          if(forumfreeTopicIdFromPostLink(candidate)){
-            scheduleForumSectionCommit(candidate,450);
-            return;
-          }
-          ++sectionCheckSerial;
           if(sectionCheckTimer){clearTimeout(sectionCheckTimer);sectionCheckTimer=0;}
-          commitGeneralPostLink(candidate,450);
+          scheduleForumSectionCommit(candidate,120);
         });
         iLink.addEventListener("change", function(){
           if(blockIfMonthReadOnly(mese)){return;}
@@ -13068,9 +12989,6 @@
     if(event.data && event.data.tipo==="felix-tool-height-request"){
       notifyParentHeight(true);
       return;
-    }
-    if(event.source===window.parent && ffTrustedForumParentOrigin(event.origin) && event.data && event.data.tipo==="felix-forum-section-result"){
-      ffResolveSectionCheck(event.data.requestId,event.data);
     }
   });
 
