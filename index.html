@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- v171 — premi Role fuori conteggio accanto al N. globale + avviso Lista della Spesa; 08/09/2026 -->
+<!-- v172 — premio del singolo Post visibile accanto al N. globale; 08/09/2026 -->
 <!-- v165 — fix mirato post-password: ricalcolo altezza ritardato dopo sblocco modifica; rollback automatismi So-Tutto non necessari; 08/09/2026 -->
 <!-- v163 — fix altezza iframe: misura robusta scrollHeight + bounding box; include controllo sezioni escluse v162; nessuna lettura Firebase aggiuntiva; 08/09/2026 -->
 <!-- v162 — I tuoi Post: blocco automatico sezioni 0 Galeoni/fuori conteggio via bridge ForumFree; nessuna lettura Firebase aggiuntiva; include So-Tutto e tutti i fix v161; 08/09/2026 -->
@@ -4055,6 +4055,20 @@
       type:String(post.specialRoleType||""),
       label:String(post.specialRoleLabel||"")
     };
+  }
+  function specialRoleInlineRewardText(post){
+    if(!post||!isSpecialRolePost(post))return "";
+    var info=specialRoleTypeInfo(post.specialRoleType);
+    if(!info)return "";
+    var pp=Math.round((Number(info.ppPerPost)||0)*10)/10;
+    if(pp>0)return "+"+pp+" PP";
+    if((Number(info.galeoniPerRole)||0)>0){
+      var entry=specialRoleRewardEntryForPost(post);
+      var totals=specialRoleTotals(entry);
+      if(totals.posts>=info.minPosts)return info.galeoniPerRole+" G/Role";
+      return info.galeoniPerRole+" G/Role · "+totals.posts+"/"+info.minPosts+" Post";
+    }
+    return "0 PP · 0 G";
   }
   function renderSpecialRoleManager(parent){
     SPECIAL_ROLE_REGISTRY=normalizeSpecialRoleRegistry(SPECIAL_ROLE_REGISTRY);
@@ -8854,8 +8868,7 @@
           else{globalSpan.textContent = valid && !isNaN(gn) && gn>0 ? String(gn) : "—";}
           if(specialRewardSpan){
             if(isSpecialRolePost(post)){
-              var rewardEntry=specialRoleRewardEntryForPost(post);
-              specialRewardSpan.textContent="Premi: "+specialRoleRewardText(rewardEntry);
+              specialRewardSpan.textContent=specialRoleInlineRewardText(post);
               specialRewardSpan.style.display="";
             }else{
               specialRewardSpan.textContent="";
