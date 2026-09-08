@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+<!-- v164 — fix mirato post-password: ricalcolo altezza ritardato dopo sblocco modifica; rollback automatismi So-Tutto non necessari; 08/09/2026 -->
 <!-- v163 — fix altezza iframe: misura robusta scrollHeight + bounding box; include controllo sezioni escluse v162; nessuna lettura Firebase aggiuntiva; 08/09/2026 -->
 <!-- v162 — I tuoi Post: blocco automatico sezioni 0 Galeoni/fuori conteggio via bridge ForumFree; nessuna lettura Firebase aggiuntiva; include So-Tutto e tutti i fix v161; 08/09/2026 -->
 <!-- v161 — strutture: gerarchia uniforme + numeri Postazione automatici; avvisi solo per import automatici esterni; include v160; 08/09/2026 -->
@@ -7180,7 +7181,7 @@
     {id:"fh_estroversi",name:"Gli Estroversi",kind:"people",note:"Servono PG diversi e role diverse nello stesso anno scolastico. Le role estive valgono per l'anno scolastico che deve iniziare; non valgono le role di gruppo. Il conteggio dei PG diversi è tra i progressi che possono proseguire nel «Popolare» al passaggio Adulto, secondo la regola transitoria.",thresholds:[5,10,15],periodLabel:"Anno scolastico",peopleLabel:"PG diverso + role diversa"},
     {id:"fh_influencer",name:"L'Influencer — Livello Facile",kind:"counters",note:"La missione è riscattabile ogni 3 post in cui il PG pubblicizza attivamente il/i proprio/i Club; i post possono trovarsi in role diverse.",counters:[{key:"post",label:"Post di pubblicizzazione",repeatEvery:3,unit:"post"}]},
     {id:"fh_quidditch",name:"Il Quidditch Addicted",kind:"counters",note:"Conta le partite ufficiali e/o amichevoli giocate dal PG.",counters:[{key:"partite",label:"Partite giocate",thresholds:[1,3,5],unit:"partite"}]},
-    {id:"fh_sotutto",name:"Il So-Tutto-Sull'Argomento",kind:"fixedReward",note:"La semplice citazione non basta: il PG deve spiegare o raccontare l'evento a un altro PG per almeno uno o più post. Quando registri il premio in Camera Blindata usa il preset dedicato: l'Elfo crea un Bonus a 1 utilizzo e aggiunge automaticamente i PP quando spunti un post della role.",levels:[
+    {id:"fh_sotutto",name:"Il So-Tutto-Sull'Argomento",kind:"fixedReward",note:"La semplice citazione non basta: il PG deve spiegare o raccontare l'evento a un altro PG per almeno uno o più post. Il Taccuino registra soltanto il completamento e il relativo riferimento alla Role, senza creare o applicare automaticamente premi in Camera Blindata.",levels:[
       {key:"facile",label:"Livello Facile",requirement:"Spiegare a un altro PG un evento Canon della Saga di Harry Potter accaduto nel Mondo Magico.",pp:1,other:"+1 Bontà o Malvagità"},
       {key:"medio",label:"Livello Medio",requirement:"Spiegare a un altro PG un evento Canon della Trama accaduto ONGame e finito sui giornali.",pp:2,other:"+1.5 Bontà o Malvagità"}
     ]},
@@ -7481,37 +7482,6 @@
       });
       card.appendChild(el("div","small-note","⚠ Se nella <b>stessa Role</b> completi più Missioni del FantaHogwarts, per ogni tipologia di premio vale soltanto il premio più alto, non la somma, salvo le Missioni a completamento."));
 
-      function appendRewardMonthPicker(parent,selectedIndex){
-        var w=el("div"),lab=el("label",null,"Mese del premio"),sel=el("select");
-        if(!MESI.length){
-          var no=el("option",null,"Nessun Mese disponibile");no.value="";sel.appendChild(no);sel.disabled=true;
-        }else{
-          for(var mi=0;mi<MESI.length;mi++){
-            var m=MESI[mi]||{},op=el("option",null,(m.nome||("Mese "+(mi+1)))+(m.chiuso?" [archiviato]":""));
-            op.value=String(mi);if(mi===selectedIndex)op.selected=true;sel.appendChild(op);
-          }
-        }
-        w.appendChild(lab);w.appendChild(sel);parent.appendChild(w);return sel;
-      }
-      function prepareRewardForCompletion(entry,monthIndex,showFeedback){
-        var idx=parseInt(monthIndex,10);
-        if(!(idx>=0&&idx<MESI.length)){if(showFeedback)alert("Non c'è un Mese disponibile in cui preparare il premio.");return {ok:false};}
-        var mese=MESI[idx];
-        if(blockIfMonthReadOnly(mese)){return {ok:false};}
-        var result=addSoTuttoMissionBonus(mese,entry.level,entry.id);
-        var matched=applySoTuttoBonusToRolePost(mese,result.bonus,entry.url);
-        scheduleSave(0);
-        meseSelezionatoBlindataIdx=idx;
-        if(showFeedback){
-          if(matched){
-            alert("Premio preparato in "+String(mese.nome||("Mese "+(idx+1)))+" e applicato automaticamente a un Post della Role: +"+result.cfg.pp+" PP.");
-          }else{
-            alert("Premio preparato in "+String(mese.nome||("Mese "+(idx+1)))+". Non ho trovato nella Camera Blindata un Post appartenente al link della Role: apri il Mese e spunta una sola casella «Usi 0/1» del Bonus.");
-          }
-        }
-        return {ok:true,result:result,matched:matched};
-      }
-
       var completati=taccEntries(state,"completamenti");
       if(completati.length){
         var doneList=el("ul","tacc-people-list");
@@ -7521,19 +7491,8 @@
           main.appendChild(el("strong",null,lv.label+" · +"+lv.pp+" PP"));
           if(e.label){main.appendChild(document.createElement("br"));main.appendChild(document.createTextNode(e.label));}
           if(e.url){main.appendChild(document.createElement("br"));var al=document.createElement("a");al.href=e.url;al.target="_blank";al.rel="noopener noreferrer";al.className="tacc-link";al.textContent="Apri Role";main.appendChild(al);}
-
-          var linked=findSoTuttoRewardBySource(e.id);
-          if(linked){
-            var usedRefs=bonusUsedPostRefs(Object.assign({primary:false},linked.bonus),Array.isArray(linked.month.posts)?linked.month.posts:[]);
-            main.appendChild(document.createElement("br"));
-            main.appendChild(el("span","small-note","✓ Premio preparato in "+String(linked.month.nome||("Mese "+(linked.monthIndex+1)))+(usedRefs.length?" · applicato a "+usedRefs.join(", "):" · da associare a un Post in Camera Blindata")));
-          }else if(MESI.length){
-            var rewardRow=el("div","tacc-mini-row"),rewardMonth=appendRewardMonthPicker(rewardRow,MESI.length-1),rewardBtn=el("button","action small","Prepara premio PP");
-            rewardBtn.type="button";rewardBtn.addEventListener(EV,function(){prepareRewardForCompletion(e,rewardMonth.value,true);renderAll();});rewardRow.appendChild(rewardBtn);main.appendChild(rewardRow);
-          }
           li.appendChild(main);
-
-          var rmDone=el("button","action danger","Rimuovi");rmDone.type="button";rmDone.title="Rimuove il promemoria dal Taccuino; un premio già preparato in Camera Blindata resta invariato.";
+          var rmDone=el("button","action danger","Rimuovi");rmDone.type="button";
           rmDone.addEventListener(EV,function(){for(var ci=completati.length-1;ci>=0;ci--){if(completati[ci].id===e.id)completati.splice(ci,1);}taccSave();renderAll();});
           li.appendChild(rmDone);doneList.appendChild(li);
         });
@@ -7545,34 +7504,12 @@
       var fr=el("div","tacc-mini-row"),levelWrap=el("div");levelWrap.appendChild(el("label",null,"Livello"));var levelSel=el("select");
       (def.levels||[]).forEach(function(lv){var op=el("option");op.value=lv.key;op.textContent=lv.label+" (+"+lv.pp+" PP)";levelSel.appendChild(op);});levelWrap.appendChild(levelSel);fr.appendChild(levelWrap);
       var refRole=taccInput("Titolo / riferimento Role",""),urlRole=taccInput("Link della Role","");urlRole.input.type="url";fr.appendChild(refRole.wrap);fr.appendChild(urlRole.wrap);
-
-      var monthSel=appendRewardMonthPicker(fr,MESI.length?MESI.length-1:-1);
-      var autoWrap=el("label","tacc-checkline"),autoReward=el("input");autoReward.type="checkbox";autoReward.checked=true;autoWrap.appendChild(autoReward);autoWrap.appendChild(document.createTextNode(" Prepara anche il premio PP in Camera Blindata"));fr.appendChild(autoWrap);
-
       var reg=el("button","action","+ Registra completamento");reg.type="button";
       reg.addEventListener(EV,function(){
-        var selectedMonth=parseInt(monthSel.value,10);
-        if(autoReward.checked){
-          if(!(selectedMonth>=0&&selectedMonth<MESI.length)){alert("Crea prima un Mese oppure togli la spunta a «Prepara anche il premio PP».");return;}
-          if(blockIfMonthReadOnly(MESI[selectedMonth]))return;
-        }
-        var entry={id:taccId("sotutto"),level:String(levelSel.value||"facile"),label:String(refRole.input.value||"").trim(),url:String(urlRole.input.value||"").trim()};
-        completati.push(entry);
-        if(taccSave()===false){
-          completati.pop();
-          alert("Il completamento non è stato salvato nel Taccuino: non preparo il premio per evitare dati incoerenti.");
-          renderAll();return;
-        }
-        var prep=null;
-        if(autoReward.checked){prep=prepareRewardForCompletion(entry,selectedMonth,false);}
-        renderAll();
-        if(prep&&prep.ok){
-          if(prep.matched){alert("Missione registrata: +"+prep.result.cfg.pp+" PP applicati automaticamente a un Post della Role.");}
-          else{alert("Missione registrata e premio +"+prep.result.cfg.pp+" PP preparato. Non ho trovato un Post con lo stesso topic: in Camera Blindata spunta una sola casella del Bonus.");}
-        }
+        completati.push({id:taccId("sotutto"),level:String(levelSel.value||"facile"),label:String(refRole.input.value||"").trim(),url:String(urlRole.input.value||"").trim()});
+        taccSave();renderAll();
       });
       fr.appendChild(reg);card.appendChild(fr);
-      card.appendChild(el("p","small-note","Se lasci attiva la spunta, l’Elfo crea automaticamente il premio fisso (+1/+2 PP). Se il link della Role corrisponde a un Post già registrato nel Mese scelto, il premio viene applicato subito; altrimenti resta pronto in Camera Blindata e dovrai spuntare un solo Post."));
     }else if(def.kind==="people"){
       var addp=el("div","tacc-mini-row"),pn=taccInput("Nome PG","") ,pr=taccInput("Link / riferimento Role","");pr.input.type="url";addp.appendChild(pn.wrap);addp.appendChild(pr.wrap);var pab=el("button","action","+ Aggiungi");pab.type="button";pab.addEventListener(EV,function(){var name=String(pn.input.value||"").trim();if(!name){alert("Scrivi il nome del PG.");return;}if(state.people.some(function(x){return String(x.name||"").trim().toLowerCase()===name.toLowerCase();})){alert("Questo PG è già presente in questo conteggio.");return;}state.people.push({id:taccId("person"),name:name,role:String(pr.input.value||"").trim()});taccSave();renderAll();});addp.appendChild(pab);card.appendChild(addp);
       if(state.peopleCountExtra>0){var extra=taccInput("Conteggio importato senza nominativi",state.peopleCountExtra,"number");extra.input.type="number";extra.input.min="0";extra.input.step="1";extra.input.addEventListener("input",function(){state.peopleCountExtra=Math.max(0,parseInt(extra.input.value,10)||0);taccSave();});extra.input.addEventListener("change",function(){renderAll();});card.appendChild(extra.wrap);card.appendChild(el("div","small-note","Sono progressi riconosciuti dal vecchio Taccuino ma privi di un nominativo recuperabile. Puoi correggerli manualmente se necessario."));}
@@ -8297,7 +8234,7 @@
               if(LAST_PERSISTED_STATE){LAST_PERSISTED_STATE._editPasswordConfigured=true;LAST_PERSISTED_STATE._dbRevision=DB_REVISION;}
               if(LAST_AUDITED_STATE){LAST_AUDITED_STATE._editPasswordConfigured=true;LAST_AUDITED_STATE._dbRevision=DB_REVISION;}
               if(LOCKED_MIGRATION_PENDING){FORCE_PERSIST_SAVE=true;LOCKED_MIGRATION_PENDING=false;}
-              renderAll();if(typeof taccCloudQueueAfterLogin==="function"){taccCloudQueueAfterLogin(nome);}if(FORCE_PERSIST_SAVE){scheduleSave(0,false);}return true;
+              renderAll();ffNotifyParentHeightAfterUnlock();if(typeof taccCloudQueueAfterLogin==="function"){taccCloudQueueAfterLogin(nome);}if(FORCE_PERSIST_SAVE){scheduleSave(0,false);}return true;
             }
             if(!silent){alert("Non è stato possibile creare la Password di modifica. Verifica che le Rules Firebase aggiornate siano state pubblicate.");}
             renderAll();return true;
@@ -8307,7 +8244,7 @@
           if(res&&res.ok){
             EDIT_UNLOCKED=true;fbStatusText="Modifica autorizzata";showPasswordSessionNoticeOnce(nome);
             if(LOCKED_MIGRATION_PENDING){FORCE_PERSIST_SAVE=true;LOCKED_MIGRATION_PENDING=false;}
-            renderAll();if(typeof taccCloudQueueAfterLogin==="function"){taccCloudQueueAfterLogin(nome);}if(FORCE_PERSIST_SAVE){scheduleSave(0,false);}return true;
+            renderAll();ffNotifyParentHeightAfterUnlock();if(typeof taccCloudQueueAfterLogin==="function"){taccCloudQueueAfterLogin(nome);}if(FORCE_PERSIST_SAVE){scheduleSave(0,false);}return true;
           }
           if(!silent){alert("Password non corretta. L'Elfo resta comunque aperto in sola visualizzazione.");}
           renderAll();return true;
@@ -8341,7 +8278,7 @@
       LAST_MODIFIED_AT=new Date();LAST_MODIFIED_BY="pg";LAST_SESSION_ID=SESSION_ID;fbStatusText="Elfo creato · modifica autorizzata";showPasswordSessionNoticeOnce(nome);
       var st=collectState();LAST_PERSISTED_STATE=cloneHistoryState(persistenceComparableState(st));LAST_AUDITED_STATE=cloneHistoryState(historyComparableState(st));
       rememberBrowserPg(nome);resetUndoRedoHistory();startAccreditiWatch(nome);
-      publicDirectoryUpsertLocal(nome,true);renderAll();return true;
+      publicDirectoryUpsertLocal(nome,true);renderAll();ffNotifyParentHeightAfterUnlock();return true;
     });
   }
   function clearLoadedPg(){
@@ -8536,7 +8473,7 @@
                 if(LAST_AUDITED_STATE){LAST_AUDITED_STATE._editPasswordConfigured=true;LAST_AUDITED_STATE._dbRevision=DB_REVISION;}
                 fbStatusText="Password configurata · modifica autorizzata";showPasswordSessionNoticeOnce(STUDENTE.nome);
                 if(LOCKED_MIGRATION_PENDING){FORCE_PERSIST_SAVE=true;LOCKED_MIGRATION_PENDING=false;}
-                publicDirectoryUpsertLocal(STUDENTE.nome,true);renderAll();if(FORCE_PERSIST_SAVE){scheduleSave(0,false);}
+                publicDirectoryUpsertLocal(STUDENTE.nome,true);renderAll();ffNotifyParentHeightAfterUnlock();if(FORCE_PERSIST_SAVE){scheduleSave(0,false);}
               }else{
                 setFirstPw.disabled=false;setFirstPw.textContent="Crea password e accedi alla modifica";
                 if(res&&res.code==="already-configured"){alert("Nel frattempo è già stata configurata una password per questo Elfo. Ricaricalo e utilizza la password esistente.");}
@@ -8559,7 +8496,7 @@
               if(res&&res.ok){
                 EDIT_UNLOCKED=true;fbStatusText="Modifica autorizzata";showPasswordSessionNoticeOnce(STUDENTE.nome);
                 if(LOCKED_MIGRATION_PENDING){FORCE_PERSIST_SAVE=true;LOCKED_MIGRATION_PENDING=false;}
-                renderAll();if(FORCE_PERSIST_SAVE){scheduleSave(0,false);}
+                renderAll();ffNotifyParentHeightAfterUnlock();if(FORCE_PERSIST_SAVE){scheduleSave(0,false);}
               }else{
                 unlock.disabled=false;unlock.textContent="Accedi alla modifica";pw.value="";alert("Password non corretta.");
               }
@@ -8993,54 +8930,6 @@
   function meseBonusGaleoni(mese){ var v=parseInt(mese && mese.eventoBonusGaleoni != null ? mese.eventoBonusGaleoni : 0,10); if(isNaN(v)||v<0){return 0;} return v; }
   function meseBonusAltro(mese){ return String(mese && mese.eventoBonusAltro != null ? mese.eventoBonusAltro : "").trim(); }
   function newBonusId(){ return "b_"+Date.now().toString(36)+"_"+Math.random().toString(36).slice(2,8); }
-
-  function soTuttoMissionConfig(level){
-    return String(level||"facile")==="medio"
-      ? {key:"medio",label:"Livello Medio",pp:2,other:"+1.5 Bontà o Malvagità"}
-      : {key:"facile",label:"Livello Facile",pp:1,other:"+1 Bontà o Malvagità"};
-  }
-  function findSoTuttoRewardBySource(sourceId){
-    sourceId=String(sourceId||"");if(!sourceId)return null;
-    for(var mi=0;mi<MESI.length;mi++){
-      var extras=ensureBonusExtras(MESI[mi]);
-      for(var bi=0;bi<extras.length;bi++){
-        if(String(extras[bi]&&extras[bi].sourceMissionCompletionId||"")===sourceId){
-          return {month:MESI[mi],monthIndex:mi,bonus:extras[bi]};
-        }
-      }
-    }
-    return null;
-  }
-  function addSoTuttoMissionBonus(mese,level,sourceId){
-    var cfg=soTuttoMissionConfig(level),existing=sourceId?findSoTuttoRewardBySource(sourceId):null;
-    if(existing){return {cfg:cfg,bonus:existing.bonus,month:existing.month,monthIndex:existing.monthIndex,duplicate:true};}
-    var bonus={
-      id:newBonusId(),
-      descrizione:"Missione — Il So-Tutto-Sull'Argomento — "+cfg.label,
-      pp:cfg.pp,galeoni:0,altro:cfg.other,
-      modalita:"posts",primiPost:0,valore:"fixed",
-      maxUtilizzi:1,usatiIniziali:0,usatiConfermati:true,
-      variabileSu:"pp",utilizziManuali:0,aggiornaBagaglio:false,
-      sourceMission:"fh_sotutto",
-      sourceMissionCompletionId:String(sourceId||"")
-    };
-    ensureBonusExtras(mese).push(bonus);
-    return {cfg:cfg,bonus:bonus,month:mese,monthIndex:MESI.indexOf(mese),duplicate:false};
-  }
-  function applySoTuttoBonusToRolePost(mese,bonus,roleUrl){
-    if(!mese||!bonus)return null;
-    var key=healingRoleUrlKey(roleUrl||"");if(!key)return null;
-    var posts=Array.isArray(mese.posts)?mese.posts:[];
-    for(var i=0;i<posts.length;i++){
-      var p=posts[i];
-      if(!p||!isValidPostLink(p.link)){continue;}
-      if(healingRoleUrlKey(p.link)!==key){continue;}
-      var usage=getBonusUsageRecord(p,bonus,true);
-      usage.used=true;
-      return {post:p,index:i};
-    }
-    return null;
-  }
 
   function normalizeBonusMode(v){return ["all","selected","posts","first","manual"].indexOf(v)>=0?v:"all";}
   function normalizeBonusValueMode(v){return ["fixed","variable"].indexOf(v)>=0?v:"fixed";}
@@ -9872,17 +9761,6 @@
     bonusHelp.appendChild(el("summary",null,"Come configurare i diversi tipi di Bonus"));
     bonusHelp.appendChild(el("p","small-note","<b>Tutti i post</b>: applicazione automatica. <b>Solo per i primi X post</b>: applicazione automatica entro il limite. <b>Solo sui post selezionati</b>: premio fisso applicato alle righe che scegli. <b>A utilizzi sui post</b>: spunti manualmente i post che consumano il premio. Se il risultato cambia ogni volta (es. +1d3 PP), scegli <b>Variabile per post</b>: risultato e link del tiro compariranno direttamente nella riga del post."));
     bonusBox.appendChild(bonusHelp);
-
-    if(!bonusLocked){
-      var missionPreset=el("details","bonus-help");
-      missionPreset.appendChild(el("summary",null,"Aggiungi premio Missione FantaHogwarts"));
-      missionPreset.appendChild(el("p","small-note","<b>Il So-Tutto-Sull'Argomento:</b> questa è una scorciatoia manuale se non hai preparato il premio dal Taccuino. L’Elfo crea un Bonus fisso a <b>1 utilizzo</b>; spunta un solo post della role e +1/+2 PP entreranno automaticamente nel totale del mese. Se nella stessa Role completi più Missioni FH, per ciascun tipo di premio vale soltanto quello più alto, salvo Missioni a completamento."));
-      var missionActions=el("div","bonus-actions");
-      var easyMission=el("button","action small","+ So-Tutto Facile (+1 PP)");easyMission.type="button";easyMission.addEventListener(EV,function(){if(blockIfMonthReadOnly(meseObj))return;addSoTuttoMissionBonus(meseObj,"facile");scheduleSave(0);renderAll();});missionActions.appendChild(easyMission);
-      var mediumMission=el("button","action small","+ So-Tutto Medio (+2 PP)");mediumMission.type="button";mediumMission.addEventListener(EV,function(){if(blockIfMonthReadOnly(meseObj))return;addSoTuttoMissionBonus(meseObj,"medio");scheduleSave(0);renderAll();});missionActions.appendChild(mediumMission);
-      missionPreset.appendChild(missionActions);
-      bonusBox.appendChild(missionPreset);
-    }
 
     appendBonusEditor(bonusBox,meseObj,primaryBonusItem(meseObj),0,bonusLocked,true);
     var extraBonuses=ensureBonusExtras(meseObj);
@@ -12987,6 +12865,15 @@
         altezza:h
       },"*");
     }catch(e){}
+  }
+
+  function ffNotifyParentHeightAfterUnlock(){
+    /* Dopo lo sblocco Password il render mostra molti controlli aggiuntivi.
+       Misuriamo di nuovo quando il layout e gli eventuali dati asincroni si sono assestati. */
+    try{notifyParentHeight(true);}catch(e){}
+    [60,180,450,900,1600].forEach(function(delay){
+      setTimeout(function(){try{notifyParentHeight(true);}catch(e){}},delay);
+    });
   }
 
   function scheduleParentHeight(){
