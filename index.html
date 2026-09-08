@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- v172 — premio del singolo Post visibile accanto al N. globale; 08/09/2026 -->
+<!-- v173 — Role fuori conteggio escluse davvero da Camera Blindata, numerazione e progressi; 08/09/2026 -->
 <!-- v165 — fix mirato post-password: ricalcolo altezza ritardato dopo sblocco modifica; rollback automatismi So-Tutto non necessari; 08/09/2026 -->
 <!-- v163 — fix altezza iframe: misura robusta scrollHeight + bounding box; include controllo sezioni escluse v162; nessuna lettura Firebase aggiuntiva; 08/09/2026 -->
 <!-- v162 — I tuoi Post: blocco automatico sezioni 0 Galeoni/fuori conteggio via bridge ForumFree; nessuna lettura Firebase aggiuntiva; include So-Tutto e tutti i fix v161; 08/09/2026 -->
@@ -3018,7 +3018,7 @@
   function staffTokenCountForPosts(posts,endExclusive,mese){
     posts=Array.isArray(posts)?posts:[];
     var limit=Math.min(posts.length,endExclusive==null?posts.length:endExclusive),n=0;
-    for(var i=0;i<limit;i++){if(posts[i]&&isValidPostLink(posts[i].link)&&staffTokenIsUsed(posts[i],mese))n++;}
+    for(var i=0;i<limit;i++){if(posts[i]&&isValidPostLink(posts[i].link)&&!isSpecialRolePost(posts[i])&&staffTokenIsUsed(posts[i],mese))n++;}
     return n;
   }
   function staffTokenErrorText(code,operation,diagnostic){
@@ -3176,6 +3176,7 @@
     if(enabled&&STAFF_TOKEN_STATE.migrationRequired){if(!opts.silent)alert("L’associazione di questo PG è ancora nel formato legacy. Apri una volta il Gestore Staff Token v73 con la Password Staff, poi rientra nell’Elfo.");return false;}
     if(!staffId){if(!opts.silent)alert("Non trovo lo Staffer proprietario di questo PG.");return false;}
     if(!isValidPostLink(post.link)){if(!opts.silent)alert("Inserisci prima un link valido per il Post.");return false;}
+    if(isSpecialRolePost(post)){if(!opts.silent)alert("Le Role di Linea dell’Età, Giratempo e Trix Tristis sono fuori conteggio e non possono usare Staff Token.");return false;}
     if(enabled&&STAFF_TOKEN_STATE.balance<=0){if(!opts.silent)alert("Non ci sono Staff Token disponibili.");return false;}
     if(!window.fbSetStaffTokenUsage){if(!opts.silent)alert("Il collegamento Staff Token con Firebase non è ancora disponibile.");return false;}
     var payload=staffTokenPayload(post,mese,enabled);
@@ -3248,7 +3249,7 @@
   function staffTokenMonthHasHistory(posts,mese){
     posts=Array.isArray(posts)?posts:[];
     for(var i=0;i<posts.length;i++){
-      if(posts[i]&&isValidPostLink(posts[i].link)&&staffTokenIsUsed(posts[i],mese))return true;
+      if(posts[i]&&isValidPostLink(posts[i].link)&&!isSpecialRolePost(posts[i])&&staffTokenIsUsed(posts[i],mese))return true;
     }
     return false;
   }
@@ -4178,7 +4179,10 @@
     for(var i=0;i<MESI.length;i++){
       var mp = Array.isArray(MESI[i].posts) ? MESI[i].posts : [];
       for(var j=0;j<mp.length;j++){
-        if(mp[j] && isValidPostLink(mp[j].link)){ ensurePostGlobalNo(mp[j]); POSTS.push(mp[j]); }
+        if(mp[j] && isValidPostLink(mp[j].link) && !isSpecialRolePost(mp[j])){
+          ensurePostGlobalNo(mp[j]);
+          POSTS.push(mp[j]);
+        }
       }
     }
     POSTS.sort(function(a,b){ return num(a.globalNo,0) - num(b.globalNo,0); });
@@ -6611,7 +6615,7 @@
        rimossa o modificata. I Post futuri, invece, devono ancora appartenere a una
        delle role attualmente valide. */
     var postsByStableKey={};
-    (POSTS||[]).forEach(function(p){var pk=healingPostStableKey(p);if(pk&&!postsByStableKey[pk])postsByStableKey[pk]=p;});
+    (POSTS||[]).forEach(function(p){if(isSpecialRolePost(p))return;var pk=healingPostStableKey(p);if(pk&&!postsByStableKey[pk])postsByStableKey[pk]=p;});
     var pinned=Array.isArray(h&&h.countedPostKeys)?h.countedPostKeys.map(String):[],seen={},counted=[],seq=0;
     pinned.forEach(function(pk){
       if(counted.length>=req||seen[pk])return;var p=postsByStableKey[pk];if(!p)return;seen[pk]=1;
@@ -6621,7 +6625,7 @@
 
     var currentCandidates=[];
     (POSTS||[]).forEach(function(p){
-      if(!p||!isValidPostLink(p.link)){return;}var k=healingRoleUrlKey(p.link),rid=keys[k];if(!rid){return;}var pk=healingPostStableKey(p);if(!pk){return;}
+      if(!p||!isValidPostLink(p.link)||isSpecialRolePost(p)){return;}var k=healingRoleUrlKey(p.link),rid=keys[k];if(!rid){return;}var pk=healingPostStableKey(p);if(!pk){return;}
       perRoleMatched[rid]=(perRoleMatched[rid]||0)+1;
       if(seen[pk]){return;}var gn=parseInt(p.globalNo,10);currentCandidates.push({post:p,key:pk,rid:rid,order:(!isNaN(gn)&&gn>0?gn:1000000000+(seq++)),pinned:false});
     });
@@ -8764,7 +8768,7 @@
         if(!gmese || !gmese.chiuso){ continue; }
         for(var gp=0;gp<gmese.posts.length;gp++){
           var gpost = gmese.posts[gp];
-          if(!isValidPostLink(gpost.link)){ continue; }
+          if(!isValidPostLink(gpost.link) || isSpecialRolePost(gpost)){ continue; }
           ensurePostGlobalNo(gpost);
           globalRows.push({ n:num(gpost.globalNo,0), mese:gmese, meseIndex:gm, post:gpost, postIndex:gp });
         }
@@ -9211,6 +9215,7 @@
     return r||null;
   }
   function postUsesLimitedBonus(post,b){
+    if(isSpecialRolePost(post)){return false;}
     var r=getBonusUsageRecord(post,b,false);
     return !!(r&&r.used&&isValidPostLink(post&&post.link));
   }
@@ -9305,7 +9310,7 @@
     if(b.modalita==="first"){
       var max=Math.max(0,parseInt(b.primiPost,10)||0);if(max<=0){return false;}
       posts=Array.isArray(posts)?posts:[];var seen=0;
-      for(var i=0;i<posts.length;i++){if(!posts[i]||!isValidPostLink(posts[i].link)){continue;}seen++;if(posts[i]===post){return seen<=max;}}
+      for(var i=0;i<posts.length;i++){if(!posts[i]||!isValidPostLink(posts[i].link)||isSpecialRolePost(posts[i])){continue;}seen++;if(posts[i]===post){return seen<=max;}}
       return false;
     }
     return false;
@@ -9371,7 +9376,7 @@
     window.__ELFO_CURRENT_BONUS_POSTS=Array.isArray(mese&&mese.posts)?mese.posts:[];
     var bonuses=activeMonthBonuses(mese),tot=0;
     for(var i=0;i<bonuses.length;i++)tot+=bonusPPOnPost(bonuses[i],post);
-    if(staffTokenIsUsed(post,mese)&&isValidPostLink(post&&post.link))tot+=1;
+    if(!isSpecialRolePost(post)&&staffTokenIsUsed(post,mese)&&isValidPostLink(post&&post.link))tot+=1;
     return tot;
   }
   function bonusGForPost(mese,post){
@@ -9946,7 +9951,7 @@
     }
     p.appendChild(bonusBox);
 
-    var postiDelMese = meseObj.posts;
+    var postiDelMese = (Array.isArray(meseObj.posts)?meseObj.posts:[]).filter(function(p){return !isSpecialRolePost(p);});
     var totFilled = 0;
     for(var j=0;j<postiDelMese.length;j++){ if(isValidPostLink(postiDelMese[j].link)){ totFilled = totFilled + 1; } }
     var totGBase = totFilled > 0 ? cumulativeG(totFilled) : 0;
