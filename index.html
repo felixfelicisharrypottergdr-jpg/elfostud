@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- v173 — Role fuori conteggio escluse davvero da Camera Blindata, numerazione e progressi; 08/09/2026 -->
+<!-- v174 — rimosso promemoria Lista della Spesa alla chiusura Role fuori conteggio; 08/09/2026 -->
 <!-- v165 — fix mirato post-password: ricalcolo altezza ritardato dopo sblocco modifica; rollback automatismi So-Tutto non necessari; 08/09/2026 -->
 <!-- v163 — fix altezza iframe: misura robusta scrollHeight + bounding box; include controllo sezioni escluse v162; nessuna lettura Firebase aggiuntiva; 08/09/2026 -->
 <!-- v162 — I tuoi Post: blocco automatico sezioni 0 Galeoni/fuori conteggio via bridge ForumFree; nessuna lettura Firebase aggiuntiva; include So-Tutto e tutti i fix v161; 08/09/2026 -->
@@ -4089,11 +4089,7 @@
         var done=el("button","action small","Role conclusa");done.type="button";done.disabled=!EDIT_UNLOCKED;
         done.addEventListener(EV,function(){
           if(!EDIT_UNLOCKED){alert("Accedi alla modifica dell’Elfo.");return;}
-          var premio=specialRoleRewardText(entry);
           finalizeSpecialRole(entry.key);scheduleSave(0);renderAll();
-          setTimeout(function(){
-            alert("Role conclusa. Premio maturato: "+premio+". Ricordati di richiederlo nella Lista della Spesa.");
-          },0);
         });
         row.appendChild(done);body.appendChild(row);
       })(SPECIAL_ROLE_REGISTRY[i]);}
