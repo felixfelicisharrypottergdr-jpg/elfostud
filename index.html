@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+<!-- v161 — strutture: gerarchia uniforme + numeri Postazione automatici; avvisi solo per import automatici esterni; include v160; 08/09/2026 -->
 <!-- v160 — audit finale Laboratori/Missioni: premio So-Tutto collegabile direttamente dal Taccuino, auto-associazione alla Role quando possibile, nessun falso avviso Bagaglio; 08/09/2026 -->
 <!-- v159 — macro-audit Postazione/contatori + Missione So-Tutto-Sull'Argomento: N. globale in I tuoi Post, Pulizia chiara, premio PP automatico; include tutti i fix v158; 08/09/2026 -->
 <!-- v158 — Dispensa: alias Nogtail/Hodag + nome Pugnacio uniformato; include tutti i fix v157, 07/09/2026 -->
@@ -5743,7 +5744,9 @@
     if(!Array.isArray(CREATURE)){CREATURE=[];DATA_DIRTY=true;}
     if(!Array.isArray(ARCHIVIO_CREATURE)){ARCHIVIO_CREATURE=[];DATA_DIRTY=true;}
     if(data.MEDICHERIA){ MEDICHERIA = data.MEDICHERIA; }
-    EXTERNAL_IMPORT_NOTICE=normalizeExternalImportNotice(data.EXTERNAL_IMPORT_NOTICE);
+    var _rawExternalImportNotice=data.EXTERNAL_IMPORT_NOTICE;
+    EXTERNAL_IMPORT_NOTICE=normalizeExternalImportNotice(_rawExternalImportNotice);
+    if(_rawExternalImportNotice&&!EXTERNAL_IMPORT_NOTICE){DATA_DIRTY=true;}
     if(!Array.isArray(MESI)){MESI=[];DATA_DIRTY=true;}
     for(var nmi=0;nmi<MESI.length;nmi++){
       if(!Array.isArray(MESI[nmi].posts)){MESI[nmi].posts=[];DATA_DIRTY=true;}
@@ -6549,7 +6552,7 @@
     }
     if(found||updated){
       var medMsg=(found?found+" guarigione"+(found===1?" importata":"i importate"):"")+(found&&updated?" e ":"")+(updated?updated+" aggiornata"+(updated===1?"":"e"):"")+" da Medimagia.";
-      recordExternalImportNotice("Medimagia",medMsg,"posts");
+      if(!manual){recordExternalImportNotice("Medimagia",medMsg,"posts");}
       /* La guarigione è già stata salvata nel Taccuino/cloud dedicato. L'avviso globale
          non deve generare una seconda scrittura passiva sul documento PG. */
       DATA_DIRTY=true;
@@ -7928,11 +7931,15 @@
 
 
 
+  function legacyManualImportNoticeSource(source){
+    return /^(Generatore Ricerca Ingredienti|Generatore di Pozioni|Tool di Erbologia|Tool di Magizoologia|Elfo Studente)$/i.test(String(source||"").trim());
+  }
   function normalizeExternalImportNotice(x){
     if(!x||typeof x!=="object"||Array.isArray(x)){return null;}
-    var msg=String(x.message||"").trim();
+    var msg=String(x.message||"").trim(),source=String(x.source||"un altro tool").trim()||"un altro tool";
     if(!msg){return null;}
-    return {source:String(x.source||"un altro tool").trim()||"un altro tool",message:msg,step:String(x.step||""),at:String(x.at||"")};
+    if(String(x.origin||"")!=="external"&&legacyManualImportNoticeSource(source)){return null;}
+    return {source:source,message:msg,step:String(x.step||""),at:String(x.at||""),origin:"external"};
   }
   function externalImportNoticePgName(){
     try{
@@ -7948,7 +7955,7 @@
   }
   function loadExternalImportNoticeLocal(){
     var key=externalImportNoticeStorageKey();if(!key){return null;}
-    try{return normalizeExternalImportNotice(JSON.parse(localStorage.getItem(key)||"null"));}catch(e){return null;}
+    try{var raw=JSON.parse(localStorage.getItem(key)||"null"),norm=normalizeExternalImportNotice(raw);if(raw&&!norm){localStorage.removeItem(key);}return norm;}catch(e){return null;}
   }
   function persistExternalImportNoticeLocal(value){
     var key=externalImportNoticeStorageKey();if(!key){return;}
@@ -7958,7 +7965,7 @@
     }catch(e){}
   }
   function recordExternalImportNotice(source,message,step){
-    EXTERNAL_IMPORT_NOTICE={source:String(source||"un altro tool"),message:String(message||"Importazione completata."),step:String(step||currentStep||""),at:new Date().toISOString()};
+    EXTERNAL_IMPORT_NOTICE={source:String(source||"un altro tool"),message:String(message||"Importazione completata."),step:String(step||currentStep||""),at:new Date().toISOString(),origin:"external"};
     persistExternalImportNoticeLocal(EXTERNAL_IMPORT_NOTICE);
   }
   function buildExternalImportNotice(){
@@ -10797,7 +10804,6 @@
     var bulkBtn=el("button","action small","Importa Ingredienti");
     bulkBtn.addEventListener(EV,function(){
       var bulkRaw=String(bulk.value||"");
-      var fromIngredientGenerator=/(?:FELIX_ELFO_[A-Z_]*INGREDIENT|RISULTATI\s+RACCOLTA\s*:|GENERATORE\s+RICERCA\s+INGREDIENTI)/i.test(bulkRaw);
       var rawLines=splitDispensaBulkText(bulkRaw),errs=[],added=0,doses=0;
       for(var bi=0;bi<rawLines.length;bi++){
         var parsed=parseDispensaBulkLine(rawLines[bi]);
@@ -10814,9 +10820,6 @@
         DISPENSA_IMPORT_REPORT={added:0,doses:0,errors:[],empty:true};
       }
       if(added){
-        if(fromIngredientGenerator){
-          recordExternalImportNotice("Generatore Ricerca Ingredienti","Importati "+added+(added===1?" Ingrediente in Dispensa.":" Ingredienti in Dispensa."),"dispensa");
-        }
         bulk.value="";
         resizeBulkTextarea();
         scheduleSave(0);
@@ -11015,7 +11018,7 @@
     var f=parseTransferLines(raw);if(!Object.keys(f).length)return {ok:false,error:"Formato non riconosciuto."};var pz=newCalderone();pz.nomePozione=transferGet(f,"nome pozione")||"";var cls=(transferGet(f,"classificazione")||"X").toUpperCase().replace(/\s+/g,"");if(CLASSI_STUD.indexOf(cls)<0)return {ok:false,error:"La Classificazione "+cls+" non è ammessa nella Postazione dello Studente (X–XXX)."};pz.classificazione=cls;var tipo=transferGet(f,"tipologia");if(TIPOLOGIE.indexOf(tipo)>=0)pz.tipologia=tipo;var main=transferGet(f,"link principale");pz.dataLink=main;pz.calderoneOggetti=transferGet(f,"calderone/oggetti")||"//";
     function out(prefix,label){var es=transferGet(f,label+" esito"),strength=transferGet(f,label+" forza"),link=transferGet(f,label+" link")||main;pz[prefix+"Esito"]=/fall/i.test(es)?"fallita":"riuscita";pz[prefix+"Valore"]=Math.abs(num(String(strength).replace(/[^0-9.,-]/g,"").replace(",","."),0));pz[prefix+"Link"]=link;}out("prep","preparazione");out("prod","produzione");pz.bacchettaEsito=/fall/i.test(transferGet(f,"bacchetta esito"))?"fallita":"riuscita";pz.bacchettaLink=transferGet(f,"bacchetta link")||main;pz.dosi=Math.max(0,num(transferGet(f,"bacchetta dosi"),0));pz.distillSvolta=/^(sì|si|yes)$/i.test(transferGet(f,"distillazione"));pz.distillLink=transferGet(f,"distillazione link")||"";pz.distillEsito=transferGet(f,"distillazione esito")||"";pz.distillBagaglio=transferGet(f,"distillazione bagaglio")||"";pz.imbottLink=transferGet(f,"imbottigliamento link")||main;pz.imbottPercent=transferGet(f,"imbottigliamento esito")||"";pz.postRichiesti=Math.max(0,num(transferGet(f,"post richiesti"),0));pz.imbottModificatori=transferGet(f,"modificatori")||"";applyImportedIllegalFields(pz,f,"pozione");return {ok:true,postazione:pz};
   }
-  function buildPotionImportBox(){var det=el("details","illegal-import-box");keepDetailsState(det,"postazione:import-pozione",false);det.appendChild(el("summary",null,"Importa Pozione dal Generatore"));det.appendChild(el("p","small-note","Incolla il blocco FELIX_ELFO_POZIONE_V1. Legalità, protezioni ed esiti dei controlli illegali vengono salvati come storico; lo Studente usa 1d30, non 1d50 per Sapienza."));var ta=el("textarea");ta.placeholder="FELIX_ELFO_POZIONE_V1\nDESTINAZIONE: Laboratorio/Postazione\nNome Pozione: ...\nLegalità: Illegale\n...";det.appendChild(ta);var btn=el("button","action","Importa Pozione");btn.type="button";btn.addEventListener(EV,function(){if(CALDERONI.length>=ANNO_POSTI[STUDENTE.anno]){alert("Hai già raggiunto il numero massimo di Pozioni contemporanee consentite.");return;}var r=potionFromTransferText(ta.value);if(!r.ok){alert("Importazione non eseguita: "+r.error);return;}CALDERONI.push(r.postazione);recordExternalImportNotice("Generatore di Pozioni","Pozione importata: "+String(r.postazione.nomePozione||r.postazione.nome||"nuova Pozione")+".","postazione");scheduleSave(0);renderAll();alert("Pozione importata. I controlli illegali sono stati conservati come storico e non verranno rilanciati.");});det.appendChild(btn);return det;}
+  function buildPotionImportBox(){var det=el("details","illegal-import-box");keepDetailsState(det,"postazione:import-pozione",false);det.appendChild(el("summary",null,"Importa Pozione dal Generatore"));det.appendChild(el("p","small-note","Incolla il blocco FELIX_ELFO_POZIONE_V1. Legalità, protezioni ed esiti dei controlli illegali vengono salvati come storico; lo Studente usa 1d30, non 1d50 per Sapienza."));var ta=el("textarea");ta.placeholder="FELIX_ELFO_POZIONE_V1\nDESTINAZIONE: Laboratorio/Postazione\nNome Pozione: ...\nLegalità: Illegale\n...";det.appendChild(ta);var btn=el("button","action","Importa Pozione");btn.type="button";btn.addEventListener(EV,function(){if(CALDERONI.length>=ANNO_POSTI[STUDENTE.anno]){alert("Hai già raggiunto il numero massimo di Pozioni contemporanee consentite.");return;}var r=potionFromTransferText(ta.value);if(!r.ok){alert("Importazione non eseguita: "+r.error);return;}CALDERONI.push(r.postazione);scheduleSave(0);renderAll();alert("Pozione importata. I controlli illegali sono stati conservati come storico e non verranno rilanciati.");});det.appendChild(btn);return det;}
 
   function renderPostazioneStep(container){
     var p = el("div", "panel structure-ui");
@@ -11083,9 +11086,6 @@
     var actionWrap=el("div","structure-actions");
     var archP=el("button","action small","Archivia Pozione conclusa"); archP.addEventListener(EV,function(){CALDERONI=CALDERONI.filter(function(x){return x.id!==postaz.id;});archiveStamp(postaz);ARCHIVIO_CALDERONI.push(postaz);scheduleSave(0);renderAll();}); actionWrap.appendChild(archP);
     var rm=el("button","action danger small","Rimuovi"); rm.addEventListener(EV,function(){CALDERONI=CALDERONI.filter(function(x){return x.id!==postaz.id;});scheduleSave(0);renderAll();}); actionWrap.appendChild(rm); h.appendChild(actionWrap); card.appendChild(h);
-
-    var row0=el("div","row"); var dNum=el("div"); dNum.appendChild(el("label",null,"Numero Postazione")); var iNum=el("input"); iNum.type="text"; iNum.value=postaz.numero; iNum.addEventListener("change",function(){postaz.numero=iNum.value;scheduleSave(0);renderAll();}); dNum.appendChild(iNum); row0.appendChild(dNum);
-    card.appendChild(row0);
 
     var row1=el("div","row"); var dDataT=el("div"); dDataT.appendChild(el("label",null,"Data di creazione (GG/MM/AAAA)")); var iDataT=buildDateInput(postaz.dataTesto,function(v){postaz.dataTesto=v;}); dDataT.appendChild(iDataT); row1.appendChild(dDataT);
     var dDataL=el("div"); dDataL.appendChild(el("label",null,"Link della role")); var iDataL=el("input"); iDataL.type="text"; iDataL.value=postaz.dataLink; iDataL.addEventListener("input",function(){postaz.dataLink=iDataL.value;}); dDataL.appendChild(iDataL); row1.appendChild(dDataL); card.appendChild(row1);
@@ -11563,8 +11563,6 @@
         imported++;
       }
       if(imported>0){
-        var sourceTool=entityLabel==="Pianta"?"Tool di Erbologia":"Tool di Magizoologia";
-        recordExternalImportNotice(sourceTool,"Importazione completata: "+imported+(imported===1?" "+entityLabel+" aggiunta.":" elementi aggiunti."),currentStep);
         scheduleSave(0);
         var msg="Importazione completata: "+imported+(imported===1?" "+entityLabel+" aggiunta.":" elementi aggiunti.");
         if(errors.length){msg+="\n\nDa controllare:\n- "+errors.join("\n- ");}
