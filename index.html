@@ -1,3 +1,25 @@
+
+<!-- v195 — audit persistenza: coda locale anche per modifiche persistenti rilevate dal listener universale; flush prima di Cambia Elfo; flush best-effort strutture condivise su hidden/pagehide; 09/09/2026 -->
+<!-- v175: ripristinato import completo Erbologia (ciclo, esito, post, legalità Pianta e campi v137). -->
+<!-- elfo_studente_v202 — rimosso il paragrafo tecnico iniziale sulla ricerca PG; comportamento ottimizzato e avvisi contestuali invariati. -->
+<!-- elfo_studente_v203 — audit trasversale Serra/Riserva/Dispensa: raccolti Magizoologia importati nel Ciclo e trasferibili atomicamente in Dispensa; deduplicazione/correzioni allineate a Erbologia. -->
+<!-- elfo_studente_v204 — audit eliminazione/archivio: registro storico persistente dei raccolti trasferiti, anti-doppio accredito anche dopo rimozione dell'esemplare. -->
+<!-- elfo_studente_v205 — fix import specialistici: helper neutro per protezioni di struttura non previste nello Studente; nessun ReferenceError. -->
+<!-- elfo_studente_v206 — audit controlli illegali: storico importato non distruttivo, campi assenti non cancellano esiti già risolti; modifiche manuali salvate. -->
+<!-- elfo_studente_v207 — audit Legale/Illegale: storico precedente conservato e visibile come non attivo; nessun rilancio implicito. -->
+<!-- elfo_studente_v208 — pacchetto trasferimento v3: snapshot Dispensa completo incluso cycleTransferLedger anti-doppio accredito. -->
+<!-- elfo_studente_v209 — migrazione ledger legacy al caricamento e nei reload da conflitto, con consolidamento tecnico sicuro. -->
+<!-- elfo_studente_v210 — audit import correttivi: Legalità assente non forza Legale; correzioni metadata/storico applicate anche con Ciclo e raccolto identici. -->
+<!-- elfo_studente_v211 — Ripristino Pozioni: rispetto del limite di Postazioni previsto dall’Anno Scolastico. -->
+<!-- elfo_studente_v212 — Undo/Redo allineato allo schema corrente 29. -->
+<!-- elfo_studente_v213 — correzioni raccolto atomiche: blocco se lotto Dispensa già usato/modificato; nessun rollback quando il raccolto non cambia. -->
+<!-- elfo_studente_v214 — fix ReferenceError ledger: identificativo PG usa STUDENTE.nome nel ramo Studente. -->
+<!-- elfo_studente_v215 — rimosso codice dormiente Adulto/shared che dipendeva da PG_ID nello Studente. -->
+<!-- elfo_studente_v216 — ledger legacy: tipo Pianta/Creatura passato esplicitamente quando harvest.context manca. -->
+<!-- elfo_studente_v217 — migrazione ledger già esistente: chiavi legacy senza tipo vengono riscritte come Pianta/Creatura e deduplicate. -->
+<!-- elfo_studente_v218 — rimozione esemplare attivo preserva il ledger anti-doppio accredito prima dello splice. -->
+<!-- elfo_studente_v219 — correzioni atomiche: Esito/Post e Semi validati prima di qualsiasi rollback della Dispensa. -->
+<!-- elfo_studente_v220 — import rifiutati senza side effect: rollback non sicuro non marca needsCorrection durante il preflight. -->
 <!DOCTYPE html>
 <!-- v174 — rimosso promemoria Lista della Spesa alla chiusura Role fuori conteggio; 08/09/2026 -->
 <!-- v165 — fix mirato post-password: ricalcolo altezza ritardato dopo sblocco modifica; rollback automatismi So-Tutto non necessari; 08/09/2026 -->
@@ -2024,6 +2046,8 @@
     flex:1 1 120px;
   }
 </style>
+<!-- v183: re-import dello stesso Ciclo con stesso link aggiorna lo slot esistente anche se Esito/Post sono stati corretti. -->
+<!-- v180: import Erbologia assegna il primo ciclo libero e non sovrascrive cicli già consumati/completati. -->
 </head>
 <body>
 <div class="wrap">
@@ -2463,19 +2487,17 @@
         if(remoteData._deleted){ throw new Error("deleted-pg"); }
         var remoteRevision = Math.max(0, parseInt(remoteData._dbRevision,10) || 0);
         if(remoteRevision !== expectedRevision){
-          /* In anteprima (e durante alcuni rerender asincroni) due istanze dello stesso
-             Elfo possono condividere la medesima SESSION_ID. Se l'ultima revisione è
-             stata scritta proprio da QUESTA sessione, non è un conflitto esterno:
-             assorbiamo la revisione corrente e continuiamo nella stessa transazione. */
+          /* v197: una revisione diversa è SEMPRE un conflitto da riallineare.
+             Non usiamo _lastSessionId come scorciatoia: sessionStorage può essere
+             clonato quando una scheda viene duplicata, quindi due tab concorrenti
+             possono condividere lo stesso SESSION_ID. Il salvataggio personale è già
+             serializzato e il rebase v196 gestisce le modifiche successive della stessa
+             pagina senza bisogno di bypassare il controllo di revisione. */
           var remoteSession=String(remoteData._lastSessionId||"");
-          if(remoteSession && remoteSession===String(sessionId||"")){
-            expectedRevision=remoteRevision;
-          }else{
-            var revErr=new Error("revision-conflict");
-            revErr.expectedRevision=expectedRevision;revErr.remoteRevision=remoteRevision;
-            revErr.remoteSessionId=remoteSession;revErr.localSessionId=String(sessionId||"");
-            throw revErr;
-          }
+          var revErr=new Error("revision-conflict");
+          revErr.expectedRevision=expectedRevision;revErr.remoteRevision=remoteRevision;
+          revErr.remoteSessionId=remoteSession;revErr.localSessionId=String(sessionId||"");
+          throw revErr;
         }
         next=txProtectAccreditedMonths(remoteData,next,accSnap.exists()?accSnap.data():{},baselineObj||{});
       } else if(expectedRevision !== 0){
@@ -4812,7 +4834,7 @@
     AUTO_CONFLICT_RELOAD_PROMISE=Promise.resolve(window.fbLoadState(nome)).then(function(data){
       if(!data||data._deleted||data._archiviato){return false;}
       applyState(data);
-      STUDENTE.nome=nome;PG_DOC_EXISTS=true;fbConnected=true;NEW_PG_PENDING=false;NEW_PG_PASSWORD_DRAFT="";
+      STUDENTE.nome=nome;var ledgerMigrationAdded=rebuildPersonalCycleTransferLedger();PG_DOC_EXISTS=true;fbConnected=true;NEW_PG_PENDING=false;NEW_PG_PASSWORD_DRAFT="";
       EDIT_PASSWORD_CONFIGURED=data._editPasswordConfigured===true;
       EDIT_UNLOCKED=wasUnlocked;
       accreditiCache=null;
@@ -4821,6 +4843,7 @@
       LAST_AUDITED_STATE=cloneHistoryState(historyComparableState(loadedState));
       PENDING_AUDIT_STATE=null;SESSION_SNAPSHOT_DONE=false;LAST_SNAPSHOT_MS=0;
       DATA_DIRTY=false;FORCE_PERSIST_SAVE=false;LOCKED_MIGRATION_PENDING=false;SAVE_CONFLICT_LOCKED=false;
+      if(ledgerMigrationAdded>0){LOCKED_MIGRATION_PENDING=!wasUnlocked;FORCE_PERSIST_SAVE=!!wasUnlocked;}
       window.fbLastSaveError=null;window.fbLastSavedRevision=DB_REVISION;
       SAVE_FORCE_AGAIN=false;
       rememberBrowserPg(nome);resetUndoRedoHistory();
@@ -4829,6 +4852,7 @@
       document.querySelectorAll("#revision-conflict-overlay").forEach(function(x){if(x&&x.parentNode){x.remove();}});
       fbStatusText=wasUnlocked?"Aggiornato automaticamente dal cloud · modifica autorizzata":"Aggiornato automaticamente dal cloud · sola visualizzazione";
       renderAll({skipAutoSave:true});updateFbIndicator();
+      if(ledgerMigrationAdded>0&&wasUnlocked){scheduleSave(0,false);}
       return true;
     }).catch(function(e){console.error("Ricaricamento automatico dopo conflitto non riuscito",e);return false;}).then(function(ok){
       AUTO_CONFLICT_RELOAD_PROMISE=null;
@@ -4849,11 +4873,11 @@
         window.fbLastSaveError=null;return;
       }
     }
+    /* v198: un conflitto che il three-way rebase non riesce a fondere NON deve
+       caricare automaticamente il cloud sopra lo stato locale. L'utente deve vedere
+       il conflitto e scegliere esplicitamente se scartare le modifiche locali. */
     if(!forceOverlay&&(code==="revision-conflict"||code==="accredited-month-conflict")){
-      autoReloadLatestAfterConflict(code).then(function(ok){
-        if(!ok){lockAfterRevisionConflict(code,true);}
-      });
-      return;
+      forceOverlay=true;
     }
     var overlays=document.querySelectorAll("#revision-conflict-overlay");
     var existingOverlay=overlays.length?overlays[0]:null;
@@ -4866,11 +4890,11 @@
     var overlay=document.createElement("div");overlay.id="revision-conflict-overlay";overlay.style.cssText="position:fixed;inset:0;z-index:999999;background:rgba(0,0,0,.72);display:flex;align-items:center;justify-content:center;padding:20px;";
     var box=document.createElement("div");box.style.cssText="max-width:620px;width:100%;background:#fff;color:#222;border-radius:12px;padding:22px;box-shadow:0 20px 60px rgba(0,0,0,.35);font-family:inherit;";
     var h=document.createElement("h2");h.textContent=deleted?"⚠ Personaggio eliminato":(accredited?"⚠ Stato di accredito aggiornato":"⚠ Sono disponibili dati più recenti");box.appendChild(h);
-    var p=document.createElement("p");p.textContent=deleted?"Questo Personaggio è stato eliminato definitivamente dal Narratore mentre l’Elfo era aperto. Le modifiche locali successive non sono state salvate e il documento non verrà ricreato.":(accredited?"Il Narratore ha modificato lo stato di accredito di un Mese mentre l’Elfo era aperto. Per sicurezza il Tool non altera una Camera Blindata già accreditata. Carica la versione più recente e ricontrolla il Mese prima di continuare.":"Firebase contiene una versione più recente di questo PG. Per evitare sovrascritture, l’Elfo ha fermato il vecchio salvataggio. Premi «Carica versione più recente»: i dati del PG vengono riletti direttamente dal cloud senza ricaricare la pagina e puoi continuare normalmente.");box.appendChild(p);
+    var p=document.createElement("p");p.textContent=deleted?"Questo Personaggio è stato eliminato definitivamente dal Narratore mentre l’Elfo era aperto. Le modifiche locali successive non sono state salvate e il documento non verrà ricreato.":(accredited?"Il Narratore ha modificato lo stato di accredito di un Mese mentre l’Elfo era aperto. Le modifiche locali non vengono applicate automaticamente sopra una Camera Blindata già accreditata. Puoi caricare il cloud scartando volontariamente la copia locale oppure cambiare Elfo mantenendo la copia locale di emergenza.":"Firebase contiene una versione più recente di questo PG e anche questa scheda possiede modifiche locali che non possono essere fuse in sicurezza. L’Elfo ha fermato il salvataggio senza sovrascrivere nulla. Carica il cloud solo se vuoi scartare volontariamente le modifiche locali di questa scheda; in alternativa cambia Elfo per conservarne la copia locale di emergenza.");box.appendChild(p);
     var actions=document.createElement("div");actions.style.cssText="display:flex;gap:10px;flex-wrap:wrap;margin-top:18px;";
-    var b=document.createElement("button");b.className="action";b.textContent=deleted?"Cambia Elfo":"Carica versione più recente";
+    var b=document.createElement("button");b.className="action";b.textContent=deleted?"Cambia Elfo":"Carica cloud e scarta modifiche locali";
     b.addEventListener("click",function(){
-      b.disabled=true;b.textContent=deleted?"Uscita…":"Caricamento…";
+      b.disabled=true;b.textContent=deleted?"Uscita…":"Caricamento cloud…";
       if(fbSaveTimer){clearTimeout(fbSaveTimer);fbSaveTimer=null;}
       if(deleted){
         try{rememberBrowserPg("");EDIT_UNLOCKED=false;DATA_DIRTY=false;FORCE_PERSIST_SAVE=false;}catch(e){}
@@ -4892,7 +4916,7 @@
         }
         var rawLoadedState=cloneStateForSave(data);
         applyState(data);
-        STUDENTE.nome=nome;PG_DOC_EXISTS=true;fbConnected=true;NEW_PG_PENDING=false;NEW_PG_PASSWORD_DRAFT="";
+        STUDENTE.nome=nome;var ledgerMigrationAdded=rebuildPersonalCycleTransferLedger();PG_DOC_EXISTS=true;fbConnected=true;NEW_PG_PENDING=false;NEW_PG_PASSWORD_DRAFT="";
         EDIT_PASSWORD_CONFIGURED=data._editPasswordConfigured===true;
         EDIT_UNLOCKED=wasUnlocked;
         accreditiCache=null;
@@ -4901,6 +4925,11 @@
         LAST_AUDITED_STATE=cloneHistoryState(historyComparableState(loadedState));
         PENDING_AUDIT_STATE=null;SESSION_SNAPSHOT_DONE=false;LAST_SNAPSHOT_MS=0;
         DATA_DIRTY=false;FORCE_PERSIST_SAVE=false;LOCKED_MIGRATION_PENDING=false;SAVE_CONFLICT_LOCKED=false;
+        if(ledgerMigrationAdded>0){LOCKED_MIGRATION_PENDING=!wasUnlocked;FORCE_PERSIST_SAVE=!!wasUnlocked;}
+        /* v198: il click su questo pulsante è la scelta esplicita di scartare la
+           versione locale in conflitto. Eliminiamo quindi anche la pending queue,
+           altrimenti potrebbe riapparire in una riapertura successiva. */
+        personalPendingClear(nome);
         window.fbLastSaveError=null;
         rememberBrowserPg(nome);resetUndoRedoHistory();
         if(typeof taccSwitchLocalProfile==="function"){taccSwitchLocalProfile(nome);}
@@ -4912,6 +4941,7 @@
         /* Il recupero da conflitto è una LETTURA autoritativa: non deve generare subito
            un nuovo salvataggio soltanto perché la pagina viene ricostruita. */
         renderAll({skipAutoSave:true});updateFbIndicator();
+        if(ledgerMigrationAdded>0&&wasUnlocked){scheduleSave(0,false);}
         return true;
       }).catch(function(e){
         console.error(e);b.disabled=false;b.textContent="Riprova caricamento";
@@ -4924,6 +4954,9 @@
       change.addEventListener("click",function(){
         b.disabled=true;change.disabled=true;change.textContent="Uscita…";
         if(fbSaveTimer){clearTimeout(fbSaveTimer);fbSaveTimer=null;}
+        /* v195: prima di abbandonare una sessione in conflitto conserva sincronicamente
+           qualunque stato locale netto ancora diverso dalla baseline cloud. */
+        try{personalPendingFlushLocal();}catch(e){console.error(e);}
         try{rememberBrowserPg("");EDIT_UNLOCKED=false;DATA_DIRTY=false;FORCE_PERSIST_SAVE=false;}catch(e){}
         Promise.resolve(window.fbEndEditSession?window.fbEndEditSession():true).catch(function(e){console.error(e);}).finally(function(){window.location.reload();});
       });actions.appendChild(change);
@@ -4941,18 +4974,26 @@
     try{var raw=localStorage.getItem(personalPendingKey(pgName));if(!raw){return null;}var rec=JSON.parse(raw);return rec&&rec.state?rec:null;}catch(e){console.warn("Coda locale Elfo non leggibile",e);return null;}
   }
   var PERSONAL_PENDING_LOCAL_TIMER=null;
+  function personalHasUnpersistedNetChange(){
+    if(!personalPgName()){return false;}
+    try{
+      var current=persistenceComparableState(collectState());
+      return !!FORCE_PERSIST_SAVE || !LAST_PERSISTED_STATE || stableComparableJson(current)!==stableComparableJson(LAST_PERSISTED_STATE);
+    }catch(e){return !!DATA_DIRTY;}
+  }
   function personalPendingStoreSoon(code){
     if(!personalPgName()){return;}
     if(PERSONAL_PENDING_LOCAL_TIMER){clearTimeout(PERSONAL_PENDING_LOCAL_TIMER);}
     PERSONAL_PENDING_LOCAL_TIMER=setTimeout(function(){
       PERSONAL_PENDING_LOCAL_TIMER=null;
-      if(!DATA_DIRTY){return;}
+      if(!DATA_DIRTY && !personalHasUnpersistedNetChange()){return;}
+      DATA_DIRTY=true;
       personalPendingStore(collectState(),code||"local-edit");
     },250);
   }
   function personalPendingFlushLocal(){
     if(PERSONAL_PENDING_LOCAL_TIMER){clearTimeout(PERSONAL_PENDING_LOCAL_TIMER);PERSONAL_PENDING_LOCAL_TIMER=null;}
-    if(DATA_DIRTY&&personalPgName()){personalPendingStore(collectState(),"local-edit");}
+    if((DATA_DIRTY||personalHasUnpersistedNetChange())&&personalPgName()){DATA_DIRTY=true;personalPendingStore(collectState(),"local-edit");}
   }
   function personalPendingStore(state,code){
     var pgName=personalPgName();if(!pgName){return false;}
@@ -4987,12 +5028,65 @@
       PERSONAL_CLOUD_RETRY_COUNT=0;PERSONAL_CLOUD_BACKOFF_UNTIL=0;
       if(PERSONAL_CLOUD_RETRY_TIMER){clearTimeout(PERSONAL_CLOUD_RETRY_TIMER);PERSONAL_CLOUD_RETRY_TIMER=null;}
       personalPendingClear();
+    }else if(personalPgName()){
+      /* v196: un salvataggio appena concluso può aver avanzato DB_REVISION mentre
+         esistono già modifiche UI successive non incluse in quella transazione.
+         Ribasiamo la coda locale sulla nuova revisione cloud: in caso di chiusura
+         prima del salvataggio successivo, la riapertura non scambia questa coda
+         della stessa sessione per un conflitto remoto. */
+      DATA_DIRTY=true;
+      personalPendingStore(collectState(),"local-edit-after-save");
     }
   }
+
+  function personalOfferConflictingPending(rec,remote){
+    if(!rec||!rec.state){return false;}
+    var existing=document.getElementById("personal-pending-conflict-overlay");
+    if(existing){return true;}
+    fbStatusText="Copia locale da recuperare: scegli se mantenere il cloud o ripristinare la modifica locale";updateFbIndicator();
+    var overlay=document.createElement("div");overlay.id="personal-pending-conflict-overlay";overlay.style.cssText="position:fixed;inset:0;z-index:999998;background:rgba(0,0,0,.72);display:flex;align-items:center;justify-content:center;padding:20px;";
+    var box=document.createElement("div");box.style.cssText="max-width:620px;width:100%;background:#fff;color:#222;border-radius:12px;padding:22px;box-shadow:0 20px 60px rgba(0,0,0,.35);font-family:inherit;";
+    var h=document.createElement("h2");h.textContent="⚠ Copia locale non sincronizzata";box.appendChild(h);
+    var p=document.createElement("p");p.textContent="Questo Elfo contiene una copia locale conservata durante un precedente conflitto, ma il cloud nel frattempo è cambiato. Per sicurezza non viene fusa automaticamente. Puoi mantenere il cloud e cancellare la copia locale oppure ripristinare volontariamente la copia locale come nuova modifica sopra la versione cloud appena caricata.";box.appendChild(p);
+    if(rec.savedAt){var meta=document.createElement("p");meta.style.cssText="font-size:.92em;opacity:.78";meta.textContent="Copia locale: "+String(rec.savedAt)+" · revisione di partenza "+String(Math.max(0,parseInt(rec.baseRevision,10)||0))+" · cloud attuale "+String(remote);box.appendChild(meta);}
+    var actions=document.createElement("div");actions.style.cssText="display:flex;gap:10px;flex-wrap:wrap;margin-top:18px;";
+    var restore=document.createElement("button");restore.className="action";restore.textContent="Ripristina copia locale";
+    restore.addEventListener("click",function(){
+      restore.disabled=true;keep.disabled=true;
+      var keepPersisted=LAST_PERSISTED_STATE?cloneHistoryState(LAST_PERSISTED_STATE):null;
+      var keepAudited=LAST_AUDITED_STATE?cloneHistoryState(LAST_AUDITED_STATE):null;
+      var keepModifiedAt=LAST_MODIFIED_AT,keepModifiedBy=LAST_MODIFIED_BY,keepSession=LAST_SESSION_ID;
+      var pending=cloneStateForSave(rec.state);pending._dbRevision=remote;
+      applyState(pending);
+      DB_REVISION=remote;PG_DOC_EXISTS=true;LAST_PERSISTED_STATE=keepPersisted;LAST_AUDITED_STATE=keepAudited;LAST_MODIFIED_AT=keepModifiedAt;LAST_MODIFIED_BY=keepModifiedBy;LAST_SESSION_ID=keepSession;
+      DATA_DIRTY=true;FORCE_PERSIST_SAVE=true;SAVE_CONFLICT_LOCKED=false;window.fbLastSaveError=null;
+      /* Ribasiamo anche la pending sulla revisione cloud corrente prima del nuovo
+         tentativo, così una chiusura immediata non la rende nuovamente irrecuperabile. */
+      personalPendingStore(collectState(),"manual-conflict-restore");
+      if(overlay&&overlay.parentNode){overlay.remove();}
+      fbStatusText="Copia locale ripristinata · sincronizzazione in corso";
+      renderAll({skipAutoSave:true});updateFbIndicator();scheduleSave(0,false);
+    });actions.appendChild(restore);
+    var keep=document.createElement("button");keep.className="action secondary";keep.textContent="Mantieni cloud e cancella copia locale";
+    keep.addEventListener("click",function(){
+      personalPendingClear(personalPgName());
+      DATA_DIRTY=false;FORCE_PERSIST_SAVE=false;
+      if(overlay&&overlay.parentNode){overlay.remove();}
+      fbStatusText="Versione cloud mantenuta · copia locale eliminata";updateFbIndicator();
+    });actions.appendChild(keep);
+    box.appendChild(actions);overlay.appendChild(box);document.body.appendChild(overlay);return true;
+  }
+
   function personalRestorePendingAfterLoad(){
     var rec=personalPendingLoad(personalPgName());if(!rec||!rec.state){return false;}
     var base=Math.max(0,parseInt(rec.baseRevision,10)||0),remote=Math.max(0,parseInt(DB_REVISION,10)||0);
-    if(base!==remote){fbStatusText="C'è una copia locale non sincronizzata, ma il cloud è cambiato: non la applico automaticamente";updateFbIndicator();return false;}
+    if(base!==remote){
+      /* v199: una pending locale nata da un vero conflitto può avere una revisione
+         precedente rispetto al cloud. Non è sicuro applicarla automaticamente, ma
+         non deve neppure diventare irraggiungibile: offriamo una scelta esplicita. */
+      personalOfferConflictingPending(rec,remote);
+      return false;
+    }
     var keepPersisted=LAST_PERSISTED_STATE?cloneHistoryState(LAST_PERSISTED_STATE):null;
     var keepAudited=LAST_AUDITED_STATE?cloneHistoryState(LAST_AUDITED_STATE):null;
     var keepModifiedAt=LAST_MODIFIED_AT,keepModifiedBy=LAST_MODIFIED_BY,keepSession=LAST_SESSION_ID;
@@ -5577,6 +5671,16 @@
 
   function normalizeOccupantDates(occ){
     if(!occ){ return; }
+    /* v178 — migrazione retrocompatibile: le vecchie importazioni Erbologia
+       salvavano il +10 permanente soltanto nelle Note. Ricostruisci il campo
+       strutturato senza sovrascrivere valori gia presenti. */
+    if(!(Number(occ.erbMalusPostPermanente||0)>0)){
+      var erbOldNote=String(occ.note||"");
+      var erbOldMalus=erbOldNote.match(/Malus\s+permanente(?:\s+della\s+Pianta)?(?:\s+Cicli)?\s*:\s*\+?\s*(\d+)\s*post/i);
+      if(!erbOldMalus){erbOldMalus=erbOldNote.match(/\+\s*(10)\s*post\s+permanent/i);}
+      if(erbOldMalus){occ.erbMalusPostPermanente=Math.max(0,parseInt(erbOldMalus[1],10)||0);}
+      else if(occ.erbMalusPostPermanente==null){occ.erbMalusPostPermanente=0;}
+    }
     occ.dataTesto = normalizeDateText(occ.dataTesto);
     occ.faseDataInizio = normalizeDateText(occ.faseDataInizio);
     if(!Array.isArray(occ.faseHistory)){ occ.faseHistory = []; }
@@ -5726,7 +5830,7 @@
     };
 
     var merged=cloneHistoryState(snapshot);
-    merged._schemaVersion=28;
+    merged._schemaVersion=29;
     merged._dbRevision=keep.dbRevision;
     merged._pgName=String(STUDENTE.nome||"");
     merged._lastModifiedAt=keep.lastModifiedAt;
@@ -5820,6 +5924,15 @@
     bar.appendChild(undo);bar.appendChild(redo);
     if(container.firstChild){container.insertBefore(bar,container.firstChild);}else{container.appendChild(bar);}
     updateUndoRedoButtons();
+  }
+
+  /* v209 — migrazione ledger legacy al caricamento/reload del PG Studente. */
+  function rebuildPersonalCycleTransferLedger(){
+    var added=0;
+    (Array.isArray(PIANTE)?PIANTE:[]).concat(Array.isArray(ARCHIVIO_PIANTE)?ARCHIVIO_PIANTE:[]).forEach(function(x){added+=registerOccupantTransferredCyclesInLedger(x,"Pianta");});
+    (Array.isArray(CREATURE)?CREATURE:[]).concat(Array.isArray(ARCHIVIO_CREATURE)?ARCHIVIO_CREATURE:[]).forEach(function(x){added+=registerOccupantTransferredCyclesInLedger(x,"Creatura");});
+    if(added>0)DATA_DIRTY=true;
+    return added;
   }
 
   function resetDataState(){
@@ -6181,10 +6294,15 @@
     if(registraModifica !== false){
       captureUndoHistory(true);
       DATA_DIRTY = true;
-      /* v nuovo: ogni modifica personale riceve subito anche una copia locale
-         debounced. Se la pagina viene chiusa prima del commit cloud, al rientro
-         la coda locale può essere recuperata invece di perdere l'ultimo aggiornamento. */
+      /* Ogni modifica personale esplicita riceve anche una copia locale debounced. */
       personalPendingStoreSoon("local-edit");
+    }else{
+      /* v195: il listener universale passa false anche per non salvare i controlli
+         puramente temporanei. Se pero collectState() e realmente cambiato rispetto
+         alla baseline persistita, trattiamo il dato come modifica reale e proteggiamolo
+         subito nella coda locale. Gli input temporanei, non entrando in collectState(),
+         continuano a non generare scritture/copie inutili. */
+      if(personalHasUnpersistedNetChange()){DATA_DIRTY=true;personalPendingStoreSoon("local-edit");}
     }
     if(SAVE_CONFLICT_LOCKED){fbStatusText="Salvataggio bloccato: ricarica il Tool";updateFbIndicator();return;}
     if(!fbConnected || !window.fbReady){ return; }
@@ -6213,9 +6331,18 @@
   if(!window.__ELFO_PERSONAL_PENDING_VISIBILITY_BOUND){
     window.__ELFO_PERSONAL_PENDING_VISIBILITY_BOUND=true;
     document.addEventListener("visibilitychange",function(){
-      if(document.visibilityState==="hidden"){personalPendingFlushLocal();}
+      if(document.visibilityState==="hidden"){
+        personalPendingFlushLocal();
+        /* v195: le strutture condivise hanno un debounce separato e non fanno parte
+           della coda personale. Forza un commit best-effort appena la pagina diventa
+           nascosta, quando il browser concede ancora normalmente tempo alle Promise. */
+        try{if(typeof flushSharedFacilitiesNow==="function"){Promise.resolve(flushSharedFacilitiesNow()).catch(function(e){console.error(e);});}}catch(e){console.error(e);}
+      }
     });
-    window.addEventListener("pagehide",function(){personalPendingFlushLocal();});
+    window.addEventListener("pagehide",function(){
+      personalPendingFlushLocal();
+      try{if(typeof flushSharedFacilitiesNow==="function"){Promise.resolve(flushSharedFacilitiesNow()).catch(function(e){console.error(e);});}}catch(e){console.error(e);}
+    });
   }
 
   function updateFbIndicator(){
@@ -8292,6 +8419,7 @@
       return Promise.resolve(false);
     }
     STUDENTE.nome=nome;
+    rebuildPersonalCycleTransferLedger();
     PG_DOC_EXISTS=true;
     fbConnected=true;
     NEW_PG_PENDING=false;
@@ -8523,7 +8651,7 @@
     var p=el("div","panel");p.appendChild(el("h2",null,fbConnected?"Dati del Personaggio":"Scegli il Personaggio"));
     if(!fbConnected){
 
-      p.appendChild(el("div","guide-text","Scrivi <b>almeno 2 lettere</b> del Nome del Personaggio: l’Elfo cercherà soltanto fino a <b>10 nomi corrispondenti</b>, senza scaricare l’elenco completo. Se conosci già Nome e Cognome, puoi scriverli direttamente e premere <b>«Apri Elfo»</b>."));
+      
       var d1=el("div");d1.appendChild(el("label",null,"Cerca o scrivi NOME E COGNOME del Personaggio"));
       var picker=el("div","pg-picker"),line=el("div","pg-picker-line"),i1=el("input");
       i1.type="text";i1.value=STUDENTE.nome;i1.placeholder="Nome Cognome";i1.autocomplete="off";
@@ -10335,8 +10463,8 @@
   }
   function syncAllDispensaCatalog(){ if(!DISPENSA || !Array.isArray(DISPENSA.ingredienti)){return;} for(var i=0;i<DISPENSA.ingredienti.length;i++){syncIngredienteFromCatalog(DISPENSA.ingredienti[i]);} }
   function makeDispensaLotId(){ return "lot_"+Date.now().toString(36)+"_"+Math.random().toString(36).slice(2,8); }
-  function newDispensaLot(qty, provenienza, link, produttore, parametro, sourceIngredientId){
-    return {id:makeDispensaLotId(),quantita:Math.max(0,num(qty,0)),provenienza:provenienza||"Trovato",link:String(link||"").trim(),produttore:String(produttore||"").trim(),parametro:String(parametro||"").trim(),sourceIngredientId:sourceIngredientId==null?"":String(sourceIngredientId)};
+  function newDispensaLot(qty, provenienza, link, produttore, parametro, sourceIngredientId, sourceCycleKey){
+    return {id:makeDispensaLotId(),quantita:Math.max(0,num(qty,0)),provenienza:provenienza||"Trovato",link:String(link||"").trim(),produttore:String(produttore||"").trim(),parametro:String(parametro||"").trim(),sourceIngredientId:sourceIngredientId==null?"":String(sourceIngredientId),sourceCycleKey:sourceCycleKey==null?"":String(sourceCycleKey)};
   }
   function syncIngredientQuantity(ing){
     if(!ing){return 0;} if(!Array.isArray(ing.lotti)){ing.lotti=[];}
@@ -10351,15 +10479,15 @@
     if(!Array.isArray(ing.legacyIds)){ing.legacyIds=[String(ing.id)];}else if(ing.legacyIds.indexOf(String(ing.id))<0){ing.legacyIds.push(String(ing.id));}
     if(!Array.isArray(ing.lotti)){ing.lotti=[];}
     if(!ing.lotti.length && Math.max(0,num(ing.quantita,0))>0){ing.lotti.push(newDispensaLot(ing.quantita,ing.provenienza||"Trovato",ing.link||"",ing.produttore||"",ing.parametro||"",ing.id));}
-    for(var i=0;i<ing.lotti.length;i++){var l=ing.lotti[i];if(!l.id){l.id=makeDispensaLotId();}l.quantita=Math.max(0,num(l.quantita,0));l.provenienza=l.provenienza||"Trovato";l.link=String(l.link||"").trim();l.produttore=String(l.produttore||"").trim();l.parametro=String(l.parametro||"").trim();if(l.sourceIngredientId==null||l.sourceIngredientId===""){l.sourceIngredientId=String(ing.id);}}
+    for(var i=0;i<ing.lotti.length;i++){var l=ing.lotti[i];if(!l.id){l.id=makeDispensaLotId();}l.quantita=Math.max(0,num(l.quantita,0));l.provenienza=l.provenienza||"Trovato";l.link=String(l.link||"").trim();l.produttore=String(l.produttore||"").trim();l.parametro=String(l.parametro||"").trim();if(l.sourceIngredientId==null||l.sourceIngredientId===""){l.sourceIngredientId=String(ing.id);}if(l.sourceCycleKey==null){l.sourceCycleKey="";}}
     ing.lotti=ing.lotti.filter(function(l){return num(l.quantita,0)>0;}); syncIngredientQuantity(ing); return ing.lotti;
   }
   function ingredientTotalQty(ing){ensureIngredientLots(ing);return Math.max(0,num(ing&&ing.quantita,0));}
-  function sameLotOrigin(l, provenienza, link, produttore, parametro){return String(l.provenienza||"")===String(provenienza||"Trovato")&&String(l.link||"").trim()===String(link||"").trim()&&String(l.produttore||"").trim()===String(produttore||"").trim()&&String(l.parametro||"").trim()===String(parametro||"").trim();}
-  function addLotToIngredient(ing,qty,provenienza,link,produttore,parametro,sourceIngredientId){
-    ensureIngredientLots(ing);qty=Math.max(1,num(qty,1));provenienza=provenienza||"Trovato";link=String(link||"").trim();produttore=String(produttore||"").trim();parametro=String(parametro||"").trim();
-    var found=null;for(var i=0;i<ing.lotti.length;i++){if(sameLotOrigin(ing.lotti[i],provenienza,link,produttore,parametro)){found=ing.lotti[i];break;}}
-    if(found){found.quantita+=qty;if(sourceIngredientId!=null&&found.sourceIngredientId===""){found.sourceIngredientId=String(sourceIngredientId);}}else{ing.lotti.push(newDispensaLot(qty,provenienza,link,produttore,parametro,sourceIngredientId==null?ing.id:sourceIngredientId));}
+  function sameLotOrigin(l, provenienza, link, produttore, parametro, sourceCycleKey){return String(l.provenienza||"")===String(provenienza||"Trovato")&&String(l.link||"").trim()===String(link||"").trim()&&String(l.produttore||"").trim()===String(produttore||"").trim()&&String(l.parametro||"").trim()===String(parametro||"").trim()&&String(l.sourceCycleKey||"")===String(sourceCycleKey||"");}
+  function addLotToIngredient(ing,qty,provenienza,link,produttore,parametro,sourceIngredientId,sourceCycleKey){
+    ensureIngredientLots(ing);qty=Math.max(1,num(qty,1));provenienza=provenienza||"Trovato";link=String(link||"").trim();produttore=String(produttore||"").trim();parametro=String(parametro||"").trim();sourceCycleKey=String(sourceCycleKey||"");
+    var found=null;for(var i=0;i<ing.lotti.length;i++){if(sameLotOrigin(ing.lotti[i],provenienza,link,produttore,parametro,sourceCycleKey)){found=ing.lotti[i];break;}}
+    if(found){found.quantita+=qty;if(sourceIngredientId!=null&&found.sourceIngredientId===""){found.sourceIngredientId=String(sourceIngredientId);}}else{ing.lotti.push(newDispensaLot(qty,provenienza,link,produttore,parametro,sourceIngredientId==null?ing.id:sourceIngredientId,sourceCycleKey));}
     syncIngredientQuantity(ing);return ing;
   }
   function normalizeDispensaLots(){
@@ -10388,23 +10516,30 @@
   }
   function consumeIngredientLots(ing,qty,selection){
     var resolved=resolveLotSelection(ing,qty,selection);if(!resolved.ok){return resolved;}var used=[];ensureIngredientLots(ing);
-    Object.keys(resolved.map).forEach(function(id){var take=resolved.map[id];for(var i=0;i<ing.lotti.length;i++){var l=ing.lotti[i];if(String(l.id)===String(id)){used.push({lotId:l.id,quantita:take,provenienza:l.provenienza||"Trovato",link:l.link||"",produttore:l.produttore||"",parametro:l.parametro||"",sourceIngredientId:l.sourceIngredientId||String(ing.id)});l.quantita=Math.max(0,num(l.quantita,0)-take);break;}}});
+    Object.keys(resolved.map).forEach(function(id){var take=resolved.map[id];for(var i=0;i<ing.lotti.length;i++){var l=ing.lotti[i];if(String(l.id)===String(id)){used.push({lotId:l.id,quantita:take,provenienza:l.provenienza||"Trovato",link:l.link||"",produttore:l.produttore||"",parametro:l.parametro||"",sourceIngredientId:l.sourceIngredientId||String(ing.id),sourceCycleKey:l.sourceCycleKey||""});l.quantita=Math.max(0,num(l.quantita,0)-take);break;}}});
     ing.lotti=ing.lotti.filter(function(l){return num(l.quantita,0)>0;});syncIngredientQuantity(ing);return {ok:true,used:used};
   }
   function restoreIngredientLots(ing,used,sourceIngredientId,fallbackQty){
-    if(!ing){return;}ensureIngredientLots(ing);if(Array.isArray(used)&&used.length){for(var u=0;u<used.length;u++){var row=used[u],found=null;for(var i=0;i<ing.lotti.length;i++){if(String(ing.lotti[i].id)===String(row.lotId)){found=ing.lotti[i];break;}}if(found){found.quantita+=Math.max(0,num(row.quantita,0));}else{var nl=newDispensaLot(row.quantita,row.provenienza,row.link,row.produttore,row.parametro,row.sourceIngredientId||sourceIngredientId||ing.id);nl.id=row.lotId||nl.id;ing.lotti.push(nl);}}}else{var qty=Math.max(0,num(fallbackQty,0)),legacy=null;for(var j=0;j<ing.lotti.length;j++){if(String(ing.lotti[j].sourceIngredientId||"")===String(sourceIngredientId||"")){legacy=ing.lotti[j];break;}}if(legacy){legacy.quantita+=qty;}else if(qty>0){ing.lotti.push(newDispensaLot(qty,ing.provenienza&&ing.provenienza!=="Mista"?ing.provenienza:"Trovato",ing.link||"",ing.produttore||"",ing.parametro||"",sourceIngredientId||ing.id));}}syncIngredientQuantity(ing);
+    if(!ing){return;}ensureIngredientLots(ing);if(Array.isArray(used)&&used.length){for(var u=0;u<used.length;u++){var row=used[u],found=null;for(var i=0;i<ing.lotti.length;i++){if(String(ing.lotti[i].id)===String(row.lotId)){found=ing.lotti[i];break;}}if(found){found.quantita+=Math.max(0,num(row.quantita,0));}else{var nl=newDispensaLot(row.quantita,row.provenienza,row.link,row.produttore,row.parametro,row.sourceIngredientId||sourceIngredientId||ing.id,row.sourceCycleKey||"");nl.id=row.lotId||nl.id;ing.lotti.push(nl);}}}else{var qty=Math.max(0,num(fallbackQty,0)),legacy=null;for(var j=0;j<ing.lotti.length;j++){if(String(ing.lotti[j].sourceIngredientId||"")===String(sourceIngredientId||"")){legacy=ing.lotti[j];break;}}if(legacy){legacy.quantita+=qty;}else if(qty>0){ing.lotti.push(newDispensaLot(qty,ing.provenienza&&ing.provenienza!=="Mista"?ing.provenienza:"Trovato",ing.link||"",ing.produttore||"",ing.parametro||"",sourceIngredientId||ing.id));}}syncIngredientQuantity(ing);
+  }
+  function clearCycleKeyFromDispensaMovements(cycleKey, lotId){
+    cycleKey=String(cycleKey||"");lotId=lotId==null?"":String(lotId);if(!cycleKey||!DISPENSA||!Array.isArray(DISPENSA.movimenti)){return 0;}
+    var changed=0;
+    function scrubRows(rows){if(!Array.isArray(rows)){return;}for(var i=0;i<rows.length;i++){var row=rows[i];if(!row){continue;}if(String(row.sourceCycleKey||"")===cycleKey&&(!lotId||String(row.lotId||"")===lotId)){row.sourceCycleKey="";changed++;}}}
+    for(var m=0;m<DISPENSA.movimenti.length;m++){var mov=DISPENSA.movimenti[m];if(!mov){continue;}scrubRows(mov.lottiUsati);if(Array.isArray(mov.righe)){for(var r=0;r<mov.righe.length;r++){scrubRows(mov.righe[r]&&mov.righe[r].lottiUsati);}}}
+    return changed;
   }
   function appendLotPicker(parent,ing,selection,disabled){
     var lots=activeIngredientLots(ing);if(lots.length<=1){return;}selection=selection||{};var box=el("div","lot-picker");box.appendChild(el("div","lot-picker-title","Da quali dosi vuoi prelevare?"));
     for(var i=0;i<lots.length;i++){(function(l){var row=el("div","lot-picker-row");var info=el("div",null,lotSummaryText(l)+" · "+l.quantita+" disponibili");var inp=el("input");inp.type="number";inp.min="0";inp.max=String(l.quantita);inp.step="1";inp.value=String(Math.max(0,num(selection[String(l.id)],0)));inp.disabled=!!disabled;inp.addEventListener("input",function(){var v=Math.max(0,Math.min(num(l.quantita,0),num(inp.value,0)));inp.value=String(v);if(v>0){selection[String(l.id)]=v;}else{delete selection[String(l.id)];}});row.appendChild(info);row.appendChild(inp);box.appendChild(row);})(lots[i]);}
     box.appendChild(el("div","lot-picker-note","Se le dosi hanno provenienze diverse, indica quante prenderne da ciascun lotto."));parent.appendChild(box);
   }
-  function addIngredienteCatalogo(nome, quantita, provenienza, link, produttore){
+  function addIngredienteCatalogo(nome, quantita, provenienza, link, produttore, sourceCycleKey){
     var rec=catalogIngredient(nome); if(!rec){return {ok:false,error:"Ingrediente non riconosciuto nel Glossario."};}
     quantita=Math.max(1,parseInt(quantita,10)||1); provenienza=provenienza||"Trovato"; link=String(link||"").trim(); produttore=String(produttore||"").trim();
     var existing=null;for(var i=0;i<DISPENSA.ingredienti.length;i++){var x=DISPENSA.ingredienti[i];if(normalizeIngredientName(x.nome)===normalizeIngredientName(rec.nome)){existing=x;break;}}
-    if(existing){addLotToIngredient(existing,quantita,provenienza,link,produttore,"",existing.id);syncIngredienteFromCatalog(existing);return {ok:true,merged:true,id:existing.id};}
-    var ing=newIngredienteDispensa();ing.nome=rec.nome;ing.lotti=[];ing.quantita=0;addLotToIngredient(ing,quantita,provenienza,link,produttore,"",ing.id);syncIngredienteFromCatalog(ing);DISPENSA.ingredienti.push(ing);return {ok:true,merged:false,id:ing.id};
+    if(existing){addLotToIngredient(existing,quantita,provenienza,link,produttore,"",existing.id,sourceCycleKey);syncIngredienteFromCatalog(existing);return {ok:true,merged:true,id:existing.id};}
+    var ing=newIngredienteDispensa();ing.nome=rec.nome;ing.lotti=[];ing.quantita=0;addLotToIngredient(ing,quantita,provenienza,link,produttore,"",ing.id,sourceCycleKey);syncIngredienteFromCatalog(ing);DISPENSA.ingredienti.push(ing);return {ok:true,merged:false,id:ing.id};
   }
 
   function decodeDispensaHtmlEntities(s){
@@ -11013,7 +11148,7 @@
         var summary=document.createElement("summary");summary.className="ingredient-entry-summary";var line=el("span","ingredient-line");var name=document.createElement("span");name.className="ingredient-name";name.textContent=ing.nome||"Ingrediente senza nome";line.appendChild(name);if(recMeta.esotico){line.appendChild(el("span","ingredient-mini-badge exotic","🌴 Esotico"));}if(recMeta.illegale){line.appendChild(el("span","ingredient-mini-badge warn","🚫 Illegale"));}if(recMeta.pozionista){line.appendChild(el("span","ingredient-mini-badge craft","⚗ ✔ Pozionista"));}line.appendChild(el("span","ingredient-qty",ingredientTotalQty(ing)+" dose/i"));summary.appendChild(line);det.appendChild(summary);var body=el("div","ingredient-entry-body");
         var r1=el("div","row");var d1=el("div");d1.appendChild(el("label",null,"Nome Ingrediente"));var n1=el("input");n1.type="text";n1.value=ing.nome;n1.setAttribute("list","ingredienti-glossario");n1.addEventListener("change",function(){ing.nome=n1.value;var rec=syncIngredienteFromCatalog(ing);if(!rec){ing.classificazione=ing.classificazione||"Non classificato";}normalizeDispensaLots();renderAll();});d1.appendChild(n1);r1.appendChild(d1);var d3=el("div");d3.appendChild(el("label",null,"Classificazione (dal Glossario)"));var cl=el("input");cl.type="text";cl.value=ing.classificazione||"Non classificato";cl.readOnly=!!catalogIngredient(ing.nome);cl.addEventListener("change",function(){if(!cl.readOnly){ing.classificazione=cl.value||"Non classificato";renderAll();}});d3.appendChild(cl);r1.appendChild(d3);body.appendChild(r1);if(recMeta&&recMeta.classeBene){body.appendChild(el("div","ingredient-meta","<b>Glossario:</b> "+recMeta.classeBene+" · Provenienza: "+recMeta.provenienzaGlossario));}
         var lotsBox=el("div","ingredient-lots");lotsBox.appendChild(el("div","ingredient-lots-title","Dosi possedute — "+ingredientTotalQty(ing)+" totali"));var lots=activeIngredientLots(ing);if(!lots.length){lotsBox.appendChild(el("div","small-note","Nessuna dose attualmente posseduta."));}
-        for(var lii=0;lii<lots.length;lii++){(function(lot){var lr=el("div","ingredient-lot-row");lr.appendChild(el("span","ingredient-lot-qty",lot.quantita+" dose/i"));lr.appendChild(el("span","ingredient-lot-origin",lot.provenienza||"Trovato"));if(lot.provenienza==="Autoprodotto"&&lot.produttore){lr.appendChild(el("span","ingredient-lot-producer","· "+lot.produttore));}var icon=makeLinkIcon(lot.link,"Apri il link di ottenimento");if(icon){lr.appendChild(icon);}var edit=el("details","ingredient-lot-edit");keepDetailsState(edit,"dispensa:lotedit:"+String(ing.id)+":"+String(lot.id),false);edit.appendChild(el("summary",null,"✎ Modifica"));var ed=el("div","ingredient-lot-editor");var er=el("div","row");var eqw=el("div");eqw.appendChild(el("label",null,"Quantità del lotto"));var eq=el("input");eq.type="number";eq.min="1";eq.step="1";eq.value=lot.quantita;eq.addEventListener("input",function(){lot.quantita=Math.max(1,num(eq.value,1));syncIngredientQuantity(ing);});eq.addEventListener("change",function(){lot.quantita=Math.max(1,num(eq.value,1));syncIngredientQuantity(ing);});eqw.appendChild(eq);er.appendChild(eqw);var epw=el("div");epw.appendChild(el("label",null,"Come è stato ottenuto?"));var eps=buildSelect(PROVENIENZE_DISPENSA,lot.provenienza,function(v){lot.provenienza=v;syncIngredientQuantity(ing);renderAll();});epw.appendChild(eps);er.appendChild(epw);ed.appendChild(er);var er2=el("div","row");var elw=el("div");elw.appendChild(el("label",null,lot.provenienza==="10d90 di Benvenuto"?"Link del primo dado del 10d90":"Link ottenimento"));var eli=el("input");eli.type="text";eli.value=lot.link||"";eli.placeholder="https://...";eli.addEventListener("input",function(){lot.link=eli.value;});elw.appendChild(eli);er2.appendChild(elw);if(lot.provenienza==="Autoprodotto"){var epr=el("div");epr.appendChild(el("label",null,"PG produttore"));var epi=el("input");epi.type="text";epi.value=lot.produttore||"";epi.addEventListener("input",function(){lot.produttore=epi.value;});epr.appendChild(epi);er2.appendChild(epr);var epa=el("div");epa.appendChild(el("label",null,"Parametro / riferimento (facoltativo)"));var epai=el("input");epai.type="text";epai.value=lot.parametro||"";epai.addEventListener("input",function(){lot.parametro=epai.value;});epa.appendChild(epai);er2.appendChild(epa);}ed.appendChild(er2);var delLot=el("button","action danger small","Elimina questo lotto inserito per errore");delLot.addEventListener(EV,function(e){e.preventDefault();if(confirm("Eliminare questo lotto dalla Dispensa?")){ing.lotti=ing.lotti.filter(function(x){return String(x.id)!==String(lot.id);});syncIngredientQuantity(ing);scheduleSave(0);renderAll();}});ed.appendChild(delLot);edit.appendChild(ed);lr.appendChild(edit);lotsBox.appendChild(lr);})(lots[lii]);}
+        for(var lii=0;lii<lots.length;lii++){(function(lot){var lr=el("div","ingredient-lot-row");lr.appendChild(el("span","ingredient-lot-qty",lot.quantita+" dose/i"));lr.appendChild(el("span","ingredient-lot-origin",lot.provenienza||"Trovato"));if(lot.provenienza==="Autoprodotto"&&lot.produttore){lr.appendChild(el("span","ingredient-lot-producer","· "+lot.produttore));}var icon=makeLinkIcon(lot.link,"Apri il link di ottenimento");if(icon){lr.appendChild(icon);}var edit=el("details","ingredient-lot-edit");keepDetailsState(edit,"dispensa:lotedit:"+String(ing.id)+":"+String(lot.id),false);edit.appendChild(el("summary",null,"✎ Modifica"));var ed=el("div","ingredient-lot-editor");var er=el("div","row");var eqw=el("div");eqw.appendChild(el("label",null,"Quantità del lotto"));var eq=el("input");eq.type="number";eq.min="1";eq.step="1";eq.value=lot.quantita;eq.addEventListener("input",function(){lot.quantita=Math.max(1,num(eq.value,1));syncIngredientQuantity(ing);});eq.addEventListener("change",function(){lot.quantita=Math.max(1,num(eq.value,1));syncIngredientQuantity(ing);});eqw.appendChild(eq);er.appendChild(eqw);var epw=el("div");epw.appendChild(el("label",null,"Come è stato ottenuto?"));var eps=buildSelect(PROVENIENZE_DISPENSA,lot.provenienza,function(v){lot.provenienza=v;syncIngredientQuantity(ing);renderAll();});epw.appendChild(eps);er.appendChild(epw);ed.appendChild(er);var er2=el("div","row");var elw=el("div");elw.appendChild(el("label",null,lot.provenienza==="10d90 di Benvenuto"?"Link del primo dado del 10d90":"Link ottenimento"));var eli=el("input");eli.type="text";eli.value=lot.link||"";eli.placeholder="https://...";eli.addEventListener("input",function(){lot.link=eli.value;});elw.appendChild(eli);er2.appendChild(elw);if(lot.provenienza==="Autoprodotto"){var epr=el("div");epr.appendChild(el("label",null,"PG produttore"));var epi=el("input");epi.type="text";epi.value=lot.produttore||"";epi.addEventListener("input",function(){lot.produttore=epi.value;});epr.appendChild(epi);er2.appendChild(epr);var epa=el("div");epa.appendChild(el("label",null,"Parametro / riferimento (facoltativo)"));var epai=el("input");epai.type="text";epai.value=lot.parametro||"";epai.addEventListener("input",function(){lot.parametro=epai.value;});epa.appendChild(epai);er2.appendChild(epa);}ed.appendChild(er2);if(String(lot.sourceCycleKey||"")){var unlinkCycle=el("button","action small","Scollega questo lotto dal Ciclo di Erbologia");unlinkCycle.type="button";unlinkCycle.addEventListener(EV,function(e){e.preventDefault();var oldCycleKey=String(lot.sourceCycleKey||"");if(!oldCycleKey){return;}if(confirm("Scollegare questo lotto dal Ciclo di Erbologia? Le dosi resteranno in Dispensa con quantità e provenienza attuali, ma non verranno più considerate parte di quel raccolto.")){clearCycleKeyFromDispensaMovements(oldCycleKey,lot.id);lot.sourceCycleKey="";scheduleSave(0);renderAll();}});ed.appendChild(unlinkCycle);ed.appendChild(el("div","small-note","Usalo solo se queste dosi devono restare in Dispensa ma non appartengono più al raccolto del Ciclo collegato."));}var delLot=el("button","action danger small","Elimina questo lotto inserito per errore");delLot.addEventListener(EV,function(e){e.preventDefault();if(confirm("Eliminare questo lotto dalla Dispensa?")){ing.lotti=ing.lotti.filter(function(x){return String(x.id)!==String(lot.id);});syncIngredientQuantity(ing);scheduleSave(0);renderAll();}});ed.appendChild(delLot);edit.appendChild(ed);lr.appendChild(edit);lotsBox.appendChild(lr);})(lots[lii]);}
         var addLot=el("button","action small","+ Aggiungi altra provenienza / lotto");addLot.addEventListener(EV,function(){ing.lotti.push(newDispensaLot(1,"Trovato","","","",ing.id));syncIngredientQuantity(ing);scheduleSave(0);renderAll();});lotsBox.appendChild(addLot);body.appendChild(lotsBox);
         if(lots.some(function(l){return l.provenienza==="Autoprodotto";})){body.appendChild(el("div","guide-text","<b>Dosi autoprodotte:</b> restano distinte dalle altre provenienze. Quando le utilizzi, il tool ti chiede da quale lotto prelevare, così il bonus previsto per le Pozioni rimane tracciabile."));}
         var nd=el("div");nd.appendChild(el("label",null,"Note generali sull'Ingrediente"));var nta=el("textarea");nta.value=ing.note||"";nta.addEventListener("input",function(){ing.note=nta.value;});nd.appendChild(nta);body.appendChild(nd);
@@ -11102,24 +11237,55 @@
   }
   function isIllegalEntity(obj){ensureEntityIllegalState(obj);return obj.legalita==="illegale";}
   function illegalPhaseLabels(kind){return kind==="pianta"?["Collocazione","Coltivazione"]:(kind==="creatura"?["Cura","Allevamento"]:["Produzione","Bacchetta"]);}
+  function illegalHistoryHasData(obj,kind){var x=ensureEntityIllegalState(obj);if(String(x.professione||"").trim()||String(x.protezioni||"").trim()||Number(x.facceProtezione||0)>0)return true;return illegalPhaseLabels(kind).some(function(ph){return String(x.controlli&&x.controlli[ph.toLowerCase()]||"").trim()!=="";});}
+  function buildInactiveIllegalHistory(obj,kind){
+    var x=ensureEntityIllegalState(obj),det=el("details","illegal-history");det.appendChild(el("summary",null,"Storico controlli illegali precedenti"));det.appendChild(el("p","small-note","Questi dati appartengono a controlli svolti quando l’entità risultava illegale. <b>Non sono attivi</b> e l’Elfo non richiede né rilancia alcun dado finché la Legalità resta «Legale»."));
+    var ul=el("ul","phase-summary-list");if(String(x.professione||"").trim())ul.appendChild(el("li",null,"Qualifica nel controllo: "+x.professione));if(String(x.protezioni||"").trim())ul.appendChild(el("li",null,"Protezioni usate: "+x.protezioni+" (facce +"+Math.max(0,num(x.facceProtezione,0))+")"));illegalPhaseLabels(kind).forEach(function(ph){var v=String(x.controlli&&x.controlli[ph.toLowerCase()]||"").trim();if(v)ul.appendChild(el("li",null,"Controllo illegale — "+ph+": "+v));});det.appendChild(ul);return det;
+  }
   function buildEntityLegalityBlock(obj,kind){
-    var x=ensureEntityIllegalState(obj),wrap=el("div","entity-full-field");wrap.appendChild(el("label",null,"Legalità"));wrap.appendChild(buildSelect(["Legale","Illegale"],obj.legalita==="illegale"?"Illegale":"Legale",function(v){obj.legalita=v==="Illegale"?"illegale":"legale";scheduleSave(0);renderAll();}));if(obj.legalita!=="illegale")return wrap;
+    var x=ensureEntityIllegalState(obj),wrap=el("div","entity-full-field");wrap.appendChild(el("label",null,"Legalità"));wrap.appendChild(buildSelect(["Legale","Illegale"],obj.legalita==="illegale"?"Illegale":"Legale",function(v){obj.legalita=v==="Illegale"?"illegale":"legale";scheduleSave(0);renderAll();}));if(obj.legalita!=="illegale"){if(illegalHistoryHasData(obj,kind))wrap.appendChild(buildInactiveIllegalHistory(obj,kind));return wrap;}
     wrap.appendChild(el("div","illegal-reminder","<b>Promemoria Azione Illegale:</b> il controllo si risolve nel tool specialistico. Per un PG Studente il dado base resta <b>1d30</b> e solo <b>1</b> significa scoperto; possedere Sapienza o Conoscenze Avanzate non trasforma il dado in 1d50, perché quel vantaggio è riservato al <b>mestiere</b>. Le eventuali protezioni aggiungono facce. Non si aggiunge il normale 1d100 delle Azioni Illegali Generiche. L’Elfo conserva soltanto lo storico importato e non rilancia il dado."));
     var hist=el("div","illegal-history");hist.appendChild(el("div",null,"<b>Dati importati / storico</b>"));var r=el("div","row");
-    var d1=el("div");d1.appendChild(el("label",null,"Qualifica nel controllo"));var i1=el("input");i1.type="text";i1.value=x.professione||"";i1.placeholder="PG non professionista";i1.addEventListener("input",function(){x.professione=i1.value;});d1.appendChild(i1);r.appendChild(d1);
-    var d2=el("div");d2.appendChild(el("label",null,"Protezioni usate nel controllo"));var i2=el("input");i2.type="text";i2.value=x.protezioni||"";i2.addEventListener("input",function(){x.protezioni=i2.value;});d2.appendChild(i2);r.appendChild(d2);
-    var d3=el("div");d3.appendChild(el("label",null,"Facce protezione"));var i3=el("input");i3.type="number";i3.min="0";i3.value=Math.max(0,num(x.facceProtezione,0));i3.addEventListener("input",function(){x.facceProtezione=Math.max(0,num(i3.value,0));});d3.appendChild(i3);r.appendChild(d3);hist.appendChild(r);
-    var ph=illegalPhaseLabels(kind);for(var i=0;i<ph.length;i++){(function(label){var d=el("div","entity-full-field");d.appendChild(el("label",null,"Controllo illegale — "+label));var inp=el("input");inp.type="text";inp.value=x.controlli[label.toLowerCase()]||"";inp.addEventListener("input",function(){x.controlli[label.toLowerCase()]=inp.value;});d.appendChild(inp);hist.appendChild(d);})(ph[i]);}wrap.appendChild(hist);return wrap;
+    var d1=el("div");d1.appendChild(el("label",null,"Qualifica nel controllo"));var i1=el("input");i1.type="text";i1.value=x.professione||"";i1.placeholder="PG non professionista";i1.addEventListener("input",function(){x.professione=i1.value;scheduleSave();});d1.appendChild(i1);r.appendChild(d1);
+    var d2=el("div");d2.appendChild(el("label",null,"Protezioni usate nel controllo"));var i2=el("input");i2.type="text";i2.value=x.protezioni||"";i2.addEventListener("input",function(){x.protezioni=i2.value;scheduleSave();});d2.appendChild(i2);r.appendChild(d2);
+    var d3=el("div");d3.appendChild(el("label",null,"Facce protezione"));var i3=el("input");i3.type="number";i3.min="0";i3.value=Math.max(0,num(x.facceProtezione,0));i3.addEventListener("input",function(){x.facceProtezione=Math.max(0,num(i3.value,0));scheduleSave();});d3.appendChild(i3);r.appendChild(d3);hist.appendChild(r);
+    var ph=illegalPhaseLabels(kind);for(var i=0;i<ph.length;i++){(function(label){var d=el("div","entity-full-field");d.appendChild(el("label",null,"Controllo illegale — "+label));var inp=el("input");inp.type="text";inp.value=x.controlli[label.toLowerCase()]||"";inp.addEventListener("input",function(){x.controlli[label.toLowerCase()]=inp.value;scheduleSave();});d.appendChild(inp);hist.appendChild(d);})(ph[i]);}wrap.appendChild(hist);return wrap;
   }
-  function illegalOutputLines(obj,kind){var x=ensureEntityIllegalState(obj),out=["<b>⨯ Legalità:</b> "+(obj.legalita==="illegale"?"ILLEGALE":"Legale")];if(obj.legalita!=="illegale")return out;if(String(x.professione||"").trim())out.push("<b>⨯ Qualifica nel controllo:</b> "+x.professione);if(String(x.protezioni||"").trim())out.push("<b>⨯ Protezioni nel controllo:</b> "+x.protezioni+" (facce +"+Math.max(0,num(x.facceProtezione,0))+")");var ph=illegalPhaseLabels(kind);for(var i=0;i<ph.length;i++){var v=String(x.controlli[ph[i].toLowerCase()]||"").trim();if(v)out.push("<b>⨯ Controllo illegale — "+ph[i]+":</b> "+v);}return out;}
+  function illegalOutputLines(obj,kind){var x=ensureEntityIllegalState(obj),out=["<b>⨯ Legalità:</b> "+(obj.legalita==="illegale"?"ILLEGALE":"Legale")];if(obj.legalita!=="illegale"){if(illegalHistoryHasData(obj,kind))out.push("<b>⨯ Storico controlli illegali precedenti:</b> conservato, non attivo.");return out;}if(String(x.professione||"").trim())out.push("<b>⨯ Qualifica nel controllo:</b> "+x.professione);if(String(x.protezioni||"").trim())out.push("<b>⨯ Protezioni nel controllo:</b> "+x.protezioni+" (facce +"+Math.max(0,num(x.facceProtezione,0))+")");var ph=illegalPhaseLabels(kind);for(var i=0;i<ph.length;i++){var v=String(x.controlli[ph[i].toLowerCase()]||"").trim();if(v)out.push("<b>⨯ Controllo illegale — "+ph[i]+":</b> "+v);}return out;}
   function parseTransferLines(raw){var text=String(raw||"").replace(/\r/g,"").trim(),out={};if(!text)return out;var lines=text.split(/\n+/);for(var i=0;i<lines.length;i++){var line=String(lines[i]||"").trim();if(!line||/^FELIX_ELFO_/i.test(line))continue;var k=line.indexOf(":");if(k<0)continue;out[line.slice(0,k).trim().toLowerCase().replace(/\s+/g," ")]=cleanCreatureImportValue(line.slice(k+1).trim());}return out;}
   function transferGet(f){for(var i=1;i<arguments.length;i++){var k=String(arguments[i]).toLowerCase();if(Object.prototype.hasOwnProperty.call(f,k))return f[k];}return "";}
-  function applyImportedIllegalFields(obj,f,kind){var legal=transferGet(f,"legalità","legalita");obj.legalita=/illegale/i.test(legal)?"illegale":"legale";var x=ensureEntityIllegalState(obj);x.professione=transferGet(f,"professione controllo");x.protezioni=transferGet(f,"protezioni controllo");x.facceProtezione=Math.max(0,num(transferGet(f,"facce protezione"),0));var ph=illegalPhaseLabels(kind);for(var i=0;i<ph.length;i++)x.controlli[ph[i].toLowerCase()]=transferGet(f,"controllo illegale "+ph[i].toLowerCase());}
+  function transferHas(f){for(var i=1;i<arguments.length;i++){var k=String(arguments[i]).toLowerCase();if(Object.prototype.hasOwnProperty.call(f,k))return true;}return false;}
+  function illegalImportPresenceFromTransfer(f,kind){
+    var p={legalita:false,professione:false,protezioni:false,facce:false,controlli:{}};
+    p.legalita=kind==="pozione"?transferHas(f,"legalità creazione","legalita creazione","legalità","legalita"):transferHas(f,"legalità","legalita");
+    p.professione=transferHas(f,"professione controllo");p.protezioni=transferHas(f,"protezioni controllo");p.facce=transferHas(f,"facce protezione");
+    illegalPhaseLabels(kind).forEach(function(ph){p.controlli[ph.toLowerCase()]=transferHas(f,"controllo illegale "+ph.toLowerCase());});
+    return p;
+  }
+  function mergeImportedIllegalHistory(target,incoming){
+    if(!target||!incoming)return;
+    var p=incoming._illegalImportPresence||{},tx=ensureEntityIllegalState(target),ix=ensureEntityIllegalState(incoming);
+    if(p.legalita){target.legalita=incoming.legalita;}
+    if(p.professione&&String(ix.professione||"").trim()!=="")tx.professione=ix.professione;
+    if(p.protezioni&&String(ix.protezioni||"").trim()!=="")tx.protezioni=ix.protezioni;
+    if(p.facce&&Number.isFinite(Number(ix.facceProtezione)))tx.facceProtezione=Math.max(0,Number(ix.facceProtezione)||0);
+    var pc=p.controlli||{};Object.keys(pc).forEach(function(k){if(pc[k]&&String(ix.controlli&&ix.controlli[k]||"").trim()!=="")tx.controlli[k]=ix.controlli[k];});
+  }
+  function applyImportedIllegalFields(obj,f,kind){
+    var presence=illegalImportPresenceFromTransfer(f,kind);
+    var legal=(kind==="pozione"?transferGet(f,"legalità creazione","legalita creazione","legalità","legalita"):transferGet(f,"legalità","legalita"));
+    if(presence.legalita)obj.legalita=/illegale/i.test(legal)?"illegale":"legale";
+    var x=ensureEntityIllegalState(obj);obj._illegalImportPresence=presence;
+    if(presence.professione)x.professione=transferGet(f,"professione controllo");
+    if(presence.protezioni)x.protezioni=transferGet(f,"protezioni controllo");
+    if(presence.facce)x.facceProtezione=Math.max(0,num(transferGet(f,"facce protezione"),0));
+    var ph=illegalPhaseLabels(kind);for(var i=0;i<ph.length;i++){var key=ph[i].toLowerCase();if(presence.controlli[key])x.controlli[key]=transferGet(f,"controllo illegale "+key);}
+  }
 
-  function newCalderone(){
-    calderoneCounter = calderoneCounter + 1;
+  function newCalderone(skipCounter){
+    if(!skipCounter){calderoneCounter = calderoneCounter + 1;}
     return {
-      id: calderoneCounter, numero: calderoneCounter,
+      id: skipCounter?0:calderoneCounter, numero: skipCounter?0:calderoneCounter,
       dataTesto: "", dataLink: "", nomePozione: "", classificazione: "X", tipologia: "Generica",
       calderoneOggetti: "//",
       prepLink: "", prepEsito: "riuscita", prepValore: 0,
@@ -11140,10 +11306,21 @@
   }
 
   function potionFromTransferText(raw){
-    var f=parseTransferLines(raw);if(!Object.keys(f).length)return {ok:false,error:"Formato non riconosciuto."};var pz=newCalderone();pz.nomePozione=transferGet(f,"nome pozione")||"";var cls=(transferGet(f,"classificazione")||"X").toUpperCase().replace(/\s+/g,"");if(CLASSI_STUD.indexOf(cls)<0)return {ok:false,error:"La Classificazione "+cls+" non è ammessa nella Postazione dello Studente (X–XXX)."};pz.classificazione=cls;var tipo=transferGet(f,"tipologia");if(TIPOLOGIE.indexOf(tipo)>=0)pz.tipologia=tipo;var main=transferGet(f,"link principale");pz.dataLink=main;pz.calderoneOggetti=transferGet(f,"calderone/oggetti")||"//";
+    var f=parseTransferLines(raw);if(!Object.keys(f).length)return {ok:false,error:"Formato non riconosciuto."};var pz=newCalderone(true);pz.nomePozione=transferGet(f,"nome pozione")||"";var cls=(transferGet(f,"classificazione")||"X").toUpperCase().replace(/\s+/g,"");if(CLASSI_STUD.indexOf(cls)<0)return {ok:false,error:"La Classificazione "+cls+" non è ammessa nella Postazione dello Studente (X–XXX)."};pz.classificazione=cls;var tipo=transferGet(f,"tipologia");if(TIPOLOGIE.indexOf(tipo)>=0)pz.tipologia=tipo;var main=transferGet(f,"link principale");pz.dataLink=main;pz.calderoneOggetti=transferGet(f,"calderone/oggetti")||"//";
     function out(prefix,label){var es=transferGet(f,label+" esito"),strength=transferGet(f,label+" forza"),link=transferGet(f,label+" link")||main;pz[prefix+"Esito"]=/fall/i.test(es)?"fallita":"riuscita";pz[prefix+"Valore"]=Math.abs(num(String(strength).replace(/[^0-9.,-]/g,"").replace(",","."),0));pz[prefix+"Link"]=link;}out("prep","preparazione");out("prod","produzione");pz.bacchettaEsito=/fall/i.test(transferGet(f,"bacchetta esito"))?"fallita":"riuscita";pz.bacchettaLink=transferGet(f,"bacchetta link")||main;pz.dosi=Math.max(0,num(transferGet(f,"bacchetta dosi"),0));pz.distillSvolta=/^(sì|si|yes)$/i.test(transferGet(f,"distillazione"));pz.distillLink=transferGet(f,"distillazione link")||"";pz.distillEsito=transferGet(f,"distillazione esito")||"";pz.distillBagaglio=transferGet(f,"distillazione bagaglio")||"";pz.imbottLink=transferGet(f,"imbottigliamento link")||main;pz.imbottPercent=transferGet(f,"imbottigliamento esito")||"";pz.postRichiesti=Math.max(0,num(transferGet(f,"post richiesti"),0));pz.imbottModificatori=transferGet(f,"modificatori")||"";applyImportedIllegalFields(pz,f,"pozione");return {ok:true,postazione:pz};
   }
-  function buildPotionImportBox(){var det=el("details","illegal-import-box");keepDetailsState(det,"postazione:import-pozione",false);det.appendChild(el("summary",null,"Importa Pozione dal Generatore"));det.appendChild(el("p","small-note","Incolla il blocco FELIX_ELFO_POZIONE_V1. Legalità, protezioni ed esiti dei controlli illegali vengono salvati come storico; lo Studente usa 1d30, non 1d50 per Sapienza."));var ta=el("textarea");ta.placeholder="FELIX_ELFO_POZIONE_V1\nDESTINAZIONE: Laboratorio/Postazione\nNome Pozione: ...\nLegalità: Illegale\n...";det.appendChild(ta);var btn=el("button","action","Importa Pozione");btn.type="button";btn.addEventListener(EV,function(){if(CALDERONI.length>=ANNO_POSTI[STUDENTE.anno]){alert("Hai già raggiunto il numero massimo di Pozioni contemporanee consentite.");return;}var r=potionFromTransferText(ta.value);if(!r.ok){alert("Importazione non eseguita: "+r.error);return;}CALDERONI.push(r.postazione);scheduleSave(0);renderAll();alert("Pozione importata. I controlli illegali sono stati conservati come storico e non verranno rilanciati.");});det.appendChild(btn);return det;}
+  function buildPotionImportBox(){
+    var det=el("details","illegal-import-box");keepDetailsState(det,"postazione:import-pozione",false);det.appendChild(el("summary",null,"Importa Pozione dal Generatore"));det.appendChild(el("p","small-note","Incolla il blocco FELIX_ELFO_POZIONE_V1. Se la stessa Pozione è già presente puoi aggiornarla senza duplicarla; Legalità, professione, protezioni ed esiti illegali restano storicizzati."));
+    var ta=el("textarea");ta.placeholder="FELIX_ELFO_POZIONE_V1\nDESTINAZIONE: Laboratorio/Postazione\nNome Pozione: ...\nLegalità creazione: Illegale\n...";det.appendChild(ta);var btn=el("button","action","Importa Pozione");btn.type="button";btn.addEventListener(EV,function(){
+      var r=potionFromTransferText(ta.value);if(!r.ok){alert("Importazione non eseguita: "+r.error);return;}var incoming=r.postazione,found=potionFindExisting(CALDERONI,incoming);
+      if(found.ambiguous){var labels=(found.candidates||[]).map(potionCandidateLabel).join("\n"),pick=window.prompt("Esistono più Pozioni con lo stesso nome. Inserisci il numero della lavorazione da AGGIORNARE; lascia vuoto e premi OK per aggiungere una NUOVA Pozione; Annulla per non importare.\n\n"+labels,"");if(pick===null)return;pick=String(pick||'').trim();if(pick){var pi=parseInt(pick,10);if(!(pi>=1&&pi<=found.candidates.length)){alert("Scelta non valida: nessuna Pozione è stata modificata.");return;}found.item=found.candidates[pi-1];}else found.item=null;}
+      else if(found.uncertain&&found.item){if(!window.confirm("Esiste già una Pozione con lo stesso nome, ma il Link principale non identifica con certezza la stessa lavorazione.\n\n"+potionCandidateLabel(found.item,0)+"\n\nOK = aggiorna questa Pozione.\nAnnulla = aggiungi una NUOVA Pozione omonima.")){found.item=null;}}
+      if(found.item){if(potionImportedSameData(found.item,incoming)){alert("Questo blocco risulta già importato con gli stessi dati: nessuna Pozione è stata duplicata.");return;}if(incoming.dataLink&&potionOccupantHasImportLink(found.item,incoming.dataLink)){if(!window.confirm("Lo stesso link è già associato a questa Pozione ma alcuni dati sono cambiati.\n\nOK = aggiorna la lavorazione esistente.\nAnnulla = aggiungi una NUOVA Pozione svolta nello stesso topic.")){found.item=null;}}}
+      if(found.item){potionMergeImported(found.item,incoming);scheduleSave(0);renderAll();alert("Pozione aggiornata senza creare duplicati.");return;}
+      if(CALDERONI.length>=ANNO_POSTI[STUDENTE.anno]){alert("Hai già raggiunto il numero massimo di Pozioni contemporanee consentite dal tuo Anno Scolastico. L'importazione è un nuovo elemento e non può essere aggiunta.");return;}
+      calderoneCounter=calderoneCounter+1;incoming.id=calderoneCounter;incoming.numero=calderoneCounter;CALDERONI.push(incoming);scheduleSave(0);renderAll();alert("Nuova Pozione importata. I controlli illegali presenti sono stati salvati come storico e non verranno rilanciati.");
+    });det.appendChild(btn);return det;
+  }
 
   function renderPostazioneStep(container){
     var p = el("div", "panel structure-ui");
@@ -11191,7 +11368,7 @@
     if(!ARCHIVIO_CALDERONI.length){ad.appendChild(el("p","small-note","Nessuna Pozione archiviata."));}
     for(var ap=0;ap<ARCHIVIO_CALDERONI.length;ap++){(function(pz){
       var lockedPz=archiveLocked(pz);var archivedClass=String(pz.classificazione||"X").toLowerCase();var row=el("div","card entity-card potion-card potion-class-"+archivedClass+(lockedPz?" archive-locked":""));row.appendChild(el("div","entity-title potion-title",pz.nomePozione||("Postazione n°"+pz.numero)));row.appendChild(el("div","small-note","Postazione n°"+pz.numero+" · "+(pz.classificazione||"")));if(lockedPz){row.appendChild(el("div","archive-lock-note",archiveLockText(pz)));}
-      var restore=el("button","action small",lockedPz?"🔒 Consolidata":"Ripristina");restore.disabled=lockedPz;restore.addEventListener(EV,function(){if(blockIfArchiveLocked(pz))return;ARCHIVIO_CALDERONI=ARCHIVIO_CALDERONI.filter(function(x){return x.id!==pz.id;});pz._archivedAt="";CALDERONI.push(pz);scheduleSave(0);renderAll();});row.appendChild(restore);ad.appendChild(row);
+      var restore=el("button","action small",lockedPz?"🔒 Consolidata":"Ripristina");restore.disabled=lockedPz;restore.addEventListener(EV,function(){if(blockIfArchiveLocked(pz))return;if(CALDERONI.length>=ANNO_POSTI[STUDENTE.anno]){alert("Non puoi ripristinare la Pozione: hai già raggiunto il numero massimo di Postazioni consentite dal tuo Anno Scolastico.");return;}ARCHIVIO_CALDERONI=ARCHIVIO_CALDERONI.filter(function(x){return x.id!==pz.id;});pz._archivedAt="";CALDERONI.push(pz);scheduleSave(0);renderAll();});row.appendChild(restore);ad.appendChild(row);
     })(ARCHIVIO_CALDERONI[ap]);}
     p.appendChild(ad);
     container.appendChild(p);
@@ -11354,6 +11531,7 @@
     iPost.value=Math.max(0,num(postaz.postRichiesti,0));
     iPost.addEventListener("change",function(){var proposed=Math.max(0,num(iPost.value,0));if(!validateGlobalIntervalOrAlert(postaz.startIndex,proposed)){iPost.value=postaz.postRichiesti;return;}postaz.postRichiesti=proposed;scheduleSave(0);renderAll();});
     dPost.appendChild(iPost); row.appendChild(dPost);
+    if(sub.erbCicloConsumataPerFallimento){dPost.appendChild(el("div","small-note","Ciclo consumato per esito 0%: nessun post richiesto, ma conta nel totale dei Cicli della Fase."));}
 
     var dStart=el("div"); dStart.appendChild(el("label",null,"Dal post globale n°"));
     var iStart=el("input"); iStart.type="number"; iStart.min="1"; iStart.step="1";
@@ -11485,11 +11663,20 @@
     if(sub.esitoLink==null){sub.esitoLink="";}
     if(sub.esitoText==null){sub.esitoText="";}
     if(sub.postRichiesti==null){sub.postRichiesti=0;}
+    if(sub.erbCicloConsumataPerFallimento==null){sub.erbCicloConsumataPerFallimento=/ciclo\s+fallito|(?:^|\D)0\s*%/i.test(String(sub.esitoText||""));}
     if(sub.startIndex==null){sub.startIndex=nextGlobalPostNumber();}
     if(sub.ottenuti==null){sub.ottenuti="";}
     if(sub.ottenutiLink==null){sub.ottenutiLink="";}
     if(sub.ottenutiQuantita==null){sub.ottenutiQuantita="";}
     if(!sub.harvest||typeof sub.harvest!=="object"||Array.isArray(sub.harvest)){sub.harvest={};}
+    /* v189 — un Ciclo consumato con 0% non può conservare un vecchio raccolto.
+       La normalizzazione sana anche i salvataggi storici incoerenti. */
+    if(sub.erbCicloConsumataPerFallimento){
+      sub.ottenuti="";sub.ottenutiLink="";sub.ottenutiQuantita="";
+      sub.harvest={};
+      if(sub.dispensaTransfer&&sub.dispensaTransfer.done===true){sub.dispensaTransfer.needsCorrection=true;sub.dispensaTransfer.correctionReason=sub.dispensaTransfer.correctionReason||"Il Ciclo è ora 0% ma il vecchio raccolto risultava già trasferito.";}
+    }
+    if(sub.dispensaTransfer&&sub.dispensaTransfer.done===true&&sub.dispensaTransfer.harvestSignature&&sub.dispensaTransfer.harvestSignature!==erbHarvestSignature(sub)){sub.dispensaTransfer.needsCorrection=true;sub.dispensaTransfer.correctionReason=sub.dispensaTransfer.correctionReason||"Il raccolto del Ciclo è stato modificato dopo il trasferimento.";}
     return sub;
   }
 
@@ -11527,11 +11714,19 @@
   }
   function subEntryFilled(sub){
     var pr=subEntryProgress(sub);
-    return pr.total>0 && pr.filled>=pr.total;
+    return !!(sub&&sub.erbCicloConsumataPerFallimento) || (pr.total>0 && pr.filled>=pr.total);
   }
 
 
   /* Importazione rapida di una o più Creature da testo strutturato. */
+  /* v205 — compatibilità import specialistici:
+     l'Elfo Studente non gestisce protezioni attive come stato autonomo della struttura.
+     Gli eventuali dati importati restano storico dell'entità e non devono causare errori
+     né modificare implicitamente Serra/Riserva/Laboratorio. */
+  function applyImportedProtectionsToFacility(fac,illegalita){
+    return;
+  }
+
   function cleanCreatureImportValue(value){
     var s=String(value==null?"":value).trim();
     if(!s){return "";}
@@ -11553,10 +11748,19 @@
     if(s==="parenti" || /^parenti\s*\/\s*origine$/.test(s)){return "parenti";}
     if(s==="fase attuale"){return "faseAttuale";}
     if(s==="link fase"){return "faseLink";}
-    if(s==="legalità" || s==="legalita"){return "legalita";}
-    if(s==="professione controllo"){return "professioneControllo";}
-    if(s==="protezioni controllo"){return "protezioniControllo";}
+    if(s==="legalità" || s==="legalita" || s==="legalità pianta" || s==="legalita pianta"){return "legalita";}
+    if(s==="professione controllo" || s==="professione controllo pianta illegale"){return "professioneControllo";}
+    if(s==="protezioni controllo" || s==="protezioni controllo pianta illegale"){return "protezioniControllo";}
     if(s==="facce protezione"){return "facceProtezione";}
+    if(s==="habitat stabile"){return "habitatStabile";}
+    if(s==="malus permanente cicli"){return "malusPermanenteCicli";}
+    if(s==="tipo ciclo"){return "tipoCiclo";}
+    if(s==="esito coltivazione"){return "esitoColtivazione";}
+    if(s==="esito allevamento"){return "esitoAllevamento";}
+    if(s==="post richiesti ciclo"){return "postRichiestiCiclo";}
+    if(s==="ingredienti prodotti"){return "ingredientiProdotti";}
+    if(s==="semi prodotti"){return "semiProdotti";}
+    if(s==="legalità ingredienti" || s==="legalita ingredienti"){return "legalitaIngredienti";}
     if(s==="controllo illegale collocazione"){return "controlloIllegaleCollocazione";}
     if(s==="controllo illegale coltivazione"){return "controlloIllegaleColtivazione";}
     if(s==="controllo illegale cura"){return "controlloIllegaleCura";}
@@ -11569,7 +11773,7 @@
     var text=String(raw||"").trim();
     var fields={}, count=0;
     if(!text){return {ok:false,error:"Il testo da importare è vuoto.",fields:fields};}
-    var re=/(DESTINAZIONE|Data\s*\/\s*riferimento|Link\s+principale|Link\s+Classificazione|Specie(?:\s*\/\s*Sesso)?|Link\s+Specie|Fase\s+attuale|Link\s+Fase|Classificazione|Parenti(?:\s*\/\s*origine)?|Legalità|Legalita|Professione\s+controllo|Protezioni\s+controllo|Facce\s+protezione|Controllo\s+illegale\s+Collocazione|Controllo\s+illegale\s+Coltivazione|Controllo\s+illegale\s+Cura|Controllo\s+illegale\s+Allevamento|Nome|Note)\s*:\s*/gi;
+    var re=/(DESTINAZIONE|Data\s*\/\s*riferimento|Link\s+principale|Link\s+Classificazione|Specie(?:\s*\/\s*Sesso)?|Link\s+Specie|Fase\s+attuale|Link\s+Fase|Classificazione|Parenti(?:\s*\/\s*origine)?|Habitat\s+stabile|Malus\s+permanente\s+Cicli|Legalità\s+Pianta|Legalita\s+Pianta|Legalità\s+Ingredienti|Legalita\s+Ingredienti|Legalità|Legalita|Professione\s+controllo\s+Pianta\s+illegale|Protezioni\s+controllo\s+Pianta\s+illegale|Professione\s+controllo|Protezioni\s+controllo|Facce\s+protezione|Controllo\s+illegale\s+Collocazione|Controllo\s+illegale\s+Coltivazione|Controllo\s+illegale\s+Cura|Controllo\s+illegale\s+Allevamento|Tipo\s+ciclo|Esito\s+Coltivazione|Esito\s+Allevamento|Post\s+richiesti\s+ciclo|Ingredienti\s+prodotti|Semi\s+prodotti|Nome|Note)\s*:\s*/gi;
     var matches=[], m;
     while((m=re.exec(text))!==null){matches.push({label:m[1],start:m.index,valueStart:re.lastIndex});}
     if(!matches.length){return {ok:false,error:"Formato non riconosciuto: non trovo le etichette Nome, Classificazione, Fase attuale, ecc.",fields:fields};}
@@ -11605,6 +11809,206 @@
     return a ? (a+" · "+b) : b;
   }
 
+  /* v176 — audit end-to-end Erbologia: Legalita letta dal valore iniziale, evitando falsi Illegale nelle note descrittive. */
+  function importedCycleFailed(postValue, outcomeValue){
+    var p=cleanCreatureImportValue(postValue).toLowerCase();
+    var o=cleanCreatureImportValue(outcomeValue).toLowerCase();
+    return /ciclo\s+fallito/.test(p) || /riuscita\s*0\s*%/.test(o) || /\bfallit[oa]\b/.test(o) || /\bfallimento\b/.test(o);
+  }
+  function importedCycleTarget(occupant, stages, cycleValue, phaseLabel){
+    var currentStage=null,targetPhase=phaseLabel||occupant.faseAttuale;
+    for(var cs=0;cs<stages.length;cs++){
+      if(String(stages[cs].label||"").toLowerCase()===String(targetPhase||"").toLowerCase()){currentStage=stages[cs];break;}
+    }
+    if(!currentStage || !occupant.cicli || !occupant.cicli[currentStage.key]){return null;}
+    var bucket=occupant.cicli[currentStage.key],sub=null;
+    var importedCycle=cleanCreatureImportValue(cycleValue).toLowerCase();
+    if(currentStage.type==="ripro" && /(riproduzione|accoppiamento|semi)/i.test(importedCycle)){
+      sub=bucket.evento;
+      if(subEntryFilled(normalizeSubEntry(sub))){return null;}
+    }
+    else if((currentStage.type==="cicli"||currentStage.type==="ripro") && Array.isArray(bucket.list) && bucket.list.length){
+      for(var bi=0;bi<bucket.list.length;bi++){
+        var candidate=normalizeSubEntry(bucket.list[bi]);
+        if(!subEntryFilled(candidate)){sub=candidate;break;}
+      }
+      if(!sub){return null;}
+    }
+    else if(bucket.evento){
+      sub=bucket.evento;
+      if(subEntryFilled(normalizeSubEntry(sub))){return null;}
+    }
+    return sub ? normalizeSubEntry(sub) : null;
+  }
+  /* v207/v204 — registro storico anti-doppio accredito dei raccolti.
+     Sopravvive alla rimozione dell'esemplare e distingue fase/slot anche nello stesso topic. */
+  function ensureDispensaCycleLedger(){
+    if(!DISPENSA||typeof DISPENSA!=="object")return [];
+    if(!Array.isArray(DISPENSA.cycleTransferLedger))DISPENSA.cycleTransferLedger=[];
+    return DISPENSA.cycleTransferLedger;
+  }
+  function dispensaCycleLedgerNorm(v){return String(v||"").toLocaleLowerCase("it-IT").replace(/\s+/g," ").trim();}
+  function currentElfoPgId(){
+    try{
+      if(typeof PG_ID!=="undefined"&&String(PG_ID||"").trim())return String(PG_ID||"").trim();
+      if(typeof STUDENTE!=="undefined"&&STUDENTE&&String(STUDENTE.nome||"").trim())return String(STUDENTE.nome||"").trim();
+    }catch(e){}
+    return "";
+  }
+  function dispensaCycleLedgerKey(entity,species,stageKey,keySuffix,link){
+    return [currentElfoPgId(),entity||"",species||"",stageKey||"",keySuffix||"",link||""].map(dispensaCycleLedgerNorm).join("|");
+  }
+  function dispensaCycleLedgerKeyHasEntity(key){
+    var parts=String(key||"").split("|");
+    return parts.length>=6&&String(parts[1]||"").trim()!=="";
+  }
+  function dispensaCycleLedgerHas(key){
+    key=String(key||"");if(!key)return false;
+    return ensureDispensaCycleLedger().some(function(x){return x&&String(x.key||"")===key;});
+  }
+  function dispensaCycleLedgerAdd(key,sub){
+    key=String(key||"");if(!key||dispensaCycleLedgerHas(key))return;
+    ensureDispensaCycleLedger().push({key:key,at:new Date().toISOString(),link:String(sub&&sub.esitoLink||""),signature:erbHarvestSignature(sub)});
+  }
+  function dispensaCycleLedgerRemove(key){
+    key=String(key||"");if(!key||!DISPENSA||!Array.isArray(DISPENSA.cycleTransferLedger))return;
+    DISPENSA.cycleTransferLedger=DISPENSA.cycleTransferLedger.filter(function(x){return !x||String(x.key||"")!==key;});
+  }
+  function dispensaCycleLedgerEntityFromSub(sub){
+    var ctx=String(sub&&sub.harvest&&sub.harvest.context||"");
+    if(/^Creatura\|/i.test(ctx))return "Creatura";
+    if(/^Pianta\|/i.test(ctx))return "Pianta";
+    return "";
+  }
+  function registerOccupantTransferredCyclesInLedger(occupant,entityHint){
+    if(!occupant||!occupant.cicli)return 0;
+    entityHint=String(entityHint||"").trim();
+    var species=String(occupant.specieSesso||occupant.nome||""),added=0,cic=occupant.cicli;
+    Object.keys(cic).forEach(function(stageKey){
+      var b=cic[stageKey]||{};
+      if(Array.isArray(b.list))b.list.forEach(function(sub,idx){
+        if(sub&&sub.dispensaTransfer&&sub.dispensaTransfer.done){
+          var entity=dispensaCycleLedgerEntityFromSub(sub)||entityHint,oldKey=String(sub.dispensaTransfer.ledgerKey||""),key=oldKey;
+          if(!key||(!dispensaCycleLedgerKeyHasEntity(key)&&entity)){
+            key=dispensaCycleLedgerKey(entity,species,stageKey,"prod-"+idx,sub.esitoLink);
+            if(oldKey&&oldKey!==key)dispensaCycleLedgerRemove(oldKey);
+          }
+          if(key&&!dispensaCycleLedgerHas(key)){dispensaCycleLedgerAdd(key,sub);added++;}
+          sub.dispensaTransfer.ledgerKey=key;
+        }
+      });
+      if(b.evento&&b.evento.dispensaTransfer&&b.evento.dispensaTransfer.done){
+        var sub=b.evento,entity=dispensaCycleLedgerEntityFromSub(sub)||entityHint,oldKey=String(sub.dispensaTransfer.ledgerKey||""),key=oldKey;
+        if(!key||(!dispensaCycleLedgerKeyHasEntity(key)&&entity)){
+          key=dispensaCycleLedgerKey(entity,species,stageKey,"ripro",sub.esitoLink);
+          if(oldKey&&oldKey!==key)dispensaCycleLedgerRemove(oldKey);
+        }
+        if(key&&!dispensaCycleLedgerHas(key)){dispensaCycleLedgerAdd(key,sub);added++;}
+        sub.dispensaTransfer.ledgerKey=key;
+      }
+    });
+    return added;
+  }
+
+  function erbDetachDeletedPlantCycleLinks(occupant,entityHint){
+    if(!occupant||!DISPENSA)return 0;
+    registerOccupantTransferredCyclesInLedger(occupant,entityHint);
+    var keys={};
+    function scan(v){
+      if(!v||typeof v!=="object")return;
+      if(String(v._erbDispensaCycleKey||"")){keys[String(v._erbDispensaCycleKey)]=true;}
+      if(v.dispensaTransfer&&String(v.dispensaTransfer.sourceCycleKey||"")){keys[String(v.dispensaTransfer.sourceCycleKey)]=true;}
+      if(Array.isArray(v)){for(var ai=0;ai<v.length;ai++)scan(v[ai]);return;}
+      Object.keys(v).forEach(function(k){if(k!=="dispensaTransfer")scan(v[k]);});
+    }
+    scan(occupant.cicli||occupant);
+    var keyList=Object.keys(keys);if(!keyList.length)return 0;
+    var changed=0;
+    if(Array.isArray(DISPENSA.ingredienti)){
+      for(var di=0;di<DISPENSA.ingredienti.length;di++){
+        var ing=DISPENSA.ingredienti[di];ensureIngredientLots(ing);
+        for(var li=0;li<ing.lotti.length;li++){
+          var lot=ing.lotti[li],lk=String(lot.sourceCycleKey||"");
+          if(lk&&keys[lk]){lot.sourceCycleKey="";changed++;}
+        }
+      }
+    }
+    for(var ki=0;ki<keyList.length;ki++){changed+=clearCycleKeyFromDispensaMovements(keyList[ki]);}
+    return changed;
+  }
+  function erbDetachDeletedPlantsCycleLinks(list,entityHint){var n=0;(Array.isArray(list)?list:[]).forEach(function(o){n+=erbDetachDeletedPlantCycleLinks(o,entityHint);});return n;}
+  function erbCycleDispensaKey(sub){
+    if(!sub)return "";if(!sub._erbDispensaCycleKey){sub._erbDispensaCycleKey="erbcycle_"+Date.now().toString(36)+"_"+Math.random().toString(36).slice(2,9);}return String(sub._erbDispensaCycleKey);
+  }
+  function erbHarvestSignature(sub){
+    var items=(sub&&sub.harvest&&Array.isArray(sub.harvest.items))?sub.harvest.items.map(function(x){return {name:String(x&&x.name||""),quantita:parseInt(x&&x.quantita,10)||0};}):[];
+    return JSON.stringify({items:items,ottenuti:String(sub&&sub.ottenuti||""),q:String(sub&&sub.ottenutiQuantita||"")});
+  }
+  function erbRollbackTransferredHarvestIfSafe(sub,markUnsafe){
+    if(markUnsafe===undefined)markUnsafe=true;
+    if(!sub||!sub.dispensaTransfer||sub.dispensaTransfer.done!==true)return {rolledBack:false,manual:false};
+    var tr=sub.dispensaTransfer,key=String(tr.sourceCycleKey||sub._erbDispensaCycleKey||"");
+    if(!key){if(markUnsafe)tr.needsCorrection=true;return {rolledBack:false,manual:true};}
+    var foundLots=[],expected=0,current=0,items=Array.isArray(tr.items)?tr.items:[];
+    if(items.length){for(var ei=0;ei<items.length;ei++)expected+=Math.max(0,parseInt(items[ei].quantita,10)||0);}else expected=Math.max(0,parseInt(tr.quantita,10)||0);
+    if(DISPENSA&&Array.isArray(DISPENSA.ingredienti))for(var di=0;di<DISPENSA.ingredienti.length;di++){var ing=DISPENSA.ingredienti[di];ensureIngredientLots(ing);for(var li=0;li<ing.lotti.length;li++){var lot=ing.lotti[li];if(String(lot.sourceCycleKey||"")===key){foundLots.push({ing:ing,lot:lot});current+=Math.max(0,num(lot.quantita,0));}}}
+    if(foundLots.length&&current===expected){for(var fi=0;fi<foundLots.length;fi++){var pair=foundLots[fi],arr=pair.ing.lotti;pair.ing.lotti=arr.filter(function(l){return String(l.sourceCycleKey||"")!==key;});syncIngredientQuantity(pair.ing);}DISPENSA.ingredienti=DISPENSA.ingredienti.filter(function(ing){return ingredientTotalQty(ing)>0;});dispensaCycleLedgerRemove(tr.ledgerKey);sub.dispensaTransfer={done:false,rolledBackAt:new Date().toISOString()};return {rolledBack:true,manual:false};}
+    if(markUnsafe){tr.needsCorrection=true;tr.correctionReason=foundLots.length?"Il lotto è stato modificato o parzialmente utilizzato.":"Il trasferimento è storico e non è più isolabile con certezza.";}return {rolledBack:false,manual:true};
+  }
+  function applyImportedCycleResult(occupant, stages, cycleValue, outcomeValue, postsValue, sourceLink, phaseLabel){
+    var rawPosts=cleanCreatureImportValue(postsValue),importedPosts=parseInt(rawPosts,10),importedOutcome=cleanCreatureImportValue(outcomeValue);
+    var failed=importedCycleFailed(rawPosts,importedOutcome);
+    if(!failed && !(Number.isFinite(importedPosts)&&importedPosts>=0)){return null;}
+    var sub=importedCycleTarget(occupant,stages,cycleValue,phaseLabel);if(!sub){return null;}
+    if(failed){sub.postRichiesti=0;sub.esitoText="Ciclo fallito";sub.erbCicloConsumataPerFallimento=true;sub.ottenuti="";sub.ottenutiLink="";sub.ottenutiQuantita="";sub.harvest={};}
+    else{sub.postRichiesti=importedPosts;sub.erbCicloConsumataPerFallimento=false;if(importedOutcome){sub.esitoText=importedOutcome.replace(/^Riuscita\s+/i,"");}}
+    if(sourceLink){sub.esitoLink=sourceLink;}return sub;
+  }
+  function erbImportedHarvestItems(text){
+    var raw=cleanCreatureImportValue(text),out=[],re=/(\d+)\s*[×x]\s*([^·\n]+)/gi,m;
+    if(!raw||/^(in attesa|distribuzione non automatizzata)/i.test(raw))return out;
+    while((m=re.exec(raw))!==null){var q=parseInt(m[1],10),name=String(m[2]||'').trim();if(q>0&&name)out.push({name:name,quantita:q});}
+    return out;
+  }
+  function erbApplyImportedHarvest(sub,occupant,fields,cycleValue){
+    if(!sub||!occupant||!fields||sub.erbCicloConsumataPerFallimento)return;
+    var cycle=cleanCreatureImportValue(cycleValue).toLowerCase(),isSeeds=/(riproduzione|accoppiamento|semi)/i.test(cycle);
+    var h=ensurePlantHarvestState(sub,isSeeds?'semi':'ingredienti',occupant,{tipoLabel:'Pianta'});
+    if(isSeeds){
+      var seedRaw=cleanCreatureImportValue(fields.semiProdotti),seedQty=parseInt(seedRaw,10);
+      if(Number.isFinite(seedQty)&&seedQty>=0){
+        if(seedQty===0){h.items=[];sub.ottenuti='';sub.ottenutiQuantita='0';}
+        else{var seedName='Semi di '+(String(occupant.specieSesso||occupant.nome||'Pianta').trim()||'Pianta');h.items=[{name:seedName,quantita:seedQty}];sub.ottenuti=seedQty+' × '+seedName;sub.ottenutiQuantita=String(seedQty);}
+        h.finalQty=String(seedQty);h.finalManual=true;h.confirmed=true;h.resolvedAt=new Date().toISOString();
+      }
+      return;
+    }
+    var items=erbImportedHarvestItems(fields.ingredientiProdotti);
+    if(items.length){
+      h.items=items;h.finalQty=String(items.reduce(function(a,x){return a+(parseInt(x.quantita,10)||0);},0));h.finalManual=true;h.confirmed=true;h.resolvedAt=new Date().toISOString();
+      sub.ottenuti=items.map(function(x){return x.quantita+' × '+x.name;}).join(' · ');sub.ottenutiQuantita=h.finalQty;
+    }
+  }
+
+  /* v206/v203 — Magizoologia: gli Ingredienti già risolti dal Generatore
+     vengono agganciati allo specifico Ciclo della Creatura, come per Erbologia. */
+  function mzApplyImportedHarvest(sub,occupant,fields){
+    if(!sub||!occupant||!fields||sub.erbCicloConsumataPerFallimento)return;
+    var items=erbImportedHarvestItems(fields.ingredientiProdotti);
+    if(!items.length)return;
+    items=items.map(function(x){
+      var rec=(typeof catalogIngredient==="function")?catalogIngredient(x.name):null;
+      return {name:(rec&&rec.nome)?rec.nome:String(x.name||"").trim(),quantita:parseInt(x.quantita,10)||0};
+    }).filter(function(x){return x.name&&x.quantita>0;});
+    if(!items.length)return;
+    var h=ensurePlantHarvestState(sub,'ingredienti',occupant,{tipoLabel:'Creatura'});
+    h.items=items;
+    h.finalQty=String(items.reduce(function(a,x){return a+(parseInt(x.quantita,10)||0);},0));
+    h.finalManual=true;h.confirmed=true;h.resolvedAt=new Date().toISOString();h.toolManaged=true;
+    sub.ottenuti=items.map(function(x){return x.quantita+' × '+x.name;}).join(' · ');
+    sub.ottenutiQuantita=h.finalQty;
+  }
+
   function creatureFromImportText(raw, stages, allowedClasses, expectedDestination){
     var parsed=parseCreatureImportText(raw);
     if(!parsed.ok){return {ok:false,error:parsed.error};}
@@ -11623,6 +12027,15 @@
     o.parenti=cleanCreatureImportValue(f.parenti) || "//";
     o.faseLink=cleanCreatureImportValue(f.faseLink);
     o.note=cleanCreatureImportValue(f.note);
+    if(expectedDestination==="serra" || expectedDestination==="cubicolo"){
+      var hst=cleanCreatureImportValue(f.habitatStabile);if(hst){o.note=appendCreatureImportNote(o.note,"Habitat stabile: "+hst);}
+      var pmc=cleanCreatureImportValue(f.malusPermanenteCicli),pmcm=pmc.match(/(\d+)/);o.erbMalusPostPermanente=pmcm?Math.max(0,parseInt(pmcm[1],10)||0):0;if(o.erbMalusPostPermanente){o.note=appendCreatureImportNote(o.note,"Malus permanente Cicli: +"+o.erbMalusPostPermanente+" post");}
+      var ing=cleanCreatureImportValue(f.ingredientiProdotti);if(ing){o.note=appendCreatureImportNote(o.note,"Ingredienti prodotti: "+ing);}
+      var ling=cleanCreatureImportValue(f.legalitaIngredienti);if(ling){o.note=appendCreatureImportNote(o.note,"Legalità Ingredienti: "+ling);}
+    }else if(expectedDestination==="riserva" || expectedDestination==="recinto"){
+      var ming=cleanCreatureImportValue(f.ingredientiProdotti);if(ming){o.note=appendCreatureImportNote(o.note,"Ingredienti prodotti: "+ming);}
+      var mling=cleanCreatureImportValue(f.legalitaIngredienti);if(mling){o.note=appendCreatureImportNote(o.note,"Legalità Ingredienti: "+mling);}
+    }
 
     var cls=cleanCreatureImportValue(f.classificazione).toUpperCase().replace(/\s+/g,"");
     if(cls){
@@ -11654,9 +12067,192 @@
       }
     }
 
-    var importKind=expectedDestination==="cubicolo"?"pianta":"creatura";o.legalita=/illegale/i.test(String(f.legalita||""))?"illegale":"legale";var ix=ensureEntityIllegalState(o);ix.professione=cleanCreatureImportValue(f.professioneControllo);ix.protezioni=cleanCreatureImportValue(f.protezioniControllo);ix.facceProtezione=Math.max(0,num(f.facceProtezione,0));ix.controlli.collocazione=cleanCreatureImportValue(f.controlloIllegaleCollocazione);ix.controlli.coltivazione=cleanCreatureImportValue(f.controlloIllegaleColtivazione);ix.controlli.cura=cleanCreatureImportValue(f.controlloIllegaleCura);ix.controlli.allevamento=cleanCreatureImportValue(f.controlloIllegaleAllevamento);
+    var importKind=expectedDestination==="cubicolo"?"pianta":"creatura";var cp={legalita:Object.prototype.hasOwnProperty.call(f,"legalita"),professione:Object.prototype.hasOwnProperty.call(f,"professioneControllo"),protezioni:Object.prototype.hasOwnProperty.call(f,"protezioniControllo"),facce:Object.prototype.hasOwnProperty.call(f,"facceProtezione"),controlli:{collocazione:Object.prototype.hasOwnProperty.call(f,"controlloIllegaleCollocazione"),coltivazione:Object.prototype.hasOwnProperty.call(f,"controlloIllegaleColtivazione"),cura:Object.prototype.hasOwnProperty.call(f,"controlloIllegaleCura"),allevamento:Object.prototype.hasOwnProperty.call(f,"controlloIllegaleAllevamento")}};o._illegalImportPresence=cp;var importedLegalita=cleanCreatureImportValue(f.legalita);if(cp.legalita)o.legalita=/^illegale\b/i.test(importedLegalita)?"illegale":"legale";var ix=ensureEntityIllegalState(o);if(cp.professione)ix.professione=cleanCreatureImportValue(f.professioneControllo);if(cp.protezioni)ix.protezioni=cleanCreatureImportValue(f.protezioniControllo);if(cp.facce)ix.facceProtezione=Math.max(0,num(f.facceProtezione,0));if(cp.controlli.collocazione)ix.controlli.collocazione=cleanCreatureImportValue(f.controlloIllegaleCollocazione);if(cp.controlli.coltivazione)ix.controlli.coltivazione=cleanCreatureImportValue(f.controlloIllegaleColtivazione);if(cp.controlli.cura)ix.controlli.cura=cleanCreatureImportValue(f.controlloIllegaleCura);if(cp.controlli.allevamento)ix.controlli.allevamento=cleanCreatureImportValue(f.controlloIllegaleAllevamento);
     ensureOccupantStageData(o,stages);
-    return {ok:true,occupant:o,destination:f.destinazione||""};
+    if(expectedDestination==="serra" || expectedDestination==="cubicolo"){
+      var importedSub=applyImportedCycleResult(o,stages,f.tipoCiclo,f.esitoColtivazione,f.postRichiestiCiclo,o.dataLink,o.faseAttuale);
+      if(importedSub)erbApplyImportedHarvest(importedSub,o,f,f.tipoCiclo);
+    }else if(expectedDestination==="riserva" || expectedDestination==="recinto"){
+      var hasMzCycle=cleanCreatureImportValue(f.tipoCiclo)||cleanCreatureImportValue(f.esitoAllevamento)||cleanCreatureImportValue(f.postRichiestiCiclo);
+      if(hasMzCycle){
+        if(!mzCreatureStageAcceptsAllevamento(stages,o.faseAttuale)){return {ok:false,error:"La Fase attuale «"+o.faseAttuale+"» non prevede un Ciclo di Allevamento nel Recinto/Riserva."};}
+        var mzSub=applyImportedCycleResult(o,stages,f.tipoCiclo,f.esitoAllevamento,f.postRichiestiCiclo,o.dataLink,o.faseAttuale);
+        if(!mzSub){return {ok:false,error:"Il Ciclo di Allevamento non può essere inserito nella Fase indicata."};}
+        mzApplyImportedHarvest(mzSub,o,f);
+      }
+    }
+    return {ok:true,occupant:o,destination:f.destinazione||"",fields:f};
+  }
+
+  /* v181 — import Erbologia incrementale: aggiorna un esemplare univoco e blocca il doppio import dello stesso ciclo. */
+  /* v184 — audit collisioni stesso topic: scelta esplicita tra correzione e nuovo Ciclo quando il link coincide. */
+  /* v185 — audit modifiche manuali: erbImportHistory non può più bloccare un Ciclo che nel frattempo è stato modificato/svuotato. */
+  /* v187 — audit capienza: gli aggiornamenti di esemplari esistenti bypassano correttamente il limite della struttura. */
+  /* v186 — audit identità esemplare: il link principale della Pianta non viene più sovrascritto dai link dei Cicli successivi. */
+  /* v182 — audit transizione Fase Vitale: prima aggiorna la fase, poi applica il ciclo importato. */
+  function erbPlantImportNorm(v){return String(v||"").toLocaleLowerCase("it-IT").replace(/\s+/g," ").trim();}
+  function erbPlantImportFingerprint(fields){fields=fields||{};return [fields.nome,fields.specieSesso,fields.faseAttuale,fields.tipoCiclo,fields.esitoColtivazione,fields.postRichiestiCiclo,fields.ingredientiProdotti,fields.semiProdotti,fields.linkPrincipale].map(erbPlantImportNorm).join("|");}
+  function erbPlantImportHistory(o){if(!Array.isArray(o.erbImportHistory)){o.erbImportHistory=[];}return o.erbImportHistory;}
+  function erbPlantOccupantHasImportLink(o,link){
+    link=erbPlantImportNorm(link);if(!o||!link)return false;
+    if(erbPlantImportNorm(o.dataLink)===link)return true;
+    var cic=o.cicli||{},keys=Object.keys(cic);for(var i=0;i<keys.length;i++){var b=cic[keys[i]]||{},subs=[];if(b.evento)subs.push(b.evento);if(Array.isArray(b.list))subs=subs.concat(b.list);for(var j=0;j<subs.length;j++){if(erbPlantImportNorm(subs[j]&&subs[j].esitoLink)===link)return true;}}
+    return false;
+  }
+  function erbPlantFindExisting(list,incoming){
+    var name=erbPlantImportNorm(incoming&&incoming.nome),spec=erbPlantImportNorm(incoming&&incoming.specieSesso),link=erbPlantImportNorm(incoming&&incoming.dataLink);
+    if(!Array.isArray(list)){return {item:null,ambiguous:false,uncertain:false,candidates:[]};}
+    var exact=[];
+    if(name&&spec){exact=list.filter(function(x){return erbPlantImportNorm(x&&x.nome)===name&&erbPlantImportNorm(x&&x.specieSesso)===spec;});}
+    if(exact.length&&link){var byAnyLink=exact.filter(function(x){return erbPlantOccupantHasImportLink(x,link);});if(byAnyLink.length===1)return {item:byAnyLink[0],ambiguous:false,uncertain:false,candidates:byAnyLink};if(byAnyLink.length>1)return {item:null,ambiguous:true,uncertain:false,candidates:byAnyLink};}
+    if(exact.length===1){return {item:exact[0],ambiguous:false,uncertain:true,candidates:exact};}
+    if(exact.length>1){return {item:null,ambiguous:true,uncertain:false,candidates:exact};}
+    if(link&&spec){var linked=list.filter(function(x){return erbPlantOccupantHasImportLink(x,link)&&erbPlantImportNorm(x&&x.specieSesso)===spec;});if(linked.length===1)return {item:linked[0],ambiguous:false,uncertain:false,candidates:linked};if(linked.length>1)return {item:null,ambiguous:true,uncertain:false,candidates:linked};}
+    return {item:null,ambiguous:false,uncertain:false,candidates:[]};
+  }
+  function erbPlantCandidateLabel(o,idx){var link=String(o&&o.dataLink||'').trim();return (idx+1)+') '+String(o&&o.nome||'Pianta')+' — '+String(o&&o.specieSesso||'specie non indicata')+' — fase '+String(o&&o.faseAttuale||'—')+(link?' — '+link:'');}
+  function erbPlantStageIndex(stages,label){for(var i=0;i<stages.length;i++){if(erbPlantImportNorm(stages[i].label)===erbPlantImportNorm(label))return i;}return -1;}
+  function erbPlantAdvancePhaseMonotonic(target,incoming,stages){
+    if(!target||!incoming||!incoming.faseAttuale)return;
+    var cur=erbPlantStageIndex(stages,target.faseAttuale),neo=erbPlantStageIndex(stages,incoming.faseAttuale);
+    if(cur<0||neo>cur){target.faseAttuale=incoming.faseAttuale;if(incoming.faseLink)target.faseLink=incoming.faseLink;}
+    else if(neo===cur&&incoming.faseLink){target.faseLink=incoming.faseLink;}
+  }
+  /* v184 — stesso link può contenere più Cicli: restituisce tutte le corrispondenze, senza scegliere arbitrariamente. */
+  function erbPlantImportedCyclesByLink(occupant,stages,phaseLabel,cycleValue,sourceLink){
+    var link=erbPlantImportNorm(sourceLink);if(!link||!occupant)return [];
+    ensureOccupantStageData(occupant,stages);
+    var stage=null;for(var i=0;i<stages.length;i++){if(erbPlantImportNorm(stages[i].label)===erbPlantImportNorm(phaseLabel)){stage=stages[i];break;}}
+    if(!stage||!occupant.cicli||!occupant.cicli[stage.key])return [];
+    var bucket=occupant.cicli[stage.key],cycle=erbPlantImportNorm(cycleValue),isRepro=stage.type==='ripro'&&/(riproduzione|accoppiamento|semi)/i.test(cycle),candidates=[];
+    if(isRepro&&bucket.evento)candidates=[{sub:bucket.evento,label:'Ciclo Semi'}];
+    else if((stage.type==='cicli'||stage.type==='ripro')&&Array.isArray(bucket.list)){for(var ci=0;ci<bucket.list.length;ci++)candidates.push({sub:bucket.list[ci],label:'Ciclo '+(ci+1)});}
+    else if(bucket.evento)candidates=[{sub:bucket.evento,label:'Ciclo'}];
+    var out=[];for(var j=0;j<candidates.length;j++){var sub=normalizeSubEntry(candidates[j].sub);if(erbPlantImportNorm(sub.esitoLink)===link)out.push({sub:sub,stage:stage,label:candidates[j].label});}
+    return out;
+  }
+  function erbPlantImportedCycleSameData(sub,outcomeValue,postsValue){
+    if(!sub)return false;var raw=cleanCreatureImportValue(postsValue),out=cleanCreatureImportValue(outcomeValue),failed=importedCycleFailed(raw,out);
+    if(failed)return !!sub.erbCicloConsumataPerFallimento || /ciclo\s+fallito/i.test(String(sub.esitoText||''));
+    var p=parseInt(raw,10),oldp=parseInt(sub.postRichiesti,10);if(!(Number.isFinite(p)&&Number.isFinite(oldp)&&p===oldp))return false;
+    var neo=erbPlantImportNorm(out.replace(/^Riuscita\s+/i,'')),old=erbPlantImportNorm(sub.esitoText||'');return !neo||neo===old;
+  }
+  function erbPlantImportedHarvestSameData(sub,fields,cycleValue,occupant){
+    if(!sub||!fields)return true;var cycle=cleanCreatureImportValue(cycleValue).toLowerCase(),isSeeds=/(riproduzione|accoppiamento|semi)/i.test(cycle);
+    if(isSeeds){var sr=cleanCreatureImportValue(fields.semiProdotti);if(!sr)return true;var sq=parseInt(sr,10),oldq=parseInt(sub.ottenutiQuantita,10);return Number.isFinite(sq)&&Number.isFinite(oldq)&&sq===oldq;}
+    var incoming=erbImportedHarvestItems(fields.ingredientiProdotti);if(!incoming.length)return true;
+    function sig(items){return (items||[]).map(function(x){return erbPlantImportNorm(x&&x.name)+'#'+String(parseInt(x&&x.quantita,10)||0);}).sort().join('|');}
+    var oldItems=(sub.harvest&&Array.isArray(sub.harvest.items))?sub.harvest.items:[];if(oldItems.length)return sig(incoming)===sig(oldItems);
+    return erbPlantImportNorm(incoming.map(function(x){return x.quantita+' × '+x.name;}).join(' · '))===erbPlantImportNorm(sub.ottenuti||'');
+  }
+  function erbPrepareImportedCycleCorrection(sub,fields,cycleValue,occupant,outcomeValue,postsValue){
+    if(!sub)return {ok:false,error:"Ciclo non disponibile."};
+    var rawPosts=cleanCreatureImportValue(postsValue),importedPosts=parseInt(rawPosts,10),failed=importedCycleFailed(rawPosts,cleanCreatureImportValue(outcomeValue));
+    if(!failed&&!(Number.isFinite(importedPosts)&&importedPosts>=0)){return {ok:false,error:"Esito/Post del Ciclo non sono validi; nessun dato è stato modificato."};}
+    var cycleNorm=cleanCreatureImportValue(cycleValue).toLowerCase(),isSeeds=/(riproduzione|accoppiamento|semi)/i.test(cycleNorm);
+    if(!failed&&isSeeds){
+      var seedRaw=cleanCreatureImportValue(fields&&fields.semiProdotti);
+      if(seedRaw){var seedQty=parseInt(seedRaw,10);if(!(Number.isFinite(seedQty)&&seedQty>=0)){return {ok:false,error:"La quantità di Semi nel blocco non è valida; nessun dato è stato modificato."};}}
+    }
+    var wasFailed=!!sub.erbCicloConsumataPerFallimento;
+    var harvestWouldChange=false;
+    if(failed!==wasFailed){
+      harvestWouldChange=true;
+    }else if(!failed){
+      harvestWouldChange=!erbPlantImportedHarvestSameData(sub,fields,cycleValue,occupant);
+    }
+    if(harvestWouldChange&&sub.dispensaTransfer&&sub.dispensaTransfer.done===true){
+      var rb=erbRollbackTransferredHarvestIfSafe(sub,false);
+      if(rb&&rb.manual){
+        return {ok:false,error:"Il raccolto di questo Ciclo è già stato trasferito in Dispensa e il relativo lotto è stato modificato, usato o non è più isolabile. Correggi prima manualmente la Dispensa; il Ciclo non è stato modificato."};
+      }
+    }
+    return {ok:true,harvestWouldChange:harvestWouldChange};
+  }
+
+  function erbPlantUpdateImportedCycle(sub,outcomeValue,postsValue,sourceLink){
+    if(!sub)return false;var rawPosts=cleanCreatureImportValue(postsValue),importedPosts=parseInt(rawPosts,10),importedOutcome=cleanCreatureImportValue(outcomeValue),failed=importedCycleFailed(rawPosts,importedOutcome);
+    if(!failed&&!(Number.isFinite(importedPosts)&&importedPosts>=0))return false;
+    if(failed){
+      sub.postRichiesti=0;sub.esitoText='Ciclo fallito';sub.erbCicloConsumataPerFallimento=true;
+      /* v189 — una correzione da riuscito a 0% elimina anche qualsiasi raccolto precedentemente importato. */
+      sub.ottenuti='';sub.ottenutiLink='';sub.ottenutiQuantita='';sub.harvest={};
+    }
+    else{sub.postRichiesti=importedPosts;sub.erbCicloConsumataPerFallimento=false;if(importedOutcome)sub.esitoText=importedOutcome.replace(/^Riuscita\s+/i,'');}
+    if(sourceLink)sub.esitoLink=sourceLink;return true;
+  }
+  function erbPlantMergeImportedMeta(target,incoming){
+    /* v188 — i metadati descrittivi possono aggiornarsi, ma la fase attiva viene gestita
+       separatamente e in modo monotono: correggere un vecchio Ciclo non fa retrocedere la Pianta. */
+    ["nome","classificazioneLink","specieSesso","specieLink","parenti"].forEach(function(k){if(incoming[k]!==undefined&&incoming[k]!==null&&String(incoming[k]).trim()!==""){target[k]=incoming[k];}});
+    if((target.dataLink===undefined||target.dataLink===null||String(target.dataLink).trim()==="")&&incoming.dataLink!==undefined&&incoming.dataLink!==null&&String(incoming.dataLink).trim()!==""){target.dataLink=incoming.dataLink;}
+    if(Number(incoming.erbMalusPostPermanente||0)>Number(target.erbMalusPostPermanente||0)){target.erbMalusPostPermanente=Number(incoming.erbMalusPostPermanente||0);}
+    if(incoming.note){var bits=String(incoming.note).split(/\s*·\s*/);bits.forEach(function(b){if(b&&String(target.note||"").indexOf(b)<0){target.note=appendCreatureImportNote(target.note,b);}});}
+    mergeImportedIllegalHistory(target,incoming);
+  }
+
+
+  /* v204/v201 — import specialistici robusti anche per Creature e Pozioni.
+     Nessuna lettura/scrittura Firebase aggiuntiva: riconoscimento e deduplicazione sono locali. */
+  function specialistImportNorm(v){return String(v||"").toLocaleLowerCase("it-IT").replace(/\s+/g," ").trim();}
+  function mzCreatureImportFingerprint(fields){
+    fields=fields||{};
+    return [fields.nome,fields.specieSesso,fields.faseAttuale,fields.tipoCiclo,fields.esitoAllevamento,fields.postRichiestiCiclo,fields.ingredientiProdotti,fields.legalitaIngredienti,fields.linkPrincipale].map(specialistImportNorm).join("|");
+  }
+  function mzCreatureImportHistory(o){if(!Array.isArray(o.mzImportHistory)){o.mzImportHistory=[];}return o.mzImportHistory;}
+  function mzCreatureCandidateLabel(o,idx){var link=String(o&&o.dataLink||'').trim();return (idx+1)+') '+String(o&&o.nome||'Creatura')+' — '+String(o&&o.specieSesso||'specie non indicata')+' — fase '+String(o&&o.faseAttuale||'—')+(link?' — '+link:'');}
+  function mzCreatureStageForLabel(stages,label){for(var i=0;i<(stages||[]).length;i++){if(specialistImportNorm(stages[i].label)===specialistImportNorm(label))return stages[i];}return null;}
+  function mzCreatureStageAcceptsAllevamento(stages,label){var st=mzCreatureStageForLabel(stages,label);return !!(st&&(st.type==='cicli'||st.type==='ripro'));}
+  function mzCreatureMergeImportedMeta(target,incoming){
+    if(!target||!incoming)return;
+    ["nome","classificazioneLink","specieSesso","specieLink","parenti"].forEach(function(k){if(incoming[k]!==undefined&&incoming[k]!==null&&String(incoming[k]).trim()!==""){target[k]=incoming[k];}});
+    if((target.dataLink===undefined||target.dataLink===null||String(target.dataLink).trim()==="")&&String(incoming.dataLink||'').trim()){target.dataLink=incoming.dataLink;}
+    if(incoming.note){var bits=String(incoming.note).split(/\s*·\s*/);bits.forEach(function(b){if(b&&String(target.note||"").indexOf(b)<0){target.note=appendCreatureImportNote(target.note,b);}});}
+    mergeImportedIllegalHistory(target,incoming);
+  }
+  function importedEntityMetaComparable(o){
+    o=o||{};var ix=o.illegalita||{};
+    return {
+      nome:String(o.nome||""),classificazioneLink:String(o.classificazioneLink||""),specieSesso:String(o.specieSesso||""),specieLink:String(o.specieLink||""),parenti:String(o.parenti||""),
+      legalita:String(o.legalita||""),illegalita:{professione:String(ix.professione||""),protezioni:String(ix.protezioni||""),facceProtezione:Number(ix.facceProtezione||0),controlli:ix.controlli||{}},
+      note:String(o.note||""),erbMalusPostPermanente:Number(o.erbMalusPostPermanente||0)
+    };
+  }
+  function importedEntityMetaWouldChange(target,incoming,mergeFn){
+    try{
+      var before=JSON.stringify(importedEntityMetaComparable(target)),copy=JSON.parse(JSON.stringify(target||{}));
+      mergeFn(copy,incoming);return before!==JSON.stringify(importedEntityMetaComparable(copy));
+    }catch(e){return true;}
+  }
+
+  function potionImportComparable(p){
+    p=p||{};var illegal=p.illegalita||{};
+    return {
+      nome:specialistImportNorm(p.nomePozione),classificazione:String(p.classificazione||''),link:specialistImportNorm(p.dataLink),calderone:String(p.calderoneOggetti||''),
+      prep:[p.prepEsito,Number(p.prepValore||0),specialistImportNorm(p.prepLink)],prod:[p.prodEsito,Number(p.prodValore||0),specialistImportNorm(p.prodLink)],
+      bac:[p.bacchettaEsito,Number(p.dosi||0),specialistImportNorm(p.bacchettaLink)],dist:[!!p.distillSvolta,specialistImportNorm(p.distillLink),String(p.distillEsito||''),String(p.distillBagaglio||'')],
+      imb:[specialistImportNorm(p.imbottLink),String(p.imbottPercent||''),Number(p.postRichiesti||0),String(p.imbottModificatori||'')],
+      legalita:String(p.legalita||'legale'),illegalita:{professione:String(illegal.professione||''),protezioni:String(illegal.protezioni||''),facceProtezione:Number(illegal.facceProtezione||0),controlli:illegal.controlli||{}}
+    };
+  }
+  function potionImportedSameData(a,b){try{return JSON.stringify(potionImportComparable(a))===JSON.stringify(potionImportComparable(b));}catch(e){return false;}}
+  function potionOccupantHasImportLink(p,link){link=specialistImportNorm(link);if(!p||!link)return false;return [p.dataLink,p.prepLink,p.prodLink,p.bacchettaLink,p.distillLink,p.imbottLink].some(function(x){return specialistImportNorm(x)===link;});}
+  function potionFindExisting(list,incoming){
+    var name=specialistImportNorm(incoming&&incoming.nomePozione),link=specialistImportNorm(incoming&&incoming.dataLink),arr=Array.isArray(list)?list:[];
+    var same=name?arr.filter(function(x){return specialistImportNorm(x&&x.nomePozione)===name;}):[];
+    if(same.length&&link){var linked=same.filter(function(x){return potionOccupantHasImportLink(x,link);});if(linked.length===1)return {item:linked[0],ambiguous:false,uncertain:false,candidates:linked};if(linked.length>1)return {item:null,ambiguous:true,uncertain:false,candidates:linked};}
+    if(same.length===1)return {item:same[0],ambiguous:false,uncertain:true,candidates:same};
+    if(same.length>1)return {item:null,ambiguous:true,uncertain:false,candidates:same};
+    return {item:null,ambiguous:false,uncertain:false,candidates:[]};
+  }
+  function potionCandidateLabel(p,idx){var link=String(p&&p.dataLink||'').trim();return (idx+1)+') '+String(p&&p.nomePozione||'Pozione')+' — '+String(p&&p.classificazione||'—')+(link?' — '+link:'');}
+  function potionMergeImported(target,incoming){
+    if(!target||!incoming)return;
+    var preserve={id:target.id,numero:target.numero,startIndex:target.startIndex,responsabilePg:target.responsabilePg,calderaio:target.calderaio,tipologia:target.tipologia};
+    ["nomePozione","classificazione","dataLink","calderoneOggetti","prepLink","prepEsito","prepValore","prodLink","prodEsito","prodValore","bacchettaLink","bacchettaEsito","dosi","distillSvolta","distillLink","distillEsito","distillBagaglio","imbottLink","imbottPercent","postRichiesti","imbottModificatori"].forEach(function(k){target[k]=incoming[k];});
+    mergeImportedIllegalHistory(target,incoming);
+    if(incoming.tipologia&&incoming.tipologia!=="Generica"){target.tipologia=incoming.tipologia;}else if(preserve.tipologia){target.tipologia=preserve.tipologia;}
+    target.id=preserve.id;target.numero=preserve.numero;target.startIndex=preserve.startIndex;if(preserve.responsabilePg!==undefined)target.responsabilePg=preserve.responsabilePg;if(preserve.calderaio!==undefined)target.calderaio=preserve.calderaio;
   }
 
   function buildCreatureImportBox(options){
@@ -11675,21 +12271,148 @@
       var blocks=splitCreatureImportBlocks(ta.value), imported=0, errors=[];
       if(!blocks.length){alert("Incolla prima il testo della Creatura da importare.");return;}
       for(var bi=0;bi<blocks.length;bi++){
-        if(typeof options.canAdd==="function" && !options.canAdd(imported)){
-          errors.push("Blocco "+(bi+1)+": capienza massima del Recinto raggiunta.");
-          break;
-        }
         var res=creatureFromImportText(blocks[bi],options.stages,options.allowedClasses,options.expectedDestination);
         if(!res.ok){errors.push("Blocco "+(bi+1)+": "+res.error);continue;}
         var occ=res.occupant;
+        if(entityLabel==="Pianta"){
+          var fp=erbPlantImportFingerprint(res.fields),found=erbPlantFindExisting(options.list,occ);
+          if(found.ambiguous){
+            var labels=(found.candidates||[]).map(erbPlantCandidateLabel).join("\n");
+            var pick=window.prompt("Esistono più Piante compatibili con questo blocco. Inserisci il numero dell’esemplare da AGGIORNARE; lascia vuoto e premi OK per aggiungere una NUOVA Pianta; Annulla per non importare.\n\n"+labels,"");
+            if(pick===null){errors.push("Blocco "+(bi+1)+": importazione annullata; nessun esemplare è stato modificato.");continue;}
+            pick=String(pick||'').trim();
+            if(pick){var pi=parseInt(pick,10);if(!(pi>=1&&pi<=found.candidates.length)){errors.push("Blocco "+(bi+1)+": scelta dell’esemplare non valida.");continue;}found.item=found.candidates[pi-1];}
+            else found.item=null;
+          }else if(found.uncertain&&found.item){
+            var sameLabel=erbPlantCandidateLabel(found.item,0);
+            if(!window.confirm("Esiste già una Pianta con lo stesso Nome e Specie, ma il blocco non contiene un link già associato con certezza a quell’esemplare.\n\n"+sameLabel+"\n\nOK = aggiorna questa Pianta.\nAnnulla = aggiungi un NUOVO esemplare omonimo.")){found.item=null;}
+          }
+          if(found.item){
+            var hist=erbPlantImportHistory(found.item);
+            /* v185 — lo storico non blocca più l'import prima di verificare lo stato reale dei Cicli.
+               Un player può aver corretto, svuotato o rimosso manualmente un Ciclo dopo un vecchio import:
+               in quel caso il record storico deve restare una traccia, non diventare una falsa fonte di verità. */
+            var sourceImportLink=cleanCreatureImportValue(res.fields.linkPrincipale);
+            var sameLinkedCycles=erbPlantImportedCyclesByLink(found.item,options.stages,occ.faseAttuale,res.fields.tipoCiclo,sourceImportLink);
+            if(sameLinkedCycles.length){
+              var identical=sameLinkedCycles.filter(function(x){return erbPlantImportedCycleSameData(x.sub,res.fields.esitoColtivazione,res.fields.postRichiestiCiclo)&&erbPlantImportedHarvestSameData(x.sub,res.fields,res.fields.tipoCiclo,found.item);});
+              if(identical.length){
+                if(importedEntityMetaWouldChange(found.item,occ,erbPlantMergeImportedMeta)){
+                  erbPlantMergeImportedMeta(found.item,occ);if(fp&&hist.indexOf(fp)<0)hist.push(fp);imported++;continue;
+                }
+                if(fp&&hist.indexOf(fp)<0)hist.push(fp);errors.push("Blocco "+(bi+1)+": questo Ciclo con lo stesso link e gli stessi dati risulta già importato; nessun dato è stato duplicato.");continue;
+              }
+              var chosen=null,addAsNew=false;
+              if(sameLinkedCycles.length===1){
+                var x=sameLinkedCycles[0],msg="Questo link è già associato a "+x.label+" della stessa Fase e dello stesso Tipo di ciclo.\n\nOK = correggi/aggiorna quel Ciclo.\nAnnulla = questo è un NUOVO Ciclo svolto nello stesso topic; usa il prossimo slot libero.";
+                if(window.confirm(msg))chosen=x;else addAsNew=true;
+              }else{
+                var choices=sameLinkedCycles.map(function(x,idx){return (idx+1)+") "+x.label+" — "+String(x.sub.esitoText||'esito non indicato')+" — "+String(x.sub.postRichiesti||0)+" post";}).join("\n");
+                var ans=window.prompt("Questo stesso link è già usato da più Cicli della stessa Fase.\nInserisci il numero del Ciclo da CORREGGERE, oppure lascia vuoto e premi OK per importarlo come NUOVO Ciclo nel prossimo slot libero.\n\n"+choices,"");
+                if(ans===null){errors.push("Blocco "+(bi+1)+": importazione annullata; nessun Ciclo è stato modificato.");continue;}
+                ans=String(ans||'').trim();if(!ans)addAsNew=true;else{var ai=parseInt(ans,10);if(!(ai>=1&&ai<=sameLinkedCycles.length)){errors.push("Blocco "+(bi+1)+": scelta del Ciclo non valida; nessun dato è stato modificato.");continue;}chosen=sameLinkedCycles[ai-1];}
+              }
+              if(chosen){
+                var prepCorr=erbPrepareImportedCycleCorrection(chosen.sub,res.fields,res.fields.tipoCiclo,found.item,res.fields.esitoColtivazione,res.fields.postRichiestiCiclo);
+                if(!prepCorr.ok){errors.push("Blocco "+(bi+1)+": "+prepCorr.error);continue;}
+                if(!erbPlantUpdateImportedCycle(chosen.sub,res.fields.esitoColtivazione,res.fields.postRichiestiCiclo,cleanCreatureImportValue(res.fields.linkPrincipale))){errors.push("Blocco "+(bi+1)+": il Ciclo scelto non può essere aggiornato perché Esito/Post non sono validi.");continue;}
+                if(prepCorr.harvestWouldChange)erbApplyImportedHarvest(chosen.sub,found.item,res.fields,res.fields.tipoCiclo);
+                erbPlantMergeImportedMeta(found.item,occ);if(fp&&hist.indexOf(fp)<0)hist.push(fp);imported++;continue;
+              }
+              /* addAsNew=true: prosegue nel flusso normale e usa il primo slot libero. */
+            }
+            /* Se il blocco non ha un Link principale non esiste una chiave live affidabile.
+               Se la stessa impronta compare nello storico, chiedi conferma invece di bloccare: potrebbe essere
+               un doppio incolla oppure il ripristino legittimo di un Ciclo modificato manualmente. */
+            if(!sourceImportLink && fp && hist.indexOf(fp)>=0){
+              if(!window.confirm("Questo stesso blocco risulta già importato in passato, ma non contiene un Link principale con cui verificare lo stato attuale.\n\nOK = importalo comunque nel prossimo slot libero.\nAnnulla = non importare.")){errors.push("Blocco "+(bi+1)+": possibile duplicato senza Link principale; importazione annullata.");continue;}
+            }
+            ensureOccupantStageData(found.item,options.stages);
+            /* v188 — il Ciclo viene scritto direttamente nella Fase indicata dal blocco.
+               La Fase attiva non viene usata come contenitore temporaneo e non può retrocedere. */
+            var cycleSub=applyImportedCycleResult(found.item,options.stages,res.fields.tipoCiclo,res.fields.esitoColtivazione,res.fields.postRichiestiCiclo,cleanCreatureImportValue(res.fields.linkPrincipale),occ.faseAttuale);
+            var hasCycle=cleanCreatureImportValue(res.fields.tipoCiclo)||cleanCreatureImportValue(res.fields.esitoColtivazione)||cleanCreatureImportValue(res.fields.postRichiestiCiclo);
+            if(hasCycle&&!cycleSub){
+              errors.push("Blocco "+(bi+1)+": tutti i Cicli disponibili della Fase indicata risultano già occupati; nessun ciclo precedente è stato sovrascritto e la Fase Vitale non è stata modificata.");continue;
+            }
+            if(cycleSub)erbApplyImportedHarvest(cycleSub,found.item,res.fields,res.fields.tipoCiclo);
+            erbPlantMergeImportedMeta(found.item,occ);
+            erbPlantAdvancePhaseMonotonic(found.item,occ,options.stages);
+            if(fp){hist.push(fp);if(hist.length>30){hist.splice(0,hist.length-30);}}
+            if(options.facility){applyImportedProtectionsToFacility(options.facility,found.item.illegalita);}
+            openStageDetails(found.item,options.stages,options.config,found.item.faseAttuale);
+            imported++;continue;
+          }
+          if(fp){erbPlantImportHistory(occ).push(fp);}
+        }
+
+        else if(entityLabel==="Creatura"){
+          var mfp=mzCreatureImportFingerprint(res.fields),mfound=erbPlantFindExisting(options.list,occ);
+          if(mfound.ambiguous){
+            var mlabels=(mfound.candidates||[]).map(mzCreatureCandidateLabel).join("\n");
+            var mpick=window.prompt("Esistono più Creature compatibili con questo blocco. Inserisci il numero dell’esemplare da AGGIORNARE; lascia vuoto e premi OK per aggiungere una NUOVA Creatura; Annulla per non importare.\n\n"+mlabels,"");
+            if(mpick===null){errors.push("Blocco "+(bi+1)+": importazione annullata; nessun esemplare è stato modificato.");continue;}
+            mpick=String(mpick||'').trim();
+            if(mpick){var mpi=parseInt(mpick,10);if(!(mpi>=1&&mpi<=mfound.candidates.length)){errors.push("Blocco "+(bi+1)+": scelta dell’esemplare non valida.");continue;}mfound.item=mfound.candidates[mpi-1];}
+            else mfound.item=null;
+          }else if(mfound.uncertain&&mfound.item){
+            var msameLabel=mzCreatureCandidateLabel(mfound.item,0);
+            if(!window.confirm("Esiste già una Creatura con lo stesso Nome e Specie, ma il blocco non contiene un link già associato con certezza a quell’esemplare.\n\n"+msameLabel+"\n\nOK = aggiorna questa Creatura.\nAnnulla = aggiungi un NUOVO esemplare omonimo.")){mfound.item=null;}
+          }
+          if(mfound.item){
+            var mhist=mzCreatureImportHistory(mfound.item),msource=cleanCreatureImportValue(res.fields.linkPrincipale);
+            var mhasCycle=cleanCreatureImportValue(res.fields.tipoCiclo)||cleanCreatureImportValue(res.fields.esitoAllevamento)||cleanCreatureImportValue(res.fields.postRichiestiCiclo);
+            if(mhasCycle&&!mzCreatureStageAcceptsAllevamento(options.stages,occ.faseAttuale)){errors.push("Blocco "+(bi+1)+": la Fase indicata («"+occ.faseAttuale+"») non prevede un Ciclo di Allevamento nel Recinto/Riserva; nessun dato è stato modificato.");continue;}
+            if(mhasCycle){
+              var msameCycles=erbPlantImportedCyclesByLink(mfound.item,options.stages,occ.faseAttuale,res.fields.tipoCiclo,msource);
+              if(msameCycles.length){
+                var mid=msameCycles.filter(function(x){return erbPlantImportedCycleSameData(x.sub,res.fields.esitoAllevamento,res.fields.postRichiestiCiclo)&&erbPlantImportedHarvestSameData(x.sub,res.fields,res.fields.tipoCiclo,mfound.item);});
+                if(mid.length){
+                  if(importedEntityMetaWouldChange(mfound.item,occ,mzCreatureMergeImportedMeta)){
+                    mzCreatureMergeImportedMeta(mfound.item,occ);if(mfp&&mhist.indexOf(mfp)<0)mhist.push(mfp);imported++;continue;
+                  }
+                  if(mfp&&mhist.indexOf(mfp)<0)mhist.push(mfp);errors.push("Blocco "+(bi+1)+": questo Ciclo di Allevamento con lo stesso link e gli stessi dati risulta già importato; nessun dato è stato duplicato.");continue;
+                }
+                var mchosen=null;
+                if(msameCycles.length===1){if(window.confirm("Questo link è già associato a "+msameCycles[0].label+" della stessa Fase.\n\nOK = correggi/aggiorna quel Ciclo.\nAnnulla = questo è un NUOVO Ciclo svolto nello stesso topic; usa il prossimo slot libero.")){mchosen=msameCycles[0];}}
+                else{
+                  var mchoices=msameCycles.map(function(x,idx){return (idx+1)+") "+x.label+" — "+String(x.sub.esitoText||'esito non indicato')+" — "+String(x.sub.postRichiesti||0)+" post";}).join("\n");
+                  var mans=window.prompt("Questo stesso link è già usato da più Cicli della stessa Fase.\nInserisci il numero del Ciclo da CORREGGERE, oppure lascia vuoto e premi OK per importarlo come NUOVO Ciclo nel prossimo slot libero.\n\n"+mchoices,"");
+                  if(mans===null){errors.push("Blocco "+(bi+1)+": importazione annullata; nessun Ciclo è stato modificato.");continue;}
+                  mans=String(mans||'').trim();if(mans){var mai=parseInt(mans,10);if(!(mai>=1&&mai<=msameCycles.length)){errors.push("Blocco "+(bi+1)+": scelta del Ciclo non valida.");continue;}mchosen=msameCycles[mai-1];}
+                }
+                if(mchosen){var mprepCorr=erbPrepareImportedCycleCorrection(mchosen.sub,res.fields,res.fields.tipoCiclo,mfound.item,res.fields.esitoAllevamento,res.fields.postRichiestiCiclo);if(!mprepCorr.ok){errors.push("Blocco "+(bi+1)+": "+mprepCorr.error);continue;}if(!erbPlantUpdateImportedCycle(mchosen.sub,res.fields.esitoAllevamento,res.fields.postRichiestiCiclo,msource)){errors.push("Blocco "+(bi+1)+": il Ciclo scelto non può essere aggiornato perché Esito/Post non sono validi.");continue;}if(mprepCorr.harvestWouldChange)mzApplyImportedHarvest(mchosen.sub,mfound.item,res.fields);mzCreatureMergeImportedMeta(mfound.item,occ);erbPlantAdvancePhaseMonotonic(mfound.item,occ,options.stages);if(mfp&&mhist.indexOf(mfp)<0)mhist.push(mfp);if(options.facility){applyImportedProtectionsToFacility(options.facility,mfound.item.illegalita);}openStageDetails(mfound.item,options.stages,options.config,mfound.item.faseAttuale);imported++;continue;}
+              }
+              if(!msource&&mfp&&mhist.indexOf(mfp)>=0&&!window.confirm("Questo stesso blocco risulta già importato in passato, ma non contiene un Link principale con cui verificare lo stato attuale.\n\nOK = importalo comunque nel prossimo slot libero.\nAnnulla = non importare.")){errors.push("Blocco "+(bi+1)+": possibile duplicato senza Link principale; importazione annullata.");continue;}
+              ensureOccupantStageData(mfound.item,options.stages);
+              var msub=applyImportedCycleResult(mfound.item,options.stages,res.fields.tipoCiclo,res.fields.esitoAllevamento,res.fields.postRichiestiCiclo,msource,occ.faseAttuale);
+              if(!msub){errors.push("Blocco "+(bi+1)+": tutti i Cicli disponibili della Fase indicata risultano già occupati; nessun Ciclo precedente è stato sovrascritto.");continue;}
+              mzApplyImportedHarvest(msub,mfound.item,res.fields);
+            }
+            mzCreatureMergeImportedMeta(mfound.item,occ);erbPlantAdvancePhaseMonotonic(mfound.item,occ,options.stages);
+            if(mfp){if(mhist.indexOf(mfp)<0)mhist.push(mfp);if(mhist.length>30)mhist.splice(0,mhist.length-30);}
+            if(options.facility){applyImportedProtectionsToFacility(options.facility,mfound.item.illegalita);}
+            openStageDetails(mfound.item,options.stages,options.config,mfound.item.faseAttuale);imported++;continue;
+          }
+          if(mfp){mzCreatureImportHistory(occ).push(mfp);}
+        }
+        /* v187 — la capienza va verificata solo quando nasce un nuovo esemplare.
+           Gli aggiornamenti di una Pianta già presente (nuovi Cicli/correzioni) non occupano posti. */
+        if(typeof options.canAdd==="function" && !options.canAdd(imported)){
+          errors.push("Blocco "+(bi+1)+": capienza massima della struttura raggiunta; l'esemplare è nuovo e non può essere aggiunto.");
+          continue;
+        }
         if(typeof options.assignId==="function"){options.assignId(occ);}
+        /* Lo Studente non possiede strutture condivise: nessun ramo Adulto deve
+           dipendere da PG_ID/sharedStampSubEntriesResponsible. */
         options.list.push(occ);
+        if(options.facility){applyImportedProtectionsToFacility(options.facility,occ.illegalita);}
         openStageDetails(occ,options.stages,options.config,occ.faseAttuale);
         imported++;
       }
       if(imported>0){
         scheduleSave(0);
-        var msg="Importazione completata: "+imported+(imported===1?" "+entityLabel+" aggiunta.":" elementi aggiunti.");
+        var msg="Importazione completata: "+imported+(imported===1?" "+entityLabel+((entityLabel==="Pianta"||entityLabel==="Creatura")?" aggiunta/aggiornata.":" aggiunta."):" elementi aggiunti/aggiornati.");
         if(errors.length){msg+="\n\nDa controllare:\n- "+errors.join("\n- ");}
         alert(msg);
         renderAll();
@@ -11702,6 +12425,10 @@
     det.appendChild(actions);
     return det;
   }
+
+  /* v189 — secondo audit cumulativo: sanificazione raccolti residui sui Cicli 0%/falliti. */
+  /* v188 — grande audit end-to-end: fase-target diretta e monotona; 0% storici consumati senza raccolto;
+     Ingredienti/Semi già risolti da Erbologia importati come raccolti confermati; identità omonimi non presunta; capienza coerente. */
   /* v33 — catalogo Produzione Piante allineato al tool Erbologia v110. */
   var ELFO_PLANT_INGREDIENTS={"aconito":{"label":"Aconito","items":[{"name":"Rametti","illegal":true,"legalClass":"potionist_only","glossaryName":"Rametto di Aconito"},{"name":"Petali","illegal":true,"legalClass":"potionist_only","glossaryName":"Petalo di Aconito"}]},"agrifoglio":{"label":"Agrifoglio","items":[{"name":"Bacche","illegal":true,"legalClass":"potionist_only","glossaryName":"Bacca di Agrifoglio"},{"name":"Foglie","illegal":true,"legalClass":"potionist_only","glossaryName":"Foglia di Agrifoglio"}]},"alloro":{"label":"Alloro","items":[{"name":"Legno","illegal":false,"legalClass":"legal","glossaryName":"Legno di Alloro"},{"name":"Corteccia","illegal":false,"legalClass":"legal","glossaryName":"Corteccia di Alloro"},{"name":"Foglie","illegal":false,"legalClass":"legal","glossaryName":"Foglia di Alloro"},{"name":"Bacche","illegal":false,"legalClass":"legal","glossaryName":"Bacca di Alloro"}]},"aloe":{"label":"Aloe","items":[{"name":"Succo","illegal":false,"legalClass":"legal","glossaryName":"Succo di Aloe"},{"name":"foglie","illegal":false,"legalClass":"legal","glossaryName":"Foglia di Aloe"},{"name":"fiori","illegal":false,"legalClass":"legal","glossaryName":"Fiore di Aloe"}]},"artemisia":{"label":"Artemisia","items":[{"name":"Foglie","illegal":false,"legalClass":"legal","glossaryName":"Foglia di Artemisia"},{"name":"olio essenziale","illegal":false,"legalClass":"legal","glossaryName":"Olio essenziale di Artemisia"},{"name":"radici","illegal":false,"legalClass":"legal","glossaryName":"Radice di Artemisia"}]},"asfodelo":{"label":"Asfodelo","items":[{"name":"Fiori","illegal":true,"legalClass":"potionist_only","glossaryName":"Fiore di Asfodelo"},{"name":"Radici","illegal":true,"legalClass":"potionist_only","glossaryName":"Radice di Asfodelo"}]},"assenzio":{"label":"Assenzio","items":[{"name":"Foglie","illegal":true,"legalClass":"potionist_only","glossaryName":"Foglia di Assenzio"},{"name":"Radici","illegal":true,"legalClass":"potionist_only","glossaryName":"Radice di Assenzio"}]},"belladonna":{"label":"Belladonna","items":[{"name":"Bacche","illegal":true,"legalClass":"potionist_only","glossaryName":"Bacca di Belladonna"},{"name":"Fiori","illegal":true,"legalClass":"potionist_only","glossaryName":"Fiore di Belladonna"},{"name":"Foglie","illegal":true,"legalClass":"potionist_only","glossaryName":"Foglia di Belladonna"}]},"brugmansia":{"label":"Brugmansia","items":[{"name":"Foglie","illegal":true,"legalClass":"illegal_all","glossaryName":"Foglia di Brugmansia"}]},"bucaneve":{"label":"Bucaneve","items":[{"name":"Bulbi","illegal":true,"legalClass":"potionist_only","glossaryName":"Bulbo di Bucaneve"},{"name":"Fiori","illegal":true,"legalClass":"potionist_only","glossaryName":"Fiore di Bucaneve"}]},"centinodia":{"label":"Centinodia","items":[{"name":"Foglie","illegal":false,"legalClass":"legal","glossaryName":"Foglia di Centinodia"}]},"cicuta":{"label":"Cicuta","items":[{"name":"Foglie","illegal":true,"legalClass":"illegal_all","glossaryName":"Foglia di Cicuta"}]},"coclearia":{"label":"Coclearia","items":[{"name":"foglie","illegal":false,"legalClass":"legal","glossaryName":"Foglia di Coclearia"}]},"dittamo":{"label":"Dittamo","items":[{"name":"foglie","illegal":false,"legalClass":"legal","glossaryName":"Foglia di Dittamo"},{"name":"fiori","illegal":false,"legalClass":"legal","glossaryName":"Fiore di Dittamo"}]},"erba fondente":{"label":"Erba Fondente","items":[{"name":"Foglie","illegal":false,"legalClass":"legal","glossaryName":"Foglia di Erba Fondente"}]},"fagioli sopoforosi":{"label":"Fagioli Sopoforosi","items":[{"name":"Fagiolo","illegal":true,"legalClass":"potionist_only","glossaryName":"Fagiolo Sopoforoso"}]},"fico":{"label":"Fico","items":[{"name":"Frutto","illegal":false,"legalClass":"legal","glossaryName":"Fico"}]},"lavanda":{"label":"Lavanda","items":[{"name":"fiori","illegal":false,"legalClass":"legal","glossaryName":"Fiore di Lavanda"}]},"levistico":{"label":"Levistico","items":[{"name":"Foglie","illegal":false,"legalClass":"legal","glossaryName":"Foglia di Levistico"}]},"menta piperita":{"label":"Menta Piperita","items":[{"name":"Foglie","illegal":false,"legalClass":"legal","glossaryName":"Foglia di Menta Piperita"},{"name":"rametti","illegal":false,"legalClass":"legal","glossaryName":"Rametto di Menta Piperita"}]},"ortica":{"label":"Ortica","items":[{"name":"Foglie","illegal":true,"legalClass":"potionist_only","glossaryName":"Foglia di Ortica"}]},"papaveri":{"label":"Papaveri","items":[{"name":"testa","illegal":false,"legalClass":"legal","glossaryName":"Testa di Papavero"},{"name":"semi","illegal":false,"legalClass":"legal","glossaryName":"Semino di Papavero"}]},"ricino":{"label":"Ricino","items":[{"name":"Olio","illegal":true,"legalClass":"potionist_only","glossaryName":"Olio di Ricino"}]},"rose":{"label":"Rose","items":[{"name":"Olio","illegal":false,"legalClass":"legal","glossaryName":"Olio di Rosa"},{"name":"spine","illegal":false,"legalClass":"legal","glossaryName":"Spina di Rosa"}]},"salvia":{"label":"Salvia","items":[{"name":"Foglie","illegal":false,"legalClass":"legal","glossaryName":"Foglia di Salvia"}]},"sanguinaria":{"label":"Sanguinaria","items":[{"name":"Petali","illegal":false,"legalClass":"legal","glossaryName":"Petalo di Sanguinaria"}]},"starnutaria":{"label":"Starnutaria","items":[{"name":"Foglie","illegal":true,"legalClass":"illegal_all","glossaryName":"Foglia di Starnutaria"}]},"valeriana":{"label":"Valeriana","items":[{"name":"radici","illegal":false,"legalClass":"legal","glossaryName":"Radice di Valeriana"},{"name":"rametti","illegal":false,"legalClass":"legal","glossaryName":"Rametto di Valeriana"},{"name":"olio","illegal":false,"legalClass":"legal","glossaryName":"Olio di Valeriana"}]},"verbena":{"label":"Verbena","items":[{"name":"Olio","illegal":true,"legalClass":"potionist_only","glossaryName":"Olio di Verbena"},{"name":"Petali","illegal":true,"legalClass":"potionist_only","glossaryName":"Petalo di Verbena"}]},"vischio":{"label":"Vischio","items":[{"name":"Bacche","illegal":true,"legalClass":"potionist_only","glossaryName":"Bacca di Vischio"},{"name":"Foglie","illegal":true,"legalClass":"potionist_only","glossaryName":"Foglia di Vischio"}]},"zenzero":{"label":"Zenzero","items":[{"name":"Radici","illegal":false,"legalClass":"legal","glossaryName":"Radice di Zenzero"}]},"albero carnivoro":{"label":"Albero Carnivoro","items":[{"name":"Petali","illegal":true,"legalClass":"illegal_all","glossaryName":"Petalo di Albero Carnivoro"},{"name":"Acido","illegal":true,"legalClass":"potionist_only","glossaryName":"Acido di Albero Carnivoro"},{"name":"Tentacoli","illegal":true,"legalClass":"illegal_all","glossaryName":"Tentacolo di Albero Carnivoro"}]},"albero di biancaneve":{"label":"Albero di Biancaneve","items":[{"name":"Mele","illegal":true,"legalClass":"potionist_only","glossaryName":"Mela dell'Albero di Biancaneve"}]},"albero di cenere":{"label":"Albero di Cenere","items":[{"name":"Cenere","illegal":false,"legalClass":"legal","glossaryName":"Cenere dell'Albero di Cenere"}]},"albero della vita":{"label":"Albero della Vita","items":[{"name":"Petali","illegal":true,"legalClass":"potionist_only","glossaryName":"Petalo dell'Albero della Vita"},{"name":"Corteccia","illegal":false,"legalClass":"legal","glossaryName":"Corteccia dell'Albero della Vita"},{"name":"Frutti","illegal":false,"legalClass":"legal","glossaryName":"Frutto dell'Albero della Vita"}]},"albero medusa":{"label":"Albero Medusa","items":[{"name":"Veleno","illegal":true,"legalClass":"illegal_all","glossaryName":"Veleno dell'Albero Medusa"},{"name":"Rami","illegal":true,"legalClass":"illegal_all","glossaryName":"Ramo dell'Albero Medusa"}]},"algabranchia":{"label":"Algabranchia","items":[{"name":"Algabranchia","illegal":false,"legalClass":"legal","glossaryName":"Algabranchia"}]},"alioto":{"label":"Alioto","items":[{"name":"Foglie","illegal":true,"legalClass":"potionist_only","glossaryName":"Foglia di Alioto"}]},"amarantacea":{"label":"Amarantacea","items":[{"name":"Foglie","illegal":false,"legalClass":"legal","glossaryName":"Foglia di Amarantacea"},{"name":"Radici","illegal":false,"legalClass":"legal","glossaryName":"Radice di Amarantacea"},{"name":"Amaralinfa","illegal":false,"legalClass":"legal","glossaryName":"Amaralanfa di Amarantacea"}]},"annientamento":{"label":"Annientamento","items":[{"name":"Foglie","illegal":true,"legalClass":"illegal_all","glossaryName":"Foglia di Annientamento"},{"name":"Radici","illegal":true,"legalClass":"illegal_all","glossaryName":"Radice di Annientamento"},{"name":"Estratto","illegal":true,"legalClass":"illegal_all","glossaryName":"Estratto di Annientamento"}]},"arbusto autofertilizzante":{"label":"Arbusto Autofertilizzante","items":[{"name":"Fertilizzante","illegal":false,"legalClass":"legal","glossaryName":"Fertilizzante di Arbusto Autofertilizzante"},{"name":"Foglie","illegal":false,"legalClass":"legal","glossaryName":"Foglia di Arbusto Autofertilizzante"}]},"bacche di balzar":{"label":"Bacche di Balzar","items":[{"name":"Bacche","illegal":false,"legalClass":"legal","glossaryName":"Bacca di Balzar"}]},"bebop caraibica":{"label":"Bebop Caraibica","items":[{"name":"Foglie","illegal":false,"legalClass":"legal","glossaryName":"Foglia di Bebop Caraibica"},{"name":"Radici","illegal":false,"legalClass":"legal","glossaryName":"Radice di Bebop Caraibica"},{"name":"Petali","illegal":false,"legalClass":"legal","glossaryName":"Petalo di Bebop Caraibica"}]},"bubotubero":{"label":"Bubotubero","items":[{"name":"Radice","illegal":false,"legalClass":"legal","glossaryName":"Radice di Bubotubero"},{"name":"Pus","illegal":true,"legalClass":"potionist_only","glossaryName":"Pus di Bubotubero"},{"name":"Germoglio","illegal":false,"legalClass":"legal","glossaryName":"Germoglio di Bubotubero"}]},"bulbo balzellante":{"label":"Bulbo Balzellante","items":[{"name":"Bulbo","illegal":false,"legalClass":"legal","glossaryName":"Bulbo di Bulbo Balzellante"}]},"canterose":{"label":"Canterose","items":[{"name":"Fiori","illegal":true,"legalClass":"illegal_all","glossaryName":"Fiore di Canterose"},{"name":"Spine","illegal":true,"legalClass":"illegal_all","glossaryName":"Spina di di Canterose"}]},"cavolo carnivoro cinese":{"label":"Cavolo Carnivoro Cinese","items":[{"name":"Foglie","illegal":false,"legalClass":"legal","glossaryName":"Foglia di Cavolo Carnivoro Cinese"}]},"cespuglio farfallino":{"label":"Cespuglio Farfallino","items":[{"name":"Fiori","illegal":false,"legalClass":"legal","glossaryName":"Fiore di Cespuglio Farfallino"},{"name":"Foglie","illegal":false,"legalClass":"legal","glossaryName":"Foglia di Cespuglio Farfallino"}]},"cespuglio spinoso":{"label":"Cespuglio Spinoso","items":[{"name":"Fiori","illegal":false,"legalClass":"legal","glossaryName":"Fiore di Cespuglio Spinoso"},{"name":"Spine","illegal":false,"legalClass":"legal","glossaryName":"Spina di Cespuglio Spinoso"}]},"coccolacea":{"label":"Coccolacea","items":[{"name":"Foglie","illegal":false,"legalClass":"legal","glossaryName":"Foglia di Coccolacea"},{"name":"Estratto","illegal":false,"legalClass":"legal","glossaryName":"Estratto di Coccolacea"}]},"erba stregata":{"label":"Erba Stregata","items":[{"name":"Foglie","illegal":true,"legalClass":"illegal_all","glossaryName":"Foglia di Erba Stregata"},{"name":"Frutti","illegal":true,"legalClass":"illegal_all","glossaryName":"Frutto di Erba Stregata"},{"name":"Fiori","illegal":true,"legalClass":"illegal_all","glossaryName":"Fiore di Erba Stregata"}]},"erbaschiuma":{"label":"Erbaschiuma","items":[{"name":"Fiori","illegal":false,"legalClass":"legal","glossaryName":"Fiore (bolle) di Erbaschiuma"},{"name":"Veleno","illegal":true,"legalClass":"potionist_only","glossaryName":"Veleno di Erbaschiuma"}]},"felci imitanti":{"label":"Felci Imitanti","items":[{"name":"Foglie","illegal":true,"legalClass":"potionist_only","glossaryName":"Foglia di Felci Imitanti"}]},"fiori fabula":{"label":"Fiori Fabula","items":[{"name":"Fiori","illegal":false,"legalClass":"legal","glossaryName":"Fiore Fabula"}]},"fiori floo":{"label":"Fiori Floo","items":[{"name":"Petali","illegal":false,"legalClass":"legal","glossaryName":"Petalo di Fiore Floo"}]},"frullobulbo":{"label":"Frullobulbo","items":[{"name":"Melma","illegal":false,"legalClass":"legal","glossaryName":"Melma di Frullobulbo"},{"name":"Tentacoli","illegal":false,"legalClass":"legal","glossaryName":"Tentacolo di Frullobulbo"}]},"fungo allucinogeno":{"label":"Fungo Allucinogeno","items":[{"name":"Funghi","illegal":true,"legalClass":"potionist_only","glossaryName":"Fungo Allucinogeno"}]},"fungo saltellante":{"label":"Fungo Saltellante","items":[{"name":"Fungo","illegal":false,"legalClass":"legal","glossaryName":"Fungo Saltellante"}]},"fungo scoppiettante":{"label":"Fungo Scoppiettante","items":[{"name":"Cappello","illegal":false,"legalClass":"legal","glossaryName":"Cappello di Fungo Scoppiettante"}]},"geranio zannuto":{"label":"Geranio Zannuto","items":[{"name":"Zanne","illegal":false,"legalClass":"legal","glossaryName":"Zanna di Geranio Zannuto"},{"name":"Fiori","illegal":false,"legalClass":"legal","glossaryName":"Fiore di Geranio Zannuto"}]},"germogli lamentosi":{"label":"Germogli Lamentosi","items":[{"name":"Germogli","illegal":false,"legalClass":"legal","glossaryName":"Germoglio Lamentoso"}]},"giaggiolo puzzolente":{"label":"Giaggiolo Puzzolente","items":[{"name":"Foglie","illegal":false,"legalClass":"legal","glossaryName":"Foglia di Giaggiolo Puzzolente"},{"name":"Frutti","illegal":false,"legalClass":"legal","glossaryName":"Frutto di Giaggiolo Puzzolente"}]},"giunchiglia strombazzante":{"label":"Giunchiglia Strombazzante","items":[{"name":"Petali","illegal":false,"legalClass":"legal","glossaryName":"Petalo di Giunchiglia strombazzante"},{"name":"Stelo","illegal":false,"legalClass":"legal","glossaryName":"Stelo di Giunchiglia strombazzante"}]},"grinzafico":{"label":"Grinzafico","items":[{"name":"Succo","illegal":false,"legalClass":"legal","glossaryName":"Succo di Grinzafico"},{"name":"Petali","illegal":false,"legalClass":"legal","glossaryName":"Petalo di Grinzafico"}]},"horklump":{"label":"Horklump","items":[{"name":"Succo di Horklump","illegal":false,"legalClass":"legal","glossaryName":"Succo di Horklump"}]},"loto di mahoutokoro":{"label":"Loto di Mahoutokoro","items":[{"name":"Alghe","illegal":false,"legalClass":"legal","glossaryName":"Alga di Loto di Mahoutokoro"},{"name":"Petali","illegal":false,"legalClass":"legal","glossaryName":"Petalo di Loto di Mahoutokoro"},{"name":"Pistilli","illegal":false,"legalClass":"legal","glossaryName":"Pistillo di Loto di Mahoutokoro"}]},"mandragola":{"label":"Mandragola","items":[{"name":"Foglie","illegal":false,"legalClass":"legal","glossaryName":"Foglia di Mandragola"},{"name":"Radici","illegal":false,"legalClass":"legal","glossaryName":"Radice di Mandragola"},{"name":"Estratto","illegal":false,"legalClass":"legal","glossaryName":"Estratto di Mandragola"}],"conflict":"Il Glossario Ingredienti aggiornato e la scheda elencano Foglia, Radice ed Estratto, mentre l’esempio di Produzione distribuisce i risultati soltanto tra Radici e Foglie (1d2)."},"menta tibetana":{"label":"Menta Tibetana","items":[{"name":"Foglie","illegal":false,"legalClass":"legal","glossaryName":"Foglia di Menta Tibetana"},{"name":"Concime","illegal":false,"legalClass":"legal","glossaryName":"Concime di Menta Tibetana"}]},"mimbulus mimbletonia":{"label":"Mimbulus Mimbletonia","items":[{"name":"Puzzalinfa","illegal":false,"legalClass":"legal","glossaryName":"Puzzalinfa di Mimbulus Mimbletonia"}]},"moly":{"label":"Moly","items":[{"name":"Petali","illegal":false,"legalClass":"legal","glossaryName":"Petalo di Moly"},{"name":"Pistillo","illegal":false,"legalClass":"legal","glossaryName":"Pistillo di Moly"},{"name":"Stelo","illegal":false,"legalClass":"legal","glossaryName":"Stelo di Moly"},{"name":"Estratto","illegal":false,"legalClass":"legal","glossaryName":"Estratto di Moly"}]},"muschio del sud":{"label":"Muschio del Sud","items":[{"name":"Muschio","illegal":false,"legalClass":"legal","glossaryName":"Muschio del Sud"}]},"orchidea fantasma":{"label":"Orchidea Fantasma","items":[{"name":"Petali","illegal":false,"legalClass":"legal","glossaryName":"Petalo di Orchidea Fantasma"},{"name":"Radici","illegal":false,"legalClass":"legal","glossaryName":"Radice di Orchidea Fantasma"},{"name":"Pistillo","illegal":false,"legalClass":"legal","glossaryName":"Pistillo di Orchidea Fantasma"}]},"pianta di semi di fuoco":{"label":"Pianta di Semi di Fuoco","items":[{"name":"Cenere","illegal":false,"legalClass":"legal","glossaryName":"Cenere di Pianta di Seme di Fuoco"}]},"pianta fumogena":{"label":"Pianta Fumogena","items":[{"name":"Fumo","illegal":false,"legalClass":"legal","glossaryName":"Fumo di Pianta Fumogena"}]},"pianta mangiauomini":{"label":"Pianta Mangiauomini","items":[{"name":"//","illegal":false,"legalClass":"unverified","glossaryName":"//"}]},"pianta stridula":{"label":"Pianta Stridula","items":[{"name":"Petali","illegal":false,"legalClass":"legal","glossaryName":"Petalo di Pianta Stridula"}]},"pianta vampiro":{"label":"Pianta Vampiro","items":[{"name":"Zanne","illegal":false,"legalClass":"legal","glossaryName":"Zanna di Pianta Vampiro"}]},"platano colombiano":{"label":"Platano Colombiano","items":[{"name":"Fiore","illegal":true,"legalClass":"illegal_all","glossaryName":"Fiore di Platano Colombiano"}]},"platano picchiatore":{"label":"Platano Picchiatore","items":[{"name":"Foglie","illegal":true,"legalClass":"illegal_all","glossaryName":"Foglia di Platano Picchiatore"},{"name":"Legna","illegal":true,"legalClass":"illegal_all","glossaryName":"Legno di Platano Picchiatore"},{"name":"Pece","illegal":true,"legalClass":"illegal_all","glossaryName":"Pece di Platano Picchiatore"},{"name":"Radici","illegal":true,"legalClass":"illegal_all","glossaryName":"Radice di Platano Picchiatore"},{"name":"Corteccia","illegal":true,"legalClass":"illegal_all","glossaryName":"Corteccia di Platano Picchiatore"}]},"prato messicano":{"label":"Prato Messicano","items":[{"name":"Fili d'erba","illegal":false,"legalClass":"legal","glossaryName":"Filo d'erba del Prato Messicano"}]},"primula veris":{"label":"Primula Veris","items":[{"name":"Fiori","illegal":false,"legalClass":"legal","glossaryName":"Fiore di Primula Veris"},{"name":"Pistillo","illegal":false,"legalClass":"legal","glossaryName":"Pistillo di Primula Veris"},{"name":"Miele","illegal":false,"legalClass":"legal","glossaryName":"Miele di Primula Veris"}]},"puffagiolo":{"label":"Puffagiolo","items":[{"name":"Puffagioli","illegal":false,"legalClass":"legal","glossaryName":"Puffagiolo"}]},"pugnacio":{"label":"Pugnacio","items":[{"name":"Spine","illegal":true,"legalClass":"illegal_all","glossaryName":"Spina di Pugnacio"},{"name":"Foglie","illegal":true,"legalClass":"illegal_all","glossaryName":"Foglia di Pugnacio"},{"name":"Baccelli","illegal":true,"legalClass":"potionist_only","glossaryName":"Baccello di Pugnacio"},{"name":"Succo dei baccelli","illegal":true,"legalClass":"potionist_only","glossaryName":"Succo del baccello di Pugnacio"}]},"radigorda":{"label":"Radigorda","items":[{"name":"Radigorda","illegal":false,"legalClass":"legal","glossaryName":"Radigorda"}]},"rampicanti capovolti":{"label":"Rampicanti Capovolti","items":[{"name":"Radici","illegal":true,"legalClass":"illegal_all","glossaryName":"Radice di Rampicante Capovolto"}]},"ruta":{"label":"Ruta","items":[{"name":"Essenza","illegal":true,"legalClass":"illegal_all","glossaryName":"Essenza di Ruta"},{"name":"Petali","illegal":true,"legalClass":"illegal_all","glossaryName":"Petalo di Ruta"},{"name":"Radici","illegal":true,"legalClass":"illegal_all","glossaryName":"Radice di Ruta"},{"name":"Stelo","illegal":true,"legalClass":"illegal_all","glossaryName":"Stelo di Ruta"}]},"stupefiore":{"label":"Stupefiore","items":[{"name":"Baccelli","illegal":true,"legalClass":"illegal_all","glossaryName":"Baccello di Stupefiore"},{"name":"Tentacolo","illegal":true,"legalClass":"illegal_all","glossaryName":"Tentacolo di Stupefiore"}]},"tentacula velenosa":{"label":"Tentacula Velenosa","items":[{"name":"Aculei","illegal":true,"legalClass":"illegal_all","glossaryName":"Aculeo di Tentacula Velenosa"},{"name":"Fiori","illegal":true,"legalClass":"illegal_all","glossaryName":"Fiore di Tentacula Velenosa"},{"name":"Baccelli","illegal":true,"legalClass":"illegal_all","glossaryName":"Baccello di Tentacula Velenosa"},{"name":"Veleno","illegal":true,"legalClass":"potionist_only","glossaryName":"Veleno di Tentacula Velenosa"}]},"tranello del diavolo":{"label":"Tranello del Diavolo","items":[{"name":"Viticci","illegal":true,"legalClass":"illegal_all","glossaryName":"Viticcio di Tranello del Diavolo"}]},"arbusti autofertilizzanti":{"label":"Arbusto Autofertilizzante","items":[{"name":"Fertilizzante","illegal":false,"legalClass":"legal","glossaryName":"Fertilizzante di Arbusto Autofertilizzante"},{"name":"Foglie","illegal":false,"legalClass":"legal","glossaryName":"Foglia di Arbusto Autofertilizzante"}]},"fagiolo sopoforoso":{"label":"Fagioli Sopoforosi","items":[{"name":"Fagiolo","illegal":true,"legalClass":"potionist_only","glossaryName":"Fagiolo Sopoforoso"}]},"rosa":{"label":"Rose","items":[{"name":"Olio","illegal":false,"legalClass":"legal","glossaryName":"Olio di Rosa"},{"name":"spine","illegal":false,"legalClass":"legal","glossaryName":"Spina di Rosa"}]},"ortiche":{"label":"Ortica","items":[{"name":"Foglie","illegal":true,"legalClass":"potionist_only","glossaryName":"Foglia di Ortica"}]}};
   ELFO_PLANT_INGREDIENTS['menta peperita']=ELFO_PLANT_INGREDIENTS['menta piperita'];
@@ -11728,7 +12455,7 @@
     var semi={X:[1,4],XX:[1,3],XXX:[1,2],XXXX:[2,0],XXXXX:[1,0]};
     return (type==="semi"?semi:ingredienti)[cls]||null;
   }
-  function plantHarvestOutcomePct(sub){var t=String(sub&&sub.esitoText||"");var m=t.match(/(?:^|\D)(0|33|66|100)\s*%/);return m?Number(m[1]):null;}
+  function plantHarvestOutcomePct(sub){if(sub&&sub.erbCicloConsumataPerFallimento)return 0;var t=String(sub&&sub.esitoText||"");if(/ciclo\s+fallito/i.test(t))return 0;var m=t.match(/(?:^|\D)(0|33|66|100)\s*%/);return m?Number(m[1]):null;}
   function plantHarvestSpecies(occupant){return String(occupant&&occupant.specieSesso||occupant&&occupant.nome||"").trim();}
   function plantHarvestItemName(it){
     var raw=String(it&&it.glossaryName||it&&it.name||"").trim();
@@ -11965,13 +12692,39 @@
 
       if(/Ingredienti/i.test(ottenutiLabel) && STRUTTURE.dispensa){
         if(sub.dispensaTransfer && sub.dispensaTransfer.done){
-          var doneDisp=el("button","action small","✓ Già aggiunto alla Dispensa");
+          var doneDisp=el("button","action small",sub.dispensaTransfer.needsCorrection?"⚠ Dispensa da rettificare":"✓ Già aggiunto alla Dispensa");
           doneDisp.type="button";doneDisp.disabled=true;wrap.appendChild(doneDisp);
-          wrap.appendChild(el("span","small-note"," Trasferimento già registrato. Se correggi il raccolto, correggi anche i relativi lotti nella Dispensa."));
+          if(sub.dispensaTransfer.needsCorrection){
+            wrap.appendChild(el("span","small-note"," Il Ciclo è stato corretto dopo il trasferimento. "+String(sub.dispensaTransfer.correctionReason||"Controlla i relativi lotti nella Dispensa.")+" "));
+            var fixedDisp=el("button","action small","Ho corretto la Dispensa");fixedDisp.type="button";fixedDisp.addEventListener(EV,function(){
+              var tr=sub.dispensaTransfer||{},cycleKey=String(tr.sourceCycleKey||sub._erbDispensaCycleKey||""),remaining=0;
+              if(cycleKey&&DISPENSA&&Array.isArray(DISPENSA.ingredienti)){
+                for(var rdi=0;rdi<DISPENSA.ingredienti.length;rdi++){
+                  var ring=DISPENSA.ingredienti[rdi];ensureIngredientLots(ring);
+                  for(var rli=0;rli<ring.lotti.length;rli++){
+                    var rlot=ring.lotti[rli];
+                    if(String(rlot.sourceCycleKey||"")===cycleKey){remaining+=Math.max(0,num(rlot.quantita,0));}
+                  }
+                }
+              }
+              if(cycleKey&&remaining>0){
+                alert("La Dispensa contiene ancora "+remaining+" dose"+(remaining===1?"":"i")+" collegata"+(remaining===1?"":"e")+" a questo Ciclo. Rimuovi o rettifica prima quel lotto, poi premi di nuovo «Ho corretto la Dispensa».");
+                return;
+              }
+              if(cycleKey){clearCycleKeyFromDispensaMovements(cycleKey);}
+              dispensaCycleLedgerRemove(sub.dispensaTransfer&&sub.dispensaTransfer.ledgerKey);
+              sub.dispensaTransfer={done:false,manualCorrectionAt:new Date().toISOString()};scheduleSave(0);renderAll();
+            });wrap.appendChild(fixedDisp);
+          }else wrap.appendChild(el("span","small-note"," Trasferimento già registrato."));
         }else{
           var toDisp=el("button","action small","Aggiungi ottenuto alla Dispensa");
           toDisp.type="button";
           toDisp.addEventListener(EV,function(){
+            var ledgerEntity=String(options&&options.config&&options.config.tipoLabel||""),ledgerSpecies=String(options&&options.occupant&&(options.occupant.specieSesso||options.occupant.nome)||""),ledgerStage=String(options&&options.stage&&options.stage.key||""),ledgerSuffix=String(options&&options.keySuffix||""),ledgerKey=dispensaCycleLedgerKey(ledgerEntity,ledgerSpecies,ledgerStage,ledgerSuffix,sub.esitoLink);
+            if(ledgerKey&&dispensaCycleLedgerHas(ledgerKey)){
+              alert("Questo Ciclo risulta già accreditato in Dispensa nello storico dell’Elfo. L’eliminazione o l’archiviazione dell’esemplare non consente un secondo accredito dello stesso raccolto.");
+              return;
+            }
             var harvestItems=(sub.harvest&&Array.isArray(sub.harvest.items))?sub.harvest.items.filter(function(x){return x&&parseInt(x.quantita,10)>0;}):[];
             if(harvestItems.length){
               /* Trasferimento atomico: nessun Ingrediente viene più scartato in silenzio. */
@@ -11986,7 +12739,7 @@
                 alert("Non ho spostato nulla in Dispensa perché alcuni Ingredienti del raccolto non coincidono con il Glossario: "+unknown.join(", ")+".");
                 return;
               }
-              var added=[],failed=[];
+              var added=[],failed=[],cycleSourceKey=erbCycleDispensaKey(sub);
               for(var hp=0;hp<prepared.length;hp++){
                 var rowH=prepared[hp];
                 var resH=addIngredienteCatalogo(rowH.rec.nome,rowH.quantita,"Autoprodotto",sub.ottenutiLink||sub.esitoLink||"",STUDENTE.nome);
@@ -11998,7 +12751,8 @@
                 return;
               }
               if(added.length===prepared.length){
-                sub.dispensaTransfer={done:true,items:added,at:new Date().toISOString()};
+                dispensaCycleLedgerAdd(ledgerKey,sub);
+                sub.dispensaTransfer={done:true,items:added,at:new Date().toISOString(),sourceCycleKey:cycleSourceKey,harvestSignature:erbHarvestSignature(sub),ledgerKey:ledgerKey};
                 scheduleSave(0);renderAll();
                 alert("Aggiunti alla Dispensa: "+added.map(function(x){return x.quantita+" × "+x.nome;}).join(", ")+".");
                 return;
@@ -12013,7 +12767,8 @@
             }
             var res=addIngredienteCatalogo(rec.nome,qty,"Autoprodotto",sub.ottenutiLink||sub.esitoLink||"",STUDENTE.nome);
             if(res.ok){
-              sub.dispensaTransfer={done:true,nome:rec.nome,quantita:qty,at:new Date().toISOString()};
+              dispensaCycleLedgerAdd(ledgerKey,sub);
+              sub.dispensaTransfer={done:true,nome:rec.nome,quantita:qty,at:new Date().toISOString(),sourceCycleKey:cycleSourceKey2,harvestSignature:erbHarvestSignature(sub),ledgerKey:ledgerKey};
               scheduleSave(0);renderAll();alert(rec.nome+" aggiunto alla Dispensa come autoprodotto.");
             }
           });
@@ -12077,7 +12832,7 @@
 
     var actionWrap=el("div","structure-actions");
     var rm=el("button","action danger small","Rimuovi");
-    rm.addEventListener(EV,function(){var idx=listRef.indexOf(occupant);if(idx>-1){listRef.splice(idx,1);}scheduleSave(0);renderAll();});
+    rm.addEventListener(EV,function(){erbDetachDeletedPlantCycleLinks(occupant,config.tipoLabel);var idx=listRef.indexOf(occupant);if(idx>-1){listRef.splice(idx,1);}scheduleSave(0);renderAll();});
     actionWrap.appendChild(rm);
     h.appendChild(actionWrap);
     card.appendChild(h);
@@ -12108,6 +12863,7 @@
     card.appendChild(buildEntityLegalityBlock(occupant,isPlant?"pianta":"creatura"));
 
     var dNote=el("div","entity-full-field"); dNote.appendChild(el("label",null,"Note")); var iNote=el("input"); iNote.type="text"; iNote.value=occupant.note; iNote.addEventListener("input",function(){occupant.note=iNote.value;}); dNote.appendChild(iNote); card.appendChild(dNote);
+    if(isPlant&&Number(occupant.erbMalusPostPermanente||0)>0){card.appendChild(el("div","guide-text","Malus permanente della Pianta: +"+Number(occupant.erbMalusPostPermanente||0)+" post a ogni Ciclo di Produzione e Riproduzione. Il ciclo già importato da Erbologia contiene già il totale finale: non aggiungere di nuovo il malus a quel ciclo; applicalo nei calcoli dei cicli successivi."));}
 
     card.appendChild(buildAdvancementPanel(occupant,stages,listRef,archivioRef));
 
@@ -12734,6 +13490,7 @@
       if(st.type === "cicli"){ lines.push("- " + st.label + " " + res.completed + "/" + res.total + " Cicli di Produzione completati"); }
       if(st.type === "ripro"){ lines.push("- " + st.label + " " + res.completed + "/" + res.total + " Cicli di Produzione completati | " + res.reproDone + "/1 Riproduzione completata"); }
     }
+    if(config.tipoLabel==="Pianta"&&Number(occupant.erbMalusPostPermanente||0)>0){lines.push("<b>\u2a2f Malus permanente Cicli:</b> +"+Number(occupant.erbMalusPostPermanente||0)+" post a ogni Produzione/Riproduzione");}
     lines.push("<b>\u2a2f Note:</b> " + occupant.note);
     lines.push("<b>\u2a2f Agenda crescita " + config.tipoLabel + " OFF:</b>");
     for(var a=0;a<config.agendaLabels.length;a++){
@@ -12809,7 +13566,7 @@
 
     var arch=el("details","structure-archive");keepDetailsState(arch,(isCubicolo?"cubicolo:":"recinto:")+"archivio",false);arch.appendChild(el("summary",null,"📦 Archivio — "+(config.tipoLabel==="Pianta"?"Piante decedute":"Creature decedute")+" ("+ARCHIVIO.length+")"));
     if(!ARCHIVIO.length){arch.appendChild(el("p","small-note","Nessuna "+(config.tipoLabel==="Pianta"?"pianta":"creatura")+" nell'archivio."));}
-    for(var ai=0;ai<ARCHIVIO.length;ai++){(function(occ){var lockedOcc=archiveLocked(occ);var archCard=el("div","card entity-card"+(lockedOcc?" archive-locked":""));var ah=el("h3");ah.appendChild(el("span","entity-title "+(isCubicolo?"plant-title":"creature-title"),(occ.nome!==""?occ.nome:"(senza nome)")+" †"));var btnGroup=el("div","structure-actions");var btnRestore=el("button","action small",lockedOcc?"🔒 Consolidata":"Ripristina");btnRestore.disabled=lockedOcc;btnRestore.addEventListener(EV,function(){if(blockIfArchiveLocked(occ)){return;}occ.morta=false;occ._archivedAt="";var idx=ARCHIVIO.indexOf(occ);if(idx>-1){ARCHIVIO.splice(idx,1);}LIST.push(occ);scheduleSave(0);renderAll();});btnGroup.appendChild(btnRestore);var btnDelete=el("button","action danger small","Elimina definitivamente");btnDelete.disabled=lockedOcc;btnDelete.addEventListener(EV,function(){if(blockIfArchiveLocked(occ)){return;}var nomeOcc=occ.nome!==""?occ.nome:(config.tipoLabel+" senza nome");if(!confirm("Eliminare definitivamente dall’Archivio «"+nomeOcc+"»?\n\nL’operazione verrà comunque protetta da uno snapshot automatico prima del salvataggio.")){return;}var idx2=ARCHIVIO.indexOf(occ);if(idx2>-1){ARCHIVIO.splice(idx2,1);}scheduleSave(0);renderAll();});btnGroup.appendChild(btnDelete);ah.appendChild(btnGroup);archCard.appendChild(ah);if(lockedOcc){archCard.appendChild(el("div","archive-lock-note",archiveLockText(occ)));}archCard.appendChild(el("p","small-note","Classificazione "+occ.classificazione+" — ultima fase: "+occ.faseAttuale));arch.appendChild(archCard);})(ARCHIVIO[ai]);}
+    for(var ai=0;ai<ARCHIVIO.length;ai++){(function(occ){var lockedOcc=archiveLocked(occ);var archCard=el("div","card entity-card"+(lockedOcc?" archive-locked":""));var ah=el("h3");ah.appendChild(el("span","entity-title "+(isCubicolo?"plant-title":"creature-title"),(occ.nome!==""?occ.nome:"(senza nome)")+" †"));var btnGroup=el("div","structure-actions");var btnRestore=el("button","action small",lockedOcc?"🔒 Consolidata":"Ripristina");btnRestore.disabled=lockedOcc;btnRestore.addEventListener(EV,function(){if(blockIfArchiveLocked(occ)){return;}if(LIST.length>=ANNO_POSTI[STUDENTE.anno]){alert("Non puoi ripristinare l’esemplare: hai già raggiunto il numero massimo consentito dal tuo Anno Scolastico.");return;}occ.morta=false;occ._archivedAt="";var idx=ARCHIVIO.indexOf(occ);if(idx>-1){ARCHIVIO.splice(idx,1);}LIST.push(occ);scheduleSave(0);renderAll();});btnGroup.appendChild(btnRestore);var btnDelete=el("button","action danger small","Elimina definitivamente");btnDelete.disabled=lockedOcc;btnDelete.addEventListener(EV,function(){if(blockIfArchiveLocked(occ)){return;}var nomeOcc=occ.nome!==""?occ.nome:(config.tipoLabel+" senza nome");if(!confirm("Eliminare definitivamente dall’Archivio «"+nomeOcc+"»?\n\nL’operazione verrà comunque protetta da uno snapshot automatico prima del salvataggio.")){return;}erbDetachDeletedPlantCycleLinks(occ,config.tipoLabel);var idx2=ARCHIVIO.indexOf(occ);if(idx2>-1){ARCHIVIO.splice(idx2,1);}scheduleSave(0);renderAll();});btnGroup.appendChild(btnDelete);ah.appendChild(btnGroup);archCard.appendChild(ah);if(lockedOcc){archCard.appendChild(el("div","archive-lock-note",archiveLockText(occ)));}archCard.appendChild(el("p","small-note","Classificazione "+occ.classificazione+" — ultima fase: "+occ.faseAttuale));arch.appendChild(archCard);})(ARCHIVIO[ai]);}
     p.appendChild(arch);
     container.appendChild(p);
   }
@@ -12910,11 +13667,11 @@
         alert("Non posso generare il trasferimento: alcune lavorazioni fanno ancora riferimento a Post globali non più disponibili ("+shown+"). Prima del passaggio ad Adulto, fai verificare questi riferimenti al Narratore.");
         return;
       }
-      var payload = { transferVersion:2, sourcePg:STUDENTE.nome, mesi: MESI, globalPostCounter: globalPostCounter };
+      var payload = { transferVersion:3, sourcePg:STUDENTE.nome, mesi: MESI, globalPostCounter: globalPostCounter };
       if(opts.calderoni){ payload.calderoni = CALDERONI; payload.archivioCalderoni = ARCHIVIO_CALDERONI; }
       if(opts.piante){ payload.piante = PIANTE; payload.archivioPiante = ARCHIVIO_PIANTE; }
       if(opts.creature){ payload.creature = CREATURE; payload.archivioCreature = ARCHIVIO_CREATURE; payload.medicheria = MEDICHERIA; }
-      if(opts.dispensa){ payload.dispensa = DISPENSA; }
+      if(opts.dispensa){ payload.dispensa = JSON.parse(JSON.stringify(DISPENSA)); }
       payload.transferId="stud-"+transferFingerprint(payload);
       var json = JSON.stringify(payload);
       outWrap.innerHTML = "";
