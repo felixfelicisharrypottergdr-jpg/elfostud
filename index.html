@@ -20,6 +20,7 @@
 <!-- elfo_studente_v218 — rimozione esemplare attivo preserva il ledger anti-doppio accredito prima dello splice. -->
 <!-- elfo_studente_v219 — correzioni atomiche: Esito/Post e Semi validati prima di qualsiasi rollback della Dispensa. -->
 <!-- elfo_studente_v220 — import rifiutati senza side effect: rollback non sicuro non marca needsCorrection durante il preflight. -->
+<!-- elfo_studente_v221 — fix Taccuino: apertura Role con URL normalizzata; supporto ForumFree abbreviato/BBCode; niente navigazione relativa all'iframe. -->
 <!DOCTYPE html>
 <!-- v174 — rimosso promemoria Lista della Spesa alla chiusura Role fuori conteggio; 08/09/2026 -->
 <!-- v165 — fix mirato post-password: ricalcolo altezza ritardato dopo sblocco modifica; rollback automatismi So-Tutto non necessari; 08/09/2026 -->
@@ -6496,6 +6497,28 @@
     return true;
   }
   function healingNormName(v){return String(v||"").trim().replace(/\s+/g," ").toLocaleLowerCase("it-IT");}
+  /* Fix apertura Role dal Taccuino: normalizza anche link ForumFree abbreviati,
+     senza protocollo o incollati come BBCode, evitando navigazioni relative all'iframe. */
+  function taccExternalUrl(raw){
+    var s=String(raw||"").trim();
+    if(!s)return "";
+    var bb=s.match(/\[URL\s*=\s*([^\]]+)\]/i);
+    if(bb&&bb[1])s=String(bb[1]).trim();
+    s=s.replace(/^["']|["']$/g,"").trim();
+    if(/^\/\/[^\s]+forumfree\.it\//i.test(s)){s="https:"+s;}
+    else if(/^\/?\?t=/i.test(s)){s="https://felixfelicisharrypottergdr.forumfree.it/"+s.replace(/^\//,"");}
+    else if(/^[\w.-]+\.forumfree\.it\//i.test(s)){s="https://"+s;}
+    return typeof safeHttpUrl==="function"?safeHttpUrl(s):"";
+  }
+  function taccMakeExternalLink(raw,label,className){
+    var url=taccExternalUrl(raw);
+    if(!url)return null;
+    var a=document.createElement("a");
+    a.href=url;a.target="_blank";a.rel="noopener noreferrer";
+    a.className=className||"tacc-link";a.textContent=label||"Apri Role";
+    return a;
+  }
+
   function healingRoleUrlKey(url){
     var raw=String(url||"").trim();if(!raw){return "";}
     try{
@@ -7643,7 +7666,7 @@
           if(r.withWhom){meta.push("Con: "+r.withWhom);}
           if(r.category){meta.push("Raccolta: "+r.category);}
           card.appendChild(el("div","tacc-role-meta",meta.join(" · ")));
-          if(r.url){var link=document.createElement("a");link.href=r.url;link.target="_blank";link.rel="noopener noreferrer";link.className="tacc-link";link.textContent="Apri Role";card.appendChild(link);}
+          if(r.url){var link=taccMakeExternalLink(r.url,"Apri Role","tacc-link");if(link){card.appendChild(link);}else{card.appendChild(el("span","small-note","Link Role non valido: correggilo da «Modifica o concludi la Role»."));}}
           if(r.notes){card.appendChild(el("p","small-note",r.notes));}
 
           var details=document.createElement("details");details.className="tacc-role-edit";
@@ -7698,7 +7721,7 @@
           if(r.closedAt){meta.appendChild(el("span",null,"✓ "+r.closedAt));}
           summary.appendChild(meta);details.appendChild(summary);
           var body=el("div","tacc-history-role-body");
-          if(r.url){var aa=document.createElement("a");aa.href=r.url;aa.target="_blank";aa.rel="noopener noreferrer";aa.className="tacc-link";aa.textContent="Apri Role";body.appendChild(aa);}
+          if(r.url){var aa=taccMakeExternalLink(r.url,"Apri Role","tacc-link");if(aa){body.appendChild(aa);}else{body.appendChild(el("span","small-note","Link Role non valido."));}}
           if(r.notes){body.appendChild(el("div","tacc-history-note",r.notes));}
           var edit=el("div","tacc-grid-2"),sel=taccSelect("Raccolta",TACCUINO.categories,r.category||"Altro"),per=taccInput("Periodo ONGame",r.period||""),loc=taccInput("Luogo",r.location||""),rt=taccRoleTypeSelect(r.roleType||"free");
           [sel.wrap,per.wrap,loc.wrap,rt.wrap].forEach(function(x){edit.appendChild(x);});body.appendChild(edit);
@@ -7741,7 +7764,7 @@
         r.roles=Array.isArray(r.roles)?r.roles:[];var item=el("div","tacc-card"),grid=el("div","tacc-grid-2"),ni=taccInput("PG",r.name||""),ci=taccInput("Role precedenti senza link",taccNum(r.count),"number");ci.input.type="number";ci.input.min="0";grid.appendChild(ni.wrap);grid.appendChild(ci.wrap);item.appendChild(grid);
         var total=taccNum(r.count)+r.roles.length;item.appendChild(el("div","tacc-progress "+(total>=def.thresholds[def.thresholds.length-1]?"complete":"pending"),taccRelationProgress(total,def.thresholds)));
         ni.input.addEventListener("input",function(){r.name=ni.input.value;taccSave();});ci.input.addEventListener("input",function(){r.count=taccNum(ci.input.value);taccSave();});ci.input.addEventListener("change",function(){renderAll();});
-        if(r.roles.length){var ul=el("ul","tacc-people-list");r.roles.forEach(function(rr){var li=el("li"),main=el("div","tacc-people-main");main.appendChild(el("strong",null,rr.label||"Role"));if(rr.url){main.appendChild(document.createElement("br"));var a=document.createElement("a");a.href=rr.url;a.target="_blank";a.rel="noopener noreferrer";a.className="tacc-link";a.textContent="Apri Role";main.appendChild(a);}li.appendChild(main);var rm=el("button","action danger","Rimuovi");rm.type="button";rm.addEventListener(EV,function(){r.roles=r.roles.filter(function(x){return x.id!==rr.id;});taccSave();renderAll();});li.appendChild(rm);ul.appendChild(li);});item.appendChild(ul);}
+        if(r.roles.length){var ul=el("ul","tacc-people-list");r.roles.forEach(function(rr){var li=el("li"),main=el("div","tacc-people-main");main.appendChild(el("strong",null,rr.label||"Role"));if(rr.url){main.appendChild(document.createElement("br"));var a=taccMakeExternalLink(rr.url,"Apri Role","tacc-link");if(a){main.appendChild(a);}}li.appendChild(main);var rm=el("button","action danger","Rimuovi");rm.type="button";rm.addEventListener(EV,function(){r.roles=r.roles.filter(function(x){return x.id!==rr.id;});taccSave();renderAll();});li.appendChild(rm);ul.appendChild(li);});item.appendChild(ul);}
         var lr=el("div","tacc-mini-row"),ll=taccInput("Titolo / riferimento",""),lu=taccInput("Link della Role","");lu.input.type="url";lr.appendChild(ll.wrap);lr.appendChild(lu.wrap);var lb=el("button","action","+ Registra Role");lb.type="button";lb.addEventListener(EV,function(){r.roles.push({id:taccId("relrole"),label:String(ll.input.value||"").trim()||("Role "+(total+1)),url:String(lu.input.value||"").trim()});taccSave();renderAll();});lr.appendChild(lb);item.appendChild(lr);
         var d=el("button","action danger","Rimuovi PG");d.type="button";d.addEventListener(EV,function(){if(confirm("Rimuovere questo PG dal conteggio condiviso Amiconi/Compari?")){TACCUINO.relations=TACCUINO.relations.filter(function(x){return x.id!==r.id;});taccSave();renderAll();}});item.appendChild(d);card.appendChild(item);
       });
@@ -7783,7 +7806,7 @@
       var addp=el("div","tacc-mini-row"),pn=taccInput("Nome PG","") ,pr=taccInput("Link / riferimento Role","");pr.input.type="url";addp.appendChild(pn.wrap);addp.appendChild(pr.wrap);var pab=el("button","action","+ Aggiungi");pab.type="button";pab.addEventListener(EV,function(){var name=String(pn.input.value||"").trim();if(!name){alert("Scrivi il nome del PG.");return;}if(state.people.some(function(x){return String(x.name||"").trim().toLowerCase()===name.toLowerCase();})){alert("Questo PG è già presente in questo conteggio.");return;}state.people.push({id:taccId("person"),name:name,role:String(pr.input.value||"").trim()});taccSave();renderAll();});addp.appendChild(pab);card.appendChild(addp);
       if(state.peopleCountExtra>0){var extra=taccInput("Conteggio importato senza nominativi",state.peopleCountExtra,"number");extra.input.type="number";extra.input.min="0";extra.input.step="1";extra.input.addEventListener("input",function(){state.peopleCountExtra=Math.max(0,parseInt(extra.input.value,10)||0);taccSave();});extra.input.addEventListener("change",function(){renderAll();});card.appendChild(extra.wrap);card.appendChild(el("div","small-note","Sono progressi riconosciuti dal vecchio Taccuino ma privi di un nominativo recuperabile. Puoi correggerli manualmente se necessario."));}
       var peopleTotal=state.people.length+Math.max(0,parseInt(state.peopleCountExtra,10)||0),pd={goal:def.goal,thresholds:def.thresholds,unit:"PG"},pp=taccProgress(peopleTotal,pd,{claimed:{}},"people");card.appendChild(el("div","tacc-progress "+(pp.complete?"complete":"pending"),pp.text));
-      var list=el("ul","tacc-people-list");state.people.forEach(function(x){var li=el("li"),main=el("div","tacc-people-main");main.appendChild(el("strong",null,x.name||"PG"));if(x.role){var a=document.createElement("a");a.href=x.role;a.target="_blank";a.rel="noopener noreferrer";a.className="tacc-link";a.textContent="Apri Role";main.appendChild(document.createElement("br"));main.appendChild(a);}li.appendChild(main);var rm=el("button","action danger","Rimuovi");rm.type="button";rm.addEventListener(EV,function(){state.people=state.people.filter(function(y){return y.id!==x.id;});taccSave();renderAll();});li.appendChild(rm);list.appendChild(li);});card.appendChild(list);
+      var list=el("ul","tacc-people-list");state.people.forEach(function(x){var li=el("li"),main=el("div","tacc-people-main");main.appendChild(el("strong",null,x.name||"PG"));if(x.role){var a=taccMakeExternalLink(x.role,"Apri Role","tacc-link");if(a){main.appendChild(document.createElement("br"));main.appendChild(a);}}li.appendChild(main);var rm=el("button","action danger","Rimuovi");rm.type="button";rm.addEventListener(EV,function(){state.people=state.people.filter(function(y){return y.id!==x.id;});taccSave();renderAll();});li.appendChild(rm);list.appendChild(li);});card.appendChild(list);
     }
     var nlab=el("label",null,"Role / promemoria collegati");card.appendChild(nlab);var notes=el("textarea");notes.placeholder="Link, titoli delle role, date o altre note utili";notes.value=state.notes||"";notes.addEventListener("input",function(){state.notes=notes.value;taccSave();});card.appendChild(notes);
     container.appendChild(card);
