@@ -31,6 +31,7 @@
 <!-- elfo_studente_v229 — I tuoi Post: Salva/pagehide consolidano sincronicamente le bozze link prima di collectState, evitando Post visibili ma non ancora persistiti. -->
 <!-- elfo_studente_v230 — salvataggio generale: flush centrale dei link Post prima di ogni serializedSaveLatest; copre autosave, Salva, Disconnetti, Cambia Elfo e retry. -->
 <!-- elfo_studente_v231 — audit salvataggi/I tuoi Post: Recovery baseline compatta + flush campo attivo su Salva/pagehide/Disconnetti/Cambia Elfo. -->
+<!-- elfo_studente_v232 — Taccuino: permission-denied non ritenta; copia locale esplicitata. Fix fallback conflitto generale: rimosso riferimento `deleted` fuori scope. Richiede Rules v60 per cloudRevision. -->
 <!DOCTYPE html>
 <!-- v174 — rimosso promemoria Lista della Spesa alla chiusura Role fuori conteggio; 08/09/2026 -->
 <!-- v165 — fix mirato post-password: ricalcolo altezza ritardato dopo sblocco modifica; rollback automatismi So-Tutto non necessari; 08/09/2026 -->
@@ -4864,13 +4865,11 @@
     /* Salva SUBITO la copia locale che Firebase ha rifiutato. Non aspettiamo
        cambio pagina/pagehide: anche una chiusura anomala subito dopo il conflitto
        deve lasciare un Recovery completo di Camera Blindata, Dispensa e strutture. */
-    if(!deleted){
-      try{
-        if(PERSONAL_PENDING_LOCAL_TIMER){clearTimeout(PERSONAL_PENDING_LOCAL_TIMER);PERSONAL_PENDING_LOCAL_TIMER=null;}
-        DATA_DIRTY=true;
-        personalPendingStore(collectState(),code||"revision-conflict");
-      }catch(e){console.error("Protezione locale immediata del conflitto fallita",e);}
-    }
+    try{
+      if(PERSONAL_PENDING_LOCAL_TIMER){clearTimeout(PERSONAL_PENDING_LOCAL_TIMER);PERSONAL_PENDING_LOCAL_TIMER=null;}
+      DATA_DIRTY=true;
+      personalPendingStore(collectState(),code||"revision-conflict");
+    }catch(e){console.error("Protezione locale immediata del conflitto fallita",e);}
     document.querySelectorAll("#revision-conflict-overlay").forEach(function(x){if(x&&x.parentNode){x.remove();}});
     fbStatusText=code==="accredited-month-conflict"?"Stato di accredito aggiornato · sincronizzazione automatica…":"Dati più recenti trovati · sincronizzazione automatica…";
     updateFbIndicator();
@@ -7510,8 +7509,15 @@
       return true;
     }).catch(function(e){
       console.error("Sincronizzazione Taccuino Firebase fallita",e);
-      TACC_CLOUD_DIRTY=true;taccCloudSetStatus("Cloud non sincronizzato: "+((e&&e.code)?e.code:"controlla le regole Firebase o la connessione")+" · nuovo tentativo automatico",true);
-      taccScheduleCloudRetry();
+      TACC_CLOUD_DIRTY=true;
+      var taccErr=String((e&&e.code)||"");
+      if(taccErr==="permission-denied"){
+        if(TACC_CLOUD_RETRY_TIMER){clearTimeout(TACC_CLOUD_RETRY_TIMER);TACC_CLOUD_RETRY_TIMER=null;}
+        taccCloudSetStatus("Cloud non sincronizzato: permessi Firebase negati · copia conservata in questo browser",true);
+      }else{
+        taccCloudSetStatus("Cloud non sincronizzato: "+(taccErr||"controlla la connessione")+" · nuovo tentativo automatico",true);
+        taccScheduleCloudRetry();
+      }
       return false;
     });
     TACC_CLOUD_IN_FLIGHT=work.finally(function(){TACC_CLOUD_BUSY=false;TACC_CLOUD_IN_FLIGHT=null;});
