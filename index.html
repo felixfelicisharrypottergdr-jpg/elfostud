@@ -32,6 +32,7 @@
 <!-- elfo_studente_v230 — salvataggio generale: flush centrale dei link Post prima di ogni serializedSaveLatest; copre autosave, Salva, Disconnetti, Cambia Elfo e retry. -->
 <!-- elfo_studente_v231 — audit salvataggi/I tuoi Post: Recovery baseline compatta + flush campo attivo su Salva/pagehide/Disconnetti/Cambia Elfo. -->
 <!-- elfo_studente_v232 — Taccuino: permission-denied non ritenta; copia locale esplicitata. Fix fallback conflitto generale: rimosso riferimento `deleted` fuori scope. Richiede Rules v60 per cloudRevision. -->
+<!-- elfo_studente_v233 — UI Taccuino cloud silenziosa: nessun messaggio per attesa/sync riuscita; solo errori/avvisi reali. -->
 <!DOCTYPE html>
 <!-- v174 — rimosso promemoria Lista della Spesa alla chiusura Role fuori conteggio; 08/09/2026 -->
 <!-- v165 — fix mirato post-password: ricalcolo altezza ritardato dopo sblocco modifica; rollback automatismi So-Tutto non necessari; 08/09/2026 -->
@@ -7368,8 +7369,17 @@
     TACC_CLOUD_RETRY_TIMER=setTimeout(function(){TACC_CLOUD_RETRY_TIMER=null;taccCloudPush(false);},delay);
   }
   function taccCloudSetStatus(text,isError){
-    TACC_CLOUD_TEXT=String(text||""); TACC_CLOUD_ERROR=!!isError;
-    ["tacc-cloud-status-live","tacc-cloud-status-top"].forEach(function(id){var node=document.getElementById(id);if(node){node.textContent=TACC_CLOUD_TEXT;node.className="tacc-storage-status"+(TACC_CLOUD_ERROR?" error":"");}});
+    /* UI silenziosa: gli stati normali del cloud non vengono mostrati.
+       Restano visibili soltanto errori o avvisi che richiedono attenzione. */
+    if(!isError){
+      TACC_CLOUD_STATUS="";
+      TACC_CLOUD_STATUS_ERROR=false;
+      if(currentStep==="taccuino"){renderAll({skipAutoSave:true});}
+      return;
+    }
+    TACC_CLOUD_STATUS=String(text||"");
+    TACC_CLOUD_STATUS_ERROR=true;
+    if(currentStep==="taccuino"){renderAll({skipAutoSave:true});}
   }
   function taccCloudIsMeaningful(data){
     data=data&&typeof data==="object"?data:{};
@@ -7640,7 +7650,7 @@
     var pending=EDIT_UNLOCKED?taccPendingLoad(pg):null;
     TACC_LAZY_SYNC_PG=pg;
     if(pending||currentStep==="taccuino"){return taccCloudEnsureLazySync();}
-    taccCloudSetStatus("Taccuino cloud in attesa · verrà caricato quando apri il Taccuino",false);
+    taccCloudSetStatus("",false);
     return Promise.resolve(true);
   }
   function taccCloudEnsureLazySync(){
