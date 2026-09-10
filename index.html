@@ -28,6 +28,9 @@
 <!-- elfo_studente_v226 — conflitti stato generale: snapshot locale immediato appena il save viene rifiutato, prima dell'overlay. -->
 <!-- elfo_studente_v227 — rebase multi-device: ricontrollo stato locale live prima del merge, evitando perdita di edit durante la richiesta Firebase. -->
 <!-- elfo_studente_v228 — Recovery generale three-way: pending conserva baseline; ripristino fonde solo sezioni locali disgiunte e chiede conferma su overlap/legacy. -->
+<!-- elfo_studente_v229 — I tuoi Post: Salva/pagehide consolidano sincronicamente le bozze link prima di collectState, evitando Post visibili ma non ancora persistiti. -->
+<!-- elfo_studente_v230 — salvataggio generale: flush centrale dei link Post prima di ogni serializedSaveLatest; copre autosave, Salva, Disconnetti, Cambia Elfo e retry. -->
+<!-- elfo_studente_v231 — audit salvataggi/I tuoi Post: Recovery baseline compatta + flush campo attivo su Salva/pagehide/Disconnetti/Cambia Elfo. -->
 <!DOCTYPE html>
 <!-- v174 — rimosso promemoria Lista della Spesa alla chiusura Role fuori conteggio; 08/09/2026 -->
 <!-- v165 — fix mirato post-password: ricalcolo altezza ritardato dopo sblocco modifica; rollback automatismi So-Tutto non necessari; 08/09/2026 -->
@@ -5032,6 +5035,8 @@
     },250);
   }
   function personalPendingFlushLocal(){
+    try{flushActiveEditableControlToState();}catch(e){}
+    try{flushGeneralPostInputsToState();}catch(e){}
     if(PERSONAL_PENDING_LOCAL_TIMER){clearTimeout(PERSONAL_PENDING_LOCAL_TIMER);PERSONAL_PENDING_LOCAL_TIMER=null;}
     if((DATA_DIRTY||personalHasUnpersistedNetChange())&&personalPgName()){DATA_DIRTY=true;personalPendingStore(collectState(),"local-edit");}
   }
@@ -5039,8 +5044,19 @@
     var pgName=personalPgName();if(!pgName){return false;}
     try{
       var frozen=cloneStateForSave(state||collectState());
-      var baseSnapshot=LAST_PERSISTED_STATE?cloneStateForSave(LAST_PERSISTED_STATE):null;
-      localStorage.setItem(personalPendingKey(pgName),JSON.stringify({savedAt:new Date().toISOString(),baseRevision:Math.max(0,parseInt(DB_REVISION,10)||0),code:String(code||"pending"),baseState:baseSnapshot,state:frozen}));
+      var baseSnapshot=null,baseKeys=[];
+      if(LAST_PERSISTED_STATE){
+        var baseFull=cloneStateForSave(LAST_PERSISTED_STATE);
+        baseKeys=revisionTopLevelDiffKeys(baseFull,frozen);
+        baseSnapshot={};
+        baseKeys.forEach(function(k){
+          if(Object.prototype.hasOwnProperty.call(baseFull,k)){baseSnapshot[k]=cloneStateForSave(baseFull[k]);}
+        });
+      }
+      /* La baseline Recovery è volutamente COMPATTA: basta conservare il valore
+         precedente delle sole sezioni modificate localmente. Evita di duplicare
+         quasi tutto l'Elfo in localStorage e riduce il rischio quota browser. */
+      localStorage.setItem(personalPendingKey(pgName),JSON.stringify({savedAt:new Date().toISOString(),baseRevision:Math.max(0,parseInt(DB_REVISION,10)||0),code:String(code||"pending"),baseState:baseSnapshot,baseKeys:baseKeys,state:frozen}));
       return true;
     }catch(e){console.warn("Coda locale Elfo non salvata",e);return false;}
   }
@@ -5083,16 +5099,37 @@
   function personalBuildRecoveryMerge(rec,currentCloudState){
     if(!rec||!rec.state||!rec.baseState)return {ok:false,legacy:true};
     try{
+      var remoteRaw=currentCloudState||collectState(),merged=cloneStateForSave(remoteRaw);
+      /* v240/v231: nuovo formato compatto. baseKeys elenca le sole sezioni che
+         erano diverse dalla baseline al momento della copia locale. Per ciascuna
+         basta verificare se il cloud ha cambiato lo stesso valore. */
+      if(Array.isArray(rec.baseKeys)){
+        var keys=rec.baseKeys.slice(),overlap=[];
+        for(var i=0;i<keys.length;i++){
+          var k=keys[i],baseHas=Object.prototype.hasOwnProperty.call(rec.baseState,k),remoteHas=Object.prototype.hasOwnProperty.call(remoteRaw,k);
+          var samePresence=baseHas===remoteHas;
+          var sameValue=samePresence&&(!baseHas||stableComparableJson(rec.baseState[k])===stableComparableJson(remoteRaw[k]));
+          if(!sameValue){overlap.push(k);}
+        }
+        if(overlap.length){return {ok:false,overlap:overlap,legacy:false};}
+        keys.forEach(function(k){
+          if(Object.prototype.hasOwnProperty.call(rec.state,k)){merged[k]=cloneStateForSave(rec.state[k]);}
+          else{delete merged[k];}
+        });
+        return {ok:true,state:merged,localKeys:keys,remoteKeys:[],legacy:false};
+      }
+      /* Compatibilità con Recovery v237/v228-v239/v230 che salvavano la baseline
+         completa. */
       var base=revisionConflictComparable(rec.baseState);
       var local=revisionConflictComparable(rec.state);
-      var remote=revisionConflictComparable(currentCloudState||collectState());
+      var remote=revisionConflictComparable(remoteRaw);
       var localKeys=revisionTopLevelDiffKeys(base,local),remoteKeys=revisionTopLevelDiffKeys(base,remote),remoteMap={};
       remoteKeys.forEach(function(k){remoteMap[k]=1;});
-      var overlap=localKeys.filter(function(k){return !!remoteMap[k];});
-      if(overlap.length){return {ok:false,overlap:overlap,legacy:false};}
-      var merged=cloneStateForSave(currentCloudState||collectState());
+      var overlapOld=localKeys.filter(function(k){return !!remoteMap[k];});
+      if(overlapOld.length){return {ok:false,overlap:overlapOld,legacy:false};}
       localKeys.forEach(function(k){
         if(Object.prototype.hasOwnProperty.call(rec.state,k)){merged[k]=cloneStateForSave(rec.state[k]);}
+        else{delete merged[k];}
       });
       return {ok:true,state:merged,localKeys:localKeys,remoteKeys:remoteKeys,legacy:false};
     }catch(e){console.error("Merge Recovery non riuscito",e);return {ok:false,legacy:false,error:true};}
@@ -5191,6 +5228,8 @@
     return "Errore nel salvataggio, riprova";
   }
   function manualSaveNow(btn){
+    try{flushActiveEditableControlToState();}catch(e){console.error("Consolidamento campo attivo prima del Salva fallito",e);}
+    try{flushGeneralPostInputsToState();}catch(e){console.error("Consolidamento Post prima del Salva fallito",e);}
     if(!fbConnected || !window.fbReady || !window.fbSaveState){
       if(btn){ var old0=btn.textContent; btn.textContent="Connettiti prima"; setTimeout(function(){btn.textContent=old0;},1400); }
       return;
@@ -6329,6 +6368,10 @@
   }
 
   function serializedSaveLatest(){
+    /* Punto unico di sicurezza: qualunque percorso di salvataggio (autosave,
+       Salva manuale, Disconnetti, Cambia Elfo, retry cloud) consolida prima
+       eventuali link Post ancora nel debounce della UI. */
+    try{flushGeneralPostInputsToState();}catch(e){console.error("Consolidamento Post prima del salvataggio generale fallito",e);}
     if(DELETING_PG){ return Promise.resolve(true); }
     if(SAVE_IN_FLIGHT_PROMISE){ SAVE_FORCE_AGAIN=true; return SAVE_IN_FLIGHT_PROMISE; }
     SAVE_FORCE_AGAIN=false;
@@ -8776,6 +8819,8 @@
   }
   function saveEverythingBeforeLock(){
     if(!EDIT_UNLOCKED){return Promise.resolve(true);}
+    try{flushActiveEditableControlToState();}catch(e){}
+    try{flushGeneralPostInputsToState();}catch(e){}
     if(fbSaveTimer){clearTimeout(fbSaveTimer);fbSaveTimer=null;}
     return serializedSaveLatest().then(function(ok){
       if(!ok){return false;}
@@ -8787,6 +8832,8 @@
   }
   function lockEditingKeepPg(btn){
     if(!EDIT_UNLOCKED||EDIT_DISCONNECT_PENDING){return Promise.resolve(true);}
+    try{flushActiveEditableControlToState();}catch(e){}
+    try{flushGeneralPostInputsToState();}catch(e){}
     EDIT_DISCONNECT_PENDING=true;
     if(fbSaveTimer){clearTimeout(fbSaveTimer);fbSaveTimer=null;}
     if(TACC_CLOUD_TIMER){clearTimeout(TACC_CLOUD_TIMER);TACC_CLOUD_TIMER=null;}
@@ -9125,6 +9172,27 @@
     container.appendChild(p);
   }
 
+  /* Prima di un salvataggio esplicito/uscita consolida subito eventuali
+     link dei Post ancora fermi nel debounce dell'input. Senza questo passaggio il
+     campo poteva mostrare un URL che collectState() non aveva ancora ricevuto. */
+  function flushGeneralPostInputsToState(){
+    var nodes=document.querySelectorAll('input[data-general-post-link-input="1"]');
+    for(var i=0;i<nodes.length;i++){
+      var node=nodes[i];
+      if(!node||node.disabled){continue;}
+      try{node.dispatchEvent(new Event("change",{bubbles:false}));}catch(e){}
+    }
+  }
+
+  /* Salvataggi di uscita: un campo text/number può essere ancora focalizzato e
+     avere un handler persistente solo su "change". Prima di chiudere/cambiare Elfo
+     gli facciamo emettere change; i campi temporanei non alterano collectState(). */
+  function flushActiveEditableControlToState(){
+    var node=document.activeElement;
+    if(!node||!node.matches||!node.matches("input,textarea,select")||node.disabled||node.readOnly){return;}
+    try{node.dispatchEvent(new Event("change",{bubbles:true}));}catch(e){}
+  }
+
   function buildMeseCard(mese){
     var locked = !!(mese.chiuso && archiveLocked(mese));
     var accreditato = monthIsAccredited(mese);
@@ -9194,6 +9262,7 @@
         var globalSpan = null, specialRewardSpan = null;
         var refLabels=globalPostReferenceLabels(post);
         var iLink = el("input"); iLink.type="text"; iLink.value = post.link; iLink.placeholder="https://..."; iLink.disabled = contentLocked;
+        iLink.setAttribute("data-general-post-link-input","1");
         if(refLabels.length){iLink.title="Il Post globale n° "+post.globalNo+" è usato da: "+refLabels.join("; ")+". Puoi sostituire il link con un altro URL valido, ma non lasciarlo vuoto o non valido.";}
         function refreshInlineGlobal(){
           if(!globalSpan){ return; }
