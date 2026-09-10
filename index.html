@@ -34,6 +34,7 @@
 <!-- elfo_studente_v232 — Taccuino: permission-denied non ritenta; copia locale esplicitata. Fix fallback conflitto generale: rimosso riferimento `deleted` fuori scope. Richiede Rules v60 per cloudRevision. -->
 <!-- elfo_studente_v233 — UI Taccuino cloud silenziosa: nessun messaggio per attesa/sync riuscita; solo errori/avvisi reali. -->
 <!-- elfo_studente_v234 — fix UI Taccuino silenziosa: usa TACC_CLOUD_TEXT/TACC_CLOUD_ERROR originali e nessun renderAll dal setter. -->
+<!-- elfo_studente_v235 — Role estive in I tuoi Post: una registrazione per topic, 0 Punti Casa; accrediti Narratore autoritativi senza popup. -->
 <!DOCTYPE html>
 <!-- v174 — rimosso promemoria Lista della Spesa alla chiusura Role fuori conteggio; 08/09/2026 -->
 <!-- v165 — fix mirato post-password: ricalcolo altezza ritardato dopo sblocco modifica; rollback automatismi So-Tutto non necessari; 08/09/2026 -->
@@ -3976,6 +3977,7 @@
   var MESI = [];
   var SPECIAL_ROLE_REGISTRY = [];
   var HOUSE_ROLE_BONUSES = [];
+  var SUMMER_ROLE_REGISTRY = [];
   var meseCounter = 0;
   var postCounter = 0;
   var globalPostCounter = 0;
@@ -4867,11 +4869,13 @@
     /* Salva SUBITO la copia locale che Firebase ha rifiutato. Non aspettiamo
        cambio pagina/pagehide: anche una chiusura anomala subito dopo il conflitto
        deve lasciare un Recovery completo di Camera Blindata, Dispensa e strutture. */
-    try{
-      if(PERSONAL_PENDING_LOCAL_TIMER){clearTimeout(PERSONAL_PENDING_LOCAL_TIMER);PERSONAL_PENDING_LOCAL_TIMER=null;}
-      DATA_DIRTY=true;
-      personalPendingStore(collectState(),code||"revision-conflict");
-    }catch(e){console.error("Protezione locale immediata del conflitto fallita",e);}
+    if(code!=="accredited-month-conflict"){
+      try{
+        if(PERSONAL_PENDING_LOCAL_TIMER){clearTimeout(PERSONAL_PENDING_LOCAL_TIMER);PERSONAL_PENDING_LOCAL_TIMER=null;}
+        DATA_DIRTY=true;
+        personalPendingStore(collectState(),code||"revision-conflict");
+      }catch(e){console.error("Protezione locale immediata del conflitto fallita",e);}
+    }
     document.querySelectorAll("#revision-conflict-overlay").forEach(function(x){if(x&&x.parentNode){x.remove();}});
     fbStatusText=code==="accredited-month-conflict"?"Stato di accredito aggiornato · sincronizzazione automatica…":"Dati più recenti trovati · sincronizzazione automatica…";
     updateFbIndicator();
@@ -4907,6 +4911,19 @@
   }
 
   function lockAfterRevisionConflict(code, forceOverlay){
+    /* Lo stato di accredito deciso dal Narratore è autoritativo. Se cambia mentre
+       l'Elfo è aperto, ricarichiamo automaticamente il cloud senza chiedere al
+       player se mantenere una versione locale del Mese ormai accreditato. */
+    if(code==="accredited-month-conflict"){
+      if(fbSaveTimer){clearTimeout(fbSaveTimer);fbSaveTimer=null;}
+      Promise.resolve(autoReloadLatestAfterConflict(code)).then(function(ok){
+        if(!ok){lockAfterRevisionConflict("revision-conflict",true);}
+      }).catch(function(e){
+        console.error("Ricaricamento cloud dopo accredito fallito",e);
+        lockAfterRevisionConflict("revision-conflict",true);
+      });
+      return;
+    }
     /* Un callback appartenente a un vecchio tentativo può arrivare dopo che abbiamo
        già caricato/raggiunto una revisione più nuova. In quel caso NON deve riaprire
        l'overlay né aggiungere un altro strato scuro. */
@@ -6045,7 +6062,8 @@
   }
 
   function resetDataState(){
-    POSTS = []; MESI = []; SPECIAL_ROLE_REGISTRY = []; HOUSE_ROLE_BONUSES = []; meseCounter = 0; postCounter = 0; globalPostCounter = 0; ARCHIVIO_DB = { periodiche:[], ultima:null };
+    POSTS = []; MESI = []; SPECIAL_ROLE_REGISTRY = []; HOUSE_ROLE_BONUSES = [];
+    SUMMER_ROLE_REGISTRY = []; meseCounter = 0; postCounter = 0; globalPostCounter = 0; ARCHIVIO_DB = { periodiche:[], ultima:null };
     STUDENTE = { nome:"", anno:"V", annoPromemoriaAgosto:0, elfoNome:"Dobby", elfoAppellativo:"Padron", elfoNomeChiamata:"", elfoTitoloPersonalizzato:false };
     STRUTTURE = { taccuino:false, dispensa:false, postazione:false, cubicolo:false, recinto:false, esporta:false };
     POSTAZIONE_FAC = { descrizione:"", distillatoriMax:0 }; CALDERONI = []; calderoneCounter = 0; ARCHIVIO_CALDERONI = [];
@@ -6064,7 +6082,7 @@
       RICHIESTA_ELIMINAZIONE: DELETE_REQUESTED,
       _tutorialState: tutorialNormalizeState(TUTORIAL_STATE),
       STUDENTE: STUDENTE,
-      MESI: mesiForPersistence(), SPECIAL_ROLE_REGISTRY: normalizeSpecialRoleRegistry(SPECIAL_ROLE_REGISTRY), HOUSE_ROLE_BONUSES: normalizeHouseRoleBonuses(HOUSE_ROLE_BONUSES), meseCounter: meseCounter, postCounter: postCounter, globalPostCounter: globalPostCounter, ARCHIVIO_DB: ARCHIVIO_DB,
+      MESI: mesiForPersistence(), SPECIAL_ROLE_REGISTRY: normalizeSpecialRoleRegistry(SPECIAL_ROLE_REGISTRY), HOUSE_ROLE_BONUSES: normalizeHouseRoleBonuses(HOUSE_ROLE_BONUSES), SUMMER_ROLE_REGISTRY: normalizeSummerRoleRegistry(SUMMER_ROLE_REGISTRY), meseCounter: meseCounter, postCounter: postCounter, globalPostCounter: globalPostCounter, ARCHIVIO_DB: ARCHIVIO_DB,
       PARAMETRI_SOCIALI: PARAMETRI_SOCIALI, VERIFICHE_PARAMETRI_SOCIALI: VERIFICHE_PARAMETRI_SOCIALI, SOCIAL_SYNC_META: SOCIAL_SYNC_META,
       STRUTTURE: STRUTTURE,
       DISPENSA: DISPENSA, ingredienteCounter: ingredienteCounter, movimentoCounter: movimentoCounter, _dispensaBatchDraft: cloneHistoryState(DISPENSA_BATCH),
@@ -6106,6 +6124,7 @@
     if(data.MESI){ MESI = data.MESI; }
     SPECIAL_ROLE_REGISTRY = normalizeSpecialRoleRegistry(data.SPECIAL_ROLE_REGISTRY);
     HOUSE_ROLE_BONUSES = normalizeHouseRoleBonuses(data.HOUSE_ROLE_BONUSES);
+    SUMMER_ROLE_REGISTRY = normalizeSummerRoleRegistry(data.SUMMER_ROLE_REGISTRY);
     if(data.meseCounter){ meseCounter = data.meseCounter; }
     if(data.postCounter){ postCounter = data.postCounter; }
     if(data.globalPostCounter){ globalPostCounter = data.globalPostCounter; }
@@ -6670,6 +6689,73 @@
     }
     return out;
   }
+  /* ROLE ESTIVE — il topic si registra una sola volta. I Post restano normali
+     per PP/Galeoni/numerazione globale, ma valgono 0 Punti Casa. */
+  function normalizeSummerRoleRegistry(list){
+    var out=[],seen={};list=Array.isArray(list)?list:[];
+    for(var i=0;i<list.length;i++){
+      var x=list[i]||{},url=safeHttpUrl(x.url||""),key=healingRoleUrlKey(url||x.url||"");
+      if(!key||seen[key])continue;seen[key]=1;
+      out.push({id:String(x.id||("summer_"+Date.now().toString(36)+"_"+i)),url:url||String(x.url||""),key:key,title:String(x.title||"Role estiva")});
+    }
+    return out;
+  }
+  function summerRoleEntryByKey(key){
+    key=String(key||"");if(!key)return null;
+    SUMMER_ROLE_REGISTRY=normalizeSummerRoleRegistry(SUMMER_ROLE_REGISTRY);
+    for(var i=0;i<SUMMER_ROLE_REGISTRY.length;i++){
+      if(String(SUMMER_ROLE_REGISTRY[i].key)===key)return SUMMER_ROLE_REGISTRY[i];
+    }
+    return null;
+  }
+  function isSummerRolePost(post){
+    if(!post||!isValidPostLink(post.link))return false;
+    if(post.summerRoleExcluded===true)return true;
+    var key=healingRoleUrlKey(post.link);
+    return !!(key&&summerRoleEntryByKey(key));
+  }
+  function applySummerRoleRegistryKey(key,enabled){
+    key=String(key||"");var changed=0,skipped=0;
+    for(var mi=0;mi<MESI.length;mi++){
+      var mese=MESI[mi],posts=Array.isArray(mese&&mese.posts)?mese.posts:[];
+      for(var pi=0;pi<posts.length;pi++){
+        var p=posts[pi];if(!p||healingRoleUrlKey(p.link)!==key)continue;
+        if(!houseRoleMonthEditable(mese)){skipped++;continue;}
+        if(enabled){
+          if(p.summerRoleExcluded!==true||String(p.summerRoleKey||"")!==key)changed++;
+          p.summerRoleExcluded=true;p.summerRoleKey=key;
+        }else if(p.summerRoleExcluded===true&&String(p.summerRoleKey||"")===key){
+          p.summerRoleExcluded=false;p.summerRoleKey="";changed++;
+        }
+      }
+    }
+    return {changed:changed,skipped:skipped};
+  }
+  function finalizeSummerRoleRegistryKey(key){
+    key=String(key||"");var frozen=0,skipped=0;
+    for(var mi=0;mi<MESI.length;mi++){
+      var mese=MESI[mi],posts=Array.isArray(mese&&mese.posts)?mese.posts:[];
+      for(var pi=0;pi<posts.length;pi++){
+        var p=posts[pi];if(!p||healingRoleUrlKey(p.link)!==key)continue;
+        if(!houseRoleMonthEditable(mese)){skipped++;continue;}
+        if(p.summerRoleExcluded===true){
+          p.summerRoleKey=""; /* il flag statico resta: 0 PC anche dopo chiusura Role */
+          frozen++;
+        }
+      }
+    }
+    SUMMER_ROLE_REGISTRY=normalizeSummerRoleRegistry(SUMMER_ROLE_REGISTRY).filter(function(x){return String(x.key)!==key;});
+    return {frozen:frozen,skipped:skipped};
+  }
+  function summerRoleMatchedPostsCount(key){
+    var n=0;
+    for(var mi=0;mi<MESI.length;mi++){
+      var posts=Array.isArray(MESI[mi]&&MESI[mi].posts)?MESI[mi].posts:[];
+      for(var pi=0;pi<posts.length;pi++){if(healingRoleUrlKey(posts[pi]&&posts[pi].link)===key)n++;}
+    }
+    return n;
+  }
+
   function houseRoleAnyEntryByKey(key){
     key=String(key||"");if(!key)return null;
     HOUSE_ROLE_BONUSES=normalizeHouseRoleBonuses(HOUSE_ROLE_BONUSES);
@@ -6712,7 +6798,7 @@
     return socialNumber(PARAMETRI_SOCIALI&&PARAMETRI_SOCIALI.stima);
   }
   function houseAutomaticPostEligible(mese,post){
-    return !!(houseSchoolMonth(mese)&&post&&isValidPostLink(post.link)&&!isSpecialRolePost(post));
+    return !!(houseSchoolMonth(mese)&&post&&isValidPostLink(post.link)&&!isSpecialRolePost(post)&&!isSummerRolePost(post));
   }
   function houseRolePointsOnPost(post,mese){
     return houseAutomaticPostEligible(mese,post)&&houseRoleAssigned(post)&&post.houseRoleBonusExcluded!==true?2:0;
@@ -9077,12 +9163,71 @@
   /* ==================================================== */
   /* STEP 2 - POST RAGGRUPPATI PER MESE                     */
   /* ==================================================== */
+
+  function renderSummerRoleManager(parent){
+    SUMMER_ROLE_REGISTRY=normalizeSummerRoleRegistry(SUMMER_ROLE_REGISTRY);
+    var details=document.createElement("details");details.className="house-role-details";
+    keepDetailsState(details,"posts:summer-role-registry",false);
+    var summary=document.createElement("summary");summary.textContent="☀ Role estive — 0 Punti Casa";details.appendChild(summary);
+    var body=el("div","house-role-details-body");
+    body.appendChild(el("p","small-note","Se una Role è <b>ambientata in estate</b>, incolla qui <b>una sola volta</b> il link della Role o di uno dei suoi Post. L’Elfo riconosce automaticamente tutti i Post dello stesso topic: restano normali per PP, Galeoni e N. globale, ma valgono <b>0 Punti Casa</b>."));
+
+    if(SUMMER_ROLE_REGISTRY.length){
+      var list=el("div","healing-role-list");
+      SUMMER_ROLE_REGISTRY.forEach(function(entry){
+        var row=el("div","healing-role-row"),main=el("div");
+        main.appendChild(el("strong",null,entry.title||"Role estiva"));
+        var a=document.createElement("a");a.href=safeHttpUrl(entry.url)||entry.url;a.target="_blank";a.rel="noopener noreferrer";a.className="tacc-link";a.textContent=entry.url||entry.key;
+        main.appendChild(document.createElement("br"));main.appendChild(a);
+        row.appendChild(main);row.appendChild(el("span","healing-role-count",summerRoleMatchedPostsCount(entry.key)+" post trovati"));
+
+        var done=el("button","action small","Role conclusa");done.type="button";done.disabled=!EDIT_UNLOCKED;
+        done.addEventListener(EV,function(){
+          if(!EDIT_UNLOCKED){alert("Accedi alla modifica dell’Elfo.");return;}
+          if(fbConnected&&!accreditiVerified()){alert("Non posso verificare gli accrediti: per sicurezza non modifico i Punti Casa finché Firebase non torna disponibile.");return;}
+          var res=finalizeSummerRoleRegistryKey(entry.key);scheduleSave(0);renderAll();
+          if(res.skipped>0)setTimeout(function(){alert("Role estiva conclusa. I Post già contrassegnati restano a 0 Punti Casa; "+res.skipped+" Post in Mesi accreditati/consolidati erano già bloccati e sono rimasti invariati.");},0);
+        });
+        row.appendChild(done);
+
+        var rm=el("button","action danger small","Rimuovi");rm.type="button";rm.disabled=!EDIT_UNLOCKED;
+        rm.addEventListener(EV,function(){
+          if(!EDIT_UNLOCKED){alert("Accedi alla modifica dell’Elfo.");return;}
+          if(fbConnected&&!accreditiVerified()){alert("Non posso verificare gli accrediti: per sicurezza non modifico i Punti Casa finché Firebase non torna disponibile.");return;}
+          var res=applySummerRoleRegistryKey(entry.key,false);
+          SUMMER_ROLE_REGISTRY=SUMMER_ROLE_REGISTRY.filter(function(x){return String(x.key)!==String(entry.key);});
+          scheduleSave(0);renderAll();
+          if(res.skipped>0)setTimeout(function(){alert("Role estiva rimossa. "+res.changed+" Post editabili tornano al calcolo normale; "+res.skipped+" Post in Mesi accreditati/consolidati sono rimasti invariati.");},0);
+        });
+        row.appendChild(rm);list.appendChild(row);
+      });
+      body.appendChild(list);
+    }else{body.appendChild(el("p","small-note","Nessuna Role estiva registrata."));}
+
+    var row=el("div","row"),cell=el("div");cell.appendChild(el("label",null,"Link della Role estiva"));
+    var inp=el("input");inp.type="url";inp.placeholder="Incolla il link della Role o di un suo Post";inp.disabled=!EDIT_UNLOCKED;cell.appendChild(inp);row.appendChild(cell);
+    var act=el("div");act.style.alignSelf="end";var add=el("button","action","Segna come Role estiva");add.type="button";add.disabled=!EDIT_UNLOCKED;act.appendChild(add);row.appendChild(act);body.appendChild(row);
+    add.addEventListener(EV,function(){
+      if(!EDIT_UNLOCKED){alert("Accedi alla modifica dell’Elfo.");return;}
+      if(fbConnected&&!accreditiVerified()){alert("Non posso verificare gli accrediti: per sicurezza non modifico i Punti Casa finché Firebase non torna disponibile.");return;}
+      var url=safeHttpUrl(inp.value),key=healingRoleUrlKey(url||inp.value);
+      if(!url||!key){alert("Inserisci un link valido della Role o di un suo Post.");return;}
+      if(summerRoleEntryByKey(key)){alert("Questa Role è già registrata come estiva.");return;}
+      SUMMER_ROLE_REGISTRY.push({id:"summer_"+Date.now().toString(36)+"_"+Math.random().toString(36).slice(2,7),url:url,key:key,title:"Role estiva"});
+      SUMMER_ROLE_REGISTRY=normalizeSummerRoleRegistry(SUMMER_ROLE_REGISTRY);
+      var res=applySummerRoleRegistryKey(key,true);scheduleSave(0);renderAll();
+      setTimeout(function(){alert("Role estiva registrata: "+res.changed+" Post editabili ora valgono 0 Punti Casa."+(res.skipped>0?" "+res.skipped+" Post in Mesi già accreditati/consolidati non sono stati modificati.":""));},0);
+    });
+    details.appendChild(body);parent.appendChild(details);
+  }
+
   function renderPostsStep(container){
     var p = el("div", "panel");
     p.appendChild(el("h2", null, "I tuoi Post"));
     p.appendChild(el("div", "guide-text",
       "Organizzati per Mese: apri un Mese e aggiungi i post al suo interno, senza doverlo riscrivere ogni volta. Ogni post con link riceve un <b>numero globale permanente</b>: una volta assegnato non cambia più, anche se in futuro il Narratore archivia e rimuove dal database mesi molto vecchi. È <b>qui</b> che trovi il N. globale da indicare in Pulizia del Calderone, Coltivazioni e Allevamento; i relativi conteggi avanzano poi automaticamente. I conteggi di Postazione, Cubicolo e Recinto possono quindi continuare in sicurezza da un mese all'altro. Le Role di <b>Linea dell’Età, Giratempo e Trix Tristis</b> si registrano nel riquadro «Role fuori conteggio» qui sotto: i loro Post restano visibili in «I tuoi Post» con i premi specifici della sezione, ma non ricevono N. globale, non entrano in Camera Blindata e non fanno avanzare lavorazioni o Guarigioni."));
     renderSpecialRoleManager(p);
+    renderSummerRoleManager(p);
 
     var legacyDupMonths = duplicateMonthNames();
     if(legacyDupMonths.length){
@@ -9312,6 +9457,9 @@
           post.link=candidate;
           lastAcceptedPostLink=candidate;
           syncSpecialRoleForPost(post);
+          var summerKey=healingRoleUrlKey(post.link),summerEntry=summerKey?summerRoleEntryByKey(summerKey):null;
+          if(summerEntry){post.summerRoleExcluded=true;post.summerRoleKey=summerKey;}
+          else if(post.summerRoleExcluded===true&&post.summerRoleKey&&String(post.summerRoleKey)!==String(summerKey)){post.summerRoleExcluded=false;post.summerRoleKey="";}
           ensurePostGlobalNo(post);
           refreshInlineGlobal();
           syncHouseRoleBonusForPost(post,mese);
@@ -9359,6 +9507,7 @@
           verifyAndCommitGeneralPostLink(candidate,0);
         });
         tdLink.appendChild(iLink);
+        if(isSummerRolePost(post)){tdLink.appendChild(el("span","small-note special-role-post-note","☀ Estate · 0 Punti Casa"));}
         if(isSpecialRolePost(post)){
           var sri=specialRoleTypeInfo(post.specialRoleType);
           tdLink.appendChild(el("span","small-note special-role-post-note","↪ "+(sri?sri.label:"Role fuori conteggio")));
@@ -9828,7 +9977,9 @@
       if(houseAutomaticPostEligible(mese,post)){
         ordinal++;out.eligiblePosts++;out.base+=houseBasePointsByOrdinal(ordinal);out.stima+=band.modifier;out.role+=houseRolePointsOnPost(post,mese);
       }
-      for(var b=0;b<bonuses.length;b++)out.manual+=bonusHousePointsOnPost(bonuses[b],post);
+      if(!isSummerRolePost(post)){
+        for(var b=0;b<bonuses.length;b++)out.manual+=bonusHousePointsOnPost(bonuses[b],post);
+      }
     }
     for(var mb=0;mb<bonuses.length;mb++){
       if(bonuses[mb].modalita==="manual"&&bonuses[mb].utilizziManuali>0){out.manual+=Math.max(0,parseInt(bonuses[mb].utilizziManuali,10)||0)*housePointsFromText(bonuses[mb].altro);}
