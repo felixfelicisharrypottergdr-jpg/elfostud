@@ -1,4 +1,5 @@
 
+
 <!-- v195 — audit persistenza: coda locale anche per modifiche persistenti rilevate dal listener universale; flush prima di Cambia Elfo; flush best-effort strutture condivise su hidden/pagehide; 09/09/2026 -->
 <!-- v175: ripristinato import completo Erbologia (ciclo, esito, post, legalità Pianta e campi v137). -->
 <!-- elfo_studente_v202 — rimosso il paragrafo tecnico iniziale sulla ricerca PG; comportamento ottimizzato e avvisi contestuali invariati. -->
@@ -36,6 +37,7 @@
 <!-- elfo_studente_v234 — fix UI Taccuino silenziosa: usa TACC_CLOUD_TEXT/TACC_CLOUD_ERROR originali e nessun renderAll dal setter. -->
 <!-- elfo_studente_v235 — Role estive in I tuoi Post: una registrazione per topic, 0 Punti Casa; accrediti Narratore autoritativi senza popup. -->
 <!DOCTYPE html>
+<!-- elfo_studente_v236 — ponte locale Felix Token: esporta mesi/Post della Camera Blindata in localStorage condiviso, senza letture Firebase aggiuntive; 11/09/2026 -->
 <!-- v174 — rimosso promemoria Lista della Spesa alla chiusura Role fuori conteggio; 08/09/2026 -->
 <!-- v165 — fix mirato post-password: ricalcolo altezza ritardato dopo sblocco modifica; rollback automatismi So-Tutto non necessari; 08/09/2026 -->
 <!-- v163 — fix altezza iframe: misura robusta scrollHeight + bounding box; include controllo sezioni escluse v162; nessuna lettura Firebase aggiuntiva; 08/09/2026 -->
@@ -3975,6 +3977,43 @@
 
   var POSTS = [];
   var MESI = [];
+
+  /* ==================================================== */
+  /* PONTE LOCALE ELFO -> GESTORE FELIX TOKEN             */
+  /* Nessuna lettura/scrittura Firebase: localStorage,     */
+  /* condiviso tra le pagine dello stesso dominio.         */
+  /* ==================================================== */
+  var FELIX_TOKEN_BRIDGE_PREFIX="ffgdr_felix_token_bridge_v1::";
+  var FELIX_TOKEN_BRIDGE_TIMER=null;
+  function felixTokenBridgePgName(){return String(STUDENTE&&STUDENTE.nome||"").trim().replace(/\s+/g," ");}
+  function felixTokenBridgeKey(pg){return FELIX_TOKEN_BRIDGE_PREFIX+"studenti::"+encodeURIComponent(String(pg||"").trim().toLocaleLowerCase("it-IT"));}
+  function felixTokenBridgeSnapshot(){
+    var pg=felixTokenBridgePgName();if(!pg)return null;
+    var months=[];
+    for(var mi=0;mi<MESI.length;mi++){
+      var mese=MESI[mi]||{},name="";
+      try{name=canonicalMonthName(mese.nome)||String(mese.nome||"").trim();}catch(e){name=String(mese.nome||"").trim();}
+      if(!name)continue;
+      var posts=Array.isArray(mese.posts)?mese.posts:[],links=[];
+      for(var pi=0;pi<posts.length;pi++){
+        var post=posts[pi];
+        if(!post)continue;
+        try{if(!isValidPostLink(post.link)||isSpecialRolePost(post))continue;}catch(e){continue;}
+        links.push(String(post.link||"").trim());
+      }
+      months.push({id:String(mese.id==null?"":mese.id),name:name,postCount:links.length,links:links,archived:!!mese.chiuso});
+    }
+    return {schemaVersion:1,pgName:pg,pgKind:"studenti",updatedAt:new Date().toISOString(),months:months};
+  }
+  function felixTokenBridgePublishNow(){
+    FELIX_TOKEN_BRIDGE_TIMER=null;
+    try{var snap=felixTokenBridgeSnapshot();if(!snap)return;localStorage.setItem(felixTokenBridgeKey(snap.pgName),JSON.stringify(snap));}catch(e){}
+  }
+  function felixTokenBridgeSchedule(){
+    if(FELIX_TOKEN_BRIDGE_TIMER)clearTimeout(FELIX_TOKEN_BRIDGE_TIMER);
+    FELIX_TOKEN_BRIDGE_TIMER=setTimeout(felixTokenBridgePublishNow,80);
+  }
+
   var SPECIAL_ROLE_REGISTRY = [];
   var HOUSE_ROLE_BONUSES = [];
   var SUMMER_ROLE_REGISTRY = [];
@@ -6422,6 +6461,7 @@
 
   function scheduleSave(delayMs, registraModifica){
     if(DELETING_PG){ return; }
+    felixTokenBridgeSchedule();
     if(fbConnected && !EDIT_UNLOCKED){ updateFbIndicator(); return; }
     if(registraModifica !== false){
       captureUndoHistory(true);
@@ -8627,6 +8667,7 @@
     options=options||{};
     ensureCurrentStepVisible();
     recomputePosts();
+    felixTokenBridgeSchedule();
     updateElfoIdentityHeader();
     applyTheme();
     renderNav();
