@@ -36,6 +36,7 @@
 <!-- elfo_studente_v233 — UI Taccuino cloud silenziosa: nessun messaggio per attesa/sync riuscita; solo errori/avvisi reali. -->
 <!-- elfo_studente_v234 — fix UI Taccuino silenziosa: usa TACC_CLOUD_TEXT/TACC_CLOUD_ERROR originali e nessun renderAll dal setter. -->
 <!-- elfo_studente_v235 — Role estive in I tuoi Post: una registrazione per topic, 0 Punti Casa; accrediti Narratore autoritativi senza popup. -->
+<!-- elfo_studente_v237 — ponte Felix Token v2: Role concluse + mesi consecutivi esportati localmente, nessuna lettura Firebase aggiuntiva; 11/09/2026 -->
 <!DOCTYPE html>
 <!-- elfo_studente_v236 — ponte locale Felix Token: esporta mesi/Post della Camera Blindata in localStorage condiviso, senza letture Firebase aggiuntive; 11/09/2026 -->
 <!-- v174 — rimosso promemoria Lista della Spesa alla chiusura Role fuori conteggio; 08/09/2026 -->
@@ -3989,21 +3990,44 @@
   function felixTokenBridgeKey(pg){return FELIX_TOKEN_BRIDGE_PREFIX+"studenti::"+encodeURIComponent(String(pg||"").trim().toLocaleLowerCase("it-IT"));}
   function felixTokenBridgeSnapshot(){
     var pg=felixTokenBridgePgName();if(!pg)return null;
-    var months=[];
+    var months=[],allPosts=[];
     for(var mi=0;mi<MESI.length;mi++){
       var mese=MESI[mi]||{},name="";
       try{name=canonicalMonthName(mese.nome)||String(mese.nome||"").trim();}catch(e){name=String(mese.nome||"").trim();}
       if(!name)continue;
       var posts=Array.isArray(mese.posts)?mese.posts:[],links=[];
       for(var pi=0;pi<posts.length;pi++){
-        var post=posts[pi];
-        if(!post)continue;
-        try{if(!isValidPostLink(post.link)||isSpecialRolePost(post))continue;}catch(e){continue;}
-        links.push(String(post.link||"").trim());
+        var post=posts[pi];if(!post)continue;
+        var link=String(post.link||"").trim();
+        try{if(!isValidPostLink(link))continue;}catch(e){continue;}
+        var special=false;try{special=!!isSpecialRolePost(post);}catch(e){special=false;}
+        var topicKey="";try{topicKey=typeof healingRoleUrlKey==="function"?healingRoleUrlKey(link):"";}catch(e){topicKey="";}
+        allPosts.push({link:link,month:name,topicKey:topicKey,special:special});
+        if(!special)links.push(link);
       }
+      links=Array.from(new Set(links));
       months.push({id:String(mese.id==null?"":mese.id),name:name,postCount:links.length,links:links,archived:!!mese.chiuso});
     }
-    return {schemaVersion:1,pgName:pg,pgKind:"studenti",updatedAt:new Date().toISOString(),months:months};
+    var closedRoles=[];
+    try{
+      var roles=(typeof TACCUINO!=="undefined"&&TACCUINO&&Array.isArray(TACCUINO.roles))?TACCUINO.roles:[];
+      for(var ri=0;ri<roles.length;ri++){
+        var r=roles[ri];if(!r||String(r.status||"")!=="closed")continue;
+        var rawUrl=String(r.url||"").trim(),url="";
+        try{url=typeof taccExternalUrl==="function"?taccExternalUrl(rawUrl):(typeof safeHttpUrl==="function"?safeHttpUrl(rawUrl):rawUrl);}catch(e){url=rawUrl;}
+        if(!url)continue;
+        var key="";try{key=typeof healingRoleUrlKey==="function"?healingRoleUrlKey(url):"";}catch(e){key="";}
+        var roleLinks=[];
+        if(key){for(var ai=0;ai<allPosts.length;ai++){if(allPosts[ai].topicKey===key)roleLinks.push(allPosts[ai].link);}}
+        roleLinks=Array.from(new Set(roleLinks));
+        closedRoles.push({
+          id:String(r.id||("role_"+ri)),title:String(r.title||"Role"),url:url,
+          closedAt:String(r.closedAt||""),period:String(r.period||""),
+          postCount:roleLinks.length,postLinks:roleLinks
+        });
+      }
+    }catch(e){}
+    return {schemaVersion:2,pgName:pg,pgKind:"studenti",updatedAt:new Date().toISOString(),months:months,closedRoles:closedRoles};
   }
   function felixTokenBridgePublishNow(){
     FELIX_TOKEN_BRIDGE_TIMER=null;
@@ -7810,6 +7834,7 @@
       console.warn("Salvataggio Taccuino fallito",e);
       TACC_STORAGE_OK=false; TACC_STATUS="Salvataggio locale non riuscito: la copia cloud può comunque funzionare, ma esporta anche un backup JSON."; ok=false;
     }
+    felixTokenBridgeSchedule();
     TACC_CLOUD_DIRTY=true;taccScheduleCloudSync();
     return ok;
   }
