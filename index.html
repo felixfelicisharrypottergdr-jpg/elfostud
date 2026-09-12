@@ -1,4 +1,6 @@
+
 <!DOCTYPE html>
+<!-- elfo_studente_v240 — Conteggi Cicli: Post necessari indipendenti dal n° globale; avvio esplicito dal primo Post; startIndex vuoto finché il conteggio non parte; migrazione buchi impossibili; 12/09/2026 -->
 <!-- elfo_studente_v239 — Cicli 0%: conferma TERMINATO + avanzamento; storico Fasi piatto con un solo details per fase; 12/09/2026 -->
 <!-- elfo_studente_v238 — ponte Felix Token: esporta stato chiuso/accreditato dei Mesi per missioni periodiche, senza nuove letture Firebase; 12/09/2026 -->
 <!-- elfo_studente_v237 — ponte Felix Token v2: Role concluse + mesi consecutivi esportati localmente, nessuna lettura Firebase aggiuntiva; 11/09/2026 -->
@@ -4365,7 +4367,9 @@
     return Object.keys(dups).map(function(x){return parseInt(x,10);}).sort(function(a,b){return a-b;});
   }
   function permanentGlobalHoles(start,count){
-    start=Math.max(1,parseInt(start,10)||1);count=Math.max(0,parseInt(count,10)||0);var holes=[];
+    start=parseInt(start,10);count=Math.max(0,parseInt(count,10)||0);var holes=[];
+    /* v240 — il numero di Post richiesti può essere impostato prima di scegliere il primo Post globale. */
+    if(!(start>0)||!(count>0)){return holes;}
     for(var i=0;i<count;i++){var n=start+i;if(n<=globalPostCounter&&!getPostByGlobalNo(n)){holes.push(n);}}
     return holes;
   }
@@ -7363,7 +7367,7 @@
   function activityPotionId(pz){return "potion:"+String(pz&&pz.id!=null?pz.id:"")+":cleaning";}
   function activityHealingId(h){return "healing:"+String(h&&h.id||"");}
   function activityCycleId(type,occId,stageKey,suffix){return "cycle:"+String(type||"").toLowerCase()+":"+String(occId)+":"+String(stageKey)+":"+String(suffix);}
-  function activityPotionProgress(pz){var total=Math.max(0,parseInt(pz&&pz.postRichiesti,10)||0),filled=0;if(total>0){for(var i=0;i<total;i++){var post=getPostByGlobalNo((parseInt(pz.startIndex,10)||0)+i);if(post&&String(post.link||"").trim()){filled++;}}}return {filled:filled,total:total,complete:total>0&&filled>=total};}
+  function activityPotionProgress(pz){var total=Math.max(0,parseInt(pz&&pz.postRichiesti,10)||0),start=parseInt(pz&&pz.startIndex,10)||0,filled=0;if(total>0&&start>0){for(var i=0;i<total;i++){var post=getPostByGlobalNo(start+i);if(post&&String(post.link||"").trim()){filled++;}}}return {filled:filled,total:total,waitingStart:total>0&&!(start>0),complete:total>0&&start>0&&filled>=total};}
   function activityCompletionItems(){
     var out=[];
     function add(id,label,step,kind){if(id){out.push({id:id,label:label,step:step,kind:kind||""});}}
@@ -11771,7 +11775,7 @@
       bacchettaLink: "", bacchettaEsito: "riuscita", dosi: 2,
       distillSvolta: false, distillLink: "", distillEsito: "", distillBagaglio: "",
       imbottLink: "", imbottPercent: "100", calderaio: "0",
-      postRichiesti: 10, startIndex: nextGlobalPostNumber(),
+      postRichiesti: 10, startIndex: "",
       imbottModificatori:"",
       legalita:"legale", illegalita:{professione:"",protezioni:"",facceProtezione:0,controlli:{}}
     };
@@ -12007,14 +12011,18 @@
     var dPost=el("div"); dPost.appendChild(el("label",null,"Post necessari"));
     var iPost=el("input"); iPost.type="number"; iPost.min="0"; iPost.step="1";
     iPost.value=Math.max(0,num(postaz.postRichiesti,0));
-    iPost.addEventListener("change",function(){var proposed=Math.max(0,num(iPost.value,0));if(!validateGlobalIntervalOrAlert(postaz.startIndex,proposed)){iPost.value=postaz.postRichiesti;return;}postaz.postRichiesti=proposed;scheduleSave(0);renderAll();});
+    iPost.addEventListener("change",function(){var proposed=Math.max(0,num(iPost.value,0));postaz.postRichiesti=proposed;scheduleSave(0);renderAll();});
     dPost.appendChild(iPost); row.appendChild(dPost);
 
     var dStart=el("div"); dStart.appendChild(el("label",null,"Dal post globale n°"));
-    var iStart=el("input"); iStart.type="number"; iStart.min="1"; iStart.step="1";
-    iStart.value=Math.max(1,num(postaz.startIndex,nextGlobalPostNumber()));
-    iStart.addEventListener("change",function(){var proposed=Math.max(1,num(iStart.value,1));if(!validateGlobalIntervalOrAlert(proposed,Math.max(0,num(postaz.postRichiesti,0)))){iStart.value=postaz.startIndex;return;}postaz.startIndex=proposed;scheduleSave(0);renderAll();});
-    dStart.appendChild(iStart); row.appendChild(dStart);
+    var potionStart=parseInt(postaz.startIndex,10)||0;
+    if(potionStart>0&&potionStart<=globalPostCounter&&!getPostByGlobalNo(potionStart)){postaz.startIndex="";potionStart=0;}
+    var iStart=el("input"); iStart.type="number"; iStart.min="1"; iStart.step="1"; iStart.placeholder="Non ancora iniziato";
+    iStart.value=potionStart>0?String(potionStart):"";
+    iStart.addEventListener("change",function(){var raw=String(iStart.value||"").trim();if(!raw){postaz.startIndex="";scheduleSave(0);renderAll();return;}var proposed=parseInt(raw,10)||0;if(!(proposed>0)||!validateGlobalIntervalOrAlert(proposed,Math.max(0,num(postaz.postRichiesti,0)))){iStart.value=postaz.startIndex||"";return;}postaz.startIndex=proposed;scheduleSave(0);renderAll();});
+    dStart.appendChild(iStart);
+    var btnStart=el("button","action small","Inizia dal prossimo Post globale");btnStart.type="button";btnStart.addEventListener(EV,function(){var proposed=nextGlobalPostNumber();if(!validateGlobalIntervalOrAlert(proposed,Math.max(0,num(postaz.postRichiesti,0))))return;postaz.startIndex=proposed;scheduleSave(0);renderAll();});dStart.appendChild(btnStart);
+    row.appendChild(dStart);
 
     wrap.appendChild(row);
     wrap.appendChild(el("p","small-note","Il N. globale si trova in <b>I tuoi Post</b>. Non devi registrare qui i singoli post: la Pulizia avanza automaticamente quando quei Post vengono aggiunti all’Elfo."));
@@ -12032,12 +12040,13 @@
 
   function buildPostsFromSharedList(postaz){
     var wrap = el("div");
-    var filled = 0;
-    for(var s=0; s<postaz.postRichiesti; s++){
-      var post = getPostByGlobalNo(postaz.startIndex + s);
+    var filled = 0, start=parseInt(postaz.startIndex,10)||0;
+    if(start>0){for(var s=0; s<postaz.postRichiesti; s++){
+      var post = getPostByGlobalNo(start + s);
       if(post){ if(String(post.link || "").trim() !== ""){ filled = filled + 1; } }
-    }
+    }}
     wrap.appendChild(progressStatusNode("Pulizia del Calderone", filled, postaz.postRichiesti));
+    if(postaz.postRichiesti>0&&!(start>0)){wrap.appendChild(el("div","small-note","Post richiesti salvati. Il conteggio non è ancora iniziato: imposta il primo Post globale quando cominci davvero a postare."));}
     if(postaz.postRichiesti>0&&filled>=postaz.postRichiesti){wrap.appendChild(buildActivityAckControl(activityPotionId(postaz)));}
     return wrap;
   }
@@ -12092,8 +12101,9 @@
       if(String(postaz.imbottModificatori||"").trim()!==""){ lines.push("<b>Modificatori applicati:</b> "+String(postaz.imbottModificatori).trim()); }
 
       lines.push("[SPOILER]");
+      var exportStart=parseInt(postaz.startIndex,10)||0;
       for(var s=0; s<postaz.postRichiesti; s++){
-        var slotPost = getPostByGlobalNo(postaz.startIndex + s);
+        var slotPost = exportStart>0 ? getPostByGlobalNo(exportStart + s) : null;
         lines.push(slotPost ? (s+1) + ": " + forumBbUrl(slotPost.link,"x") : (s+1) + ":");
       }
       lines.push("[/SPOILER]");
@@ -12130,7 +12140,7 @@
 
   function newSubEntry(){
     return {
-      esitoLink:"", esitoText:"", postRichiesti:0, startIndex:nextGlobalPostNumber(),
+      esitoLink:"", esitoText:"", postRichiesti:0, startIndex:"",
       ottenuti:"", ottenutiLink:"", ottenutiQuantita:"", erbCicloConsumataPerFallimento:false
     };
   }
@@ -12147,7 +12157,13 @@
     if(sub.esitoText==null){sub.esitoText="";}
     if(sub.postRichiesti==null){sub.postRichiesti=0;}
     if(sub.erbCicloConsumataPerFallimento==null){sub.erbCicloConsumataPerFallimento=zeroPercentOutcomeEntered(sub.esitoText);}
-    if(sub.startIndex==null){sub.startIndex=nextGlobalPostNumber();}
+    if(sub.startIndex==null){sub.startIndex="";}
+    var legacyStart=parseInt(sub.startIndex,10);
+    if(!(legacyStart>0)){sub.startIndex="";}
+    else if(legacyStart<=globalPostCounter&&!getPostByGlobalNo(legacyStart)){
+      /* v240 — vecchi Cicli creati con un numero globale assegnato automaticamente: se quel numero è ormai un buco permanente, il conteggio non era realmente partito. */
+      sub.startIndex="";
+    }else{sub.startIndex=legacyStart;}
     if(sub.ottenuti==null){sub.ottenuti="";}
     if(sub.ottenutiLink==null){sub.ottenutiLink="";}
     if(sub.ottenutiQuantita==null){sub.ottenutiQuantita="";}
@@ -12166,12 +12182,15 @@
   function subEntryProgress(sub){
     sub=normalizeSubEntry(sub);
     var total=Math.max(0,num(sub.postRichiesti,0));
+    var start=parseInt(sub.startIndex,10)||0;
     var filled=0;
-    for(var i=0;i<total;i++){
-      var post=getPostByGlobalNo(sub.startIndex+i);
-      if(post && String(post.link||"").trim()!==""){filled++;}
+    if(start>0){
+      for(var i=0;i<total;i++){
+        var post=getPostByGlobalNo(start+i);
+        if(post && String(post.link||"").trim()!==""){filled++;}
+      }
     }
-    return {filled:filled,total:total};
+    return {filled:filled,total:total,waitingStart:total>0&&!(start>0),startIndex:start};
   }
 
   function newOccupant(stages){
@@ -13136,23 +13155,27 @@
     var iPost = el("input"); iPost.type="number"; iPost.min="0"; iPost.value = sub.postRichiesti;
     iPost.addEventListener("change", function(){
       var proposed=Math.max(0,num(iPost.value,0));
-      if(!validateGlobalIntervalOrAlert(sub.startIndex,proposed)){iPost.value=sub.postRichiesti;return;}
       sub.postRichiesti=proposed;scheduleSave(0);renderAll();
     });
     dPost.appendChild(iPost); row.appendChild(dPost);
 
     var dStart = el("div"); dStart.appendChild(el("label", null, "Dal post globale n°"));
-    var iStart = el("input"); iStart.type="number"; iStart.min="1"; iStart.value = sub.startIndex;
+    var iStart = el("input"); iStart.type="number"; iStart.min="1"; iStart.placeholder="Non ancora iniziato"; iStart.value = (parseInt(sub.startIndex,10)>0?String(parseInt(sub.startIndex,10)):"");
     iStart.addEventListener("change", function(){
-      var proposed=Math.max(1,num(iStart.value,1));
-      if(!validateGlobalIntervalOrAlert(proposed,sub.postRichiesti)){iStart.value=sub.startIndex;return;}
+      var raw=String(iStart.value||"").trim();
+      if(!raw){sub.startIndex="";scheduleSave(0);renderAll();return;}
+      var proposed=parseInt(raw,10)||0;
+      if(!(proposed>0)||!validateGlobalIntervalOrAlert(proposed,sub.postRichiesti)){iStart.value=sub.startIndex||"";return;}
       sub.startIndex=proposed;scheduleSave(0);renderAll();
     });
-    dStart.appendChild(iStart); row.appendChild(dStart);
+    dStart.appendChild(iStart);
+    var btnStart=el("button","action small","Inizia dal prossimo Post globale");btnStart.type="button";btnStart.addEventListener(EV,function(){var proposed=nextGlobalPostNumber();if(!validateGlobalIntervalOrAlert(proposed,Math.max(0,num(sub.postRichiesti,0))))return;sub.startIndex=proposed;scheduleSave(0);renderAll();});dStart.appendChild(btnStart);
+    row.appendChild(dStart);
     wrap.appendChild(row);
 
     var pr=subEntryProgress(sub);
     wrap.appendChild(progressStatusNode("", pr.filled, pr.total));
+    if(pr.waitingStart){wrap.appendChild(el("div","small-note","Post richiesti salvati. Il conteggio non è ancora iniziato: imposta il primo Post globale quando cominci davvero a postare."));}
     if(sub.erbCicloConsumataPerFallimento){
       wrap.appendChild(el("div","small-note","Ciclo consumato con esito 0%: nessun Post o raccolto richiesto; il Ciclo conta come TERMINATO nella Fase."));
     }
@@ -13294,8 +13317,8 @@
     targets.forEach(function(t){
       var sub=normalizeSubEntry(t.sub),row=el("div","row");
       var dName=el("div");dName.appendChild(el("label",null,"Conteggio"));dName.appendChild(el("div","shared-responsible-name","<b>"+t.label+"</b>"));row.appendChild(dName);
-      var dPost=el("div");dPost.appendChild(el("label",null,"Post necessari"));var iPost=el("input");iPost.type="number";iPost.min="0";iPost.step="1";iPost.value=Math.max(0,num(sub.postRichiesti,0));iPost.addEventListener("change",function(){var proposed=Math.max(0,num(iPost.value,0));if(!validateGlobalIntervalOrAlert(sub.startIndex,proposed)){iPost.value=sub.postRichiesti;return;}sub.postRichiesti=proposed;scheduleSave(0);renderAll();});dPost.appendChild(iPost);row.appendChild(dPost);
-      var dStart=el("div");dStart.appendChild(el("label",null,"Dal post globale n°"));var iStart=el("input");iStart.type="number";iStart.min="1";iStart.step="1";iStart.value=Math.max(1,num(sub.startIndex,nextGlobalPostNumber()));iStart.addEventListener("change",function(){var proposed=Math.max(1,num(iStart.value,1));if(!validateGlobalIntervalOrAlert(proposed,Math.max(0,num(sub.postRichiesti,0)))){iStart.value=sub.startIndex;return;}sub.startIndex=proposed;scheduleSave(0);renderAll();});dStart.appendChild(iStart);row.appendChild(dStart);
+      var dPost=el("div");dPost.appendChild(el("label",null,"Post necessari"));var iPost=el("input");iPost.type="number";iPost.min="0";iPost.step="1";iPost.value=Math.max(0,num(sub.postRichiesti,0));iPost.addEventListener("change",function(){var proposed=Math.max(0,num(iPost.value,0));sub.postRichiesti=proposed;scheduleSave(0);renderAll();});dPost.appendChild(iPost);row.appendChild(dPost);
+      var dStart=el("div");dStart.appendChild(el("label",null,"Dal post globale n°"));var iStart=el("input");iStart.type="number";iStart.min="1";iStart.step="1";iStart.placeholder="Non ancora iniziato";iStart.value=parseInt(sub.startIndex,10)>0?String(parseInt(sub.startIndex,10)):"";iStart.addEventListener("change",function(){var raw=String(iStart.value||"").trim();if(!raw){sub.startIndex="";scheduleSave(0);renderAll();return;}var proposed=parseInt(raw,10)||0;if(!(proposed>0)||!validateGlobalIntervalOrAlert(proposed,Math.max(0,num(sub.postRichiesti,0)))){iStart.value=sub.startIndex||"";return;}sub.startIndex=proposed;scheduleSave(0);renderAll();});dStart.appendChild(iStart);var btnStart=el("button","action small","Inizia dal prossimo Post globale");btnStart.type="button";btnStart.addEventListener(EV,function(){var proposed=nextGlobalPostNumber();if(!validateGlobalIntervalOrAlert(proposed,Math.max(0,num(sub.postRichiesti,0))))return;sub.startIndex=proposed;scheduleSave(0);renderAll();});dStart.appendChild(btnStart);row.appendChild(dStart);
       box.appendChild(row);
       var pr=subEntryProgress(sub);if(pr.pending){box.appendChild(el("div","small-note","Caricamento dei Post del PG responsabile…"));}else if(pr.total>0){box.appendChild(progressStatusNode(t.label,pr.filled,pr.total));}
     });
@@ -14122,7 +14145,8 @@
     if(pr.total>0){
       out+="<ol>";
       for(var i=0;i<pr.total;i++){
-        var post=getPostByGlobalNo(sub.startIndex+i);
+        var exportStart=parseInt(sub.startIndex,10)||0;
+        var post=exportStart>0?getPostByGlobalNo(exportStart+i):null;
         out+="<li>"+(post?forumBbUrl(post.link,"Post "+(i+1)):"Post "+(i+1))+"</li>";
       }
       out+="</ol>";
