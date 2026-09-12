@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+<!-- elfo_studente_v239 — Cicli 0%: conferma TERMINATO + avanzamento; storico Fasi piatto con un solo details per fase; 12/09/2026 -->
 <!-- elfo_studente_v238 — ponte Felix Token: esporta stato chiuso/accreditato dei Mesi per missioni periodiche, senza nuove letture Firebase; 12/09/2026 -->
 <!-- elfo_studente_v237 — ponte Felix Token v2: Role concluse + mesi consecutivi esportati localmente, nessuna lettura Firebase aggiuntiva; 11/09/2026 -->
 <!-- elfo_studente_v236 — ponte locale Felix Token: esporta mesi/Post della Camera Blindata in localStorage condiviso, senza letture Firebase aggiuntive; 11/09/2026 -->
@@ -696,11 +697,17 @@
     border-radius:7px;
     background:rgba(255,255,255,.30);
   }
-  .structure-ui .phase-summary-details > summary,
-  .structure-ui .phase-history-details > summary{
+  .structure-ui .phase-summary-details > summary{
     cursor:pointer;
     font-weight:800;
     color:var(--green-dark);
+  }
+  .structure-ui .phase-history-title{
+    margin:1px 2px 8px;
+    font-weight:900;
+    color:var(--green-dark);
+    font-variant:small-caps;
+    letter-spacing:.045em;
   }
   .structure-ui .phase-summary-list{
     margin:10px 0 2px;
@@ -708,16 +715,58 @@
     font-size:.79rem;
     line-height:1.55;
   }
+  /* Storico piatto: un solo <details> per ogni Fase vitale, senza matrioske interne. */
   .structure-ui .phase-history-stage{
-    margin:10px 0 0;
-    border-left:3px solid rgba(128,96,42,.42);
-    padding-left:8px;
+    margin:8px 0;
+    border:1px solid rgba(128,96,42,.38);
+    border-left:3px solid rgba(128,96,42,.55);
+    border-radius:6px;
+    padding:7px 9px 9px;
+    background:rgba(255,255,255,.24);
   }
   .structure-ui .phase-history-stage > summary{
     cursor:pointer;
     font-weight:800;
     color:#665a43;
   }
+  .structure-ui .history-cycle-group{
+    margin:10px 0;
+    padding:9px 10px 10px;
+    border:1px solid rgba(128,96,42,.26);
+    border-radius:6px;
+    background:rgba(255,255,255,.24);
+  }
+  .structure-ui .history-cycle-group-title{
+    display:flex;
+    align-items:center;
+    gap:6px;
+    margin:0 0 6px;
+    font-weight:800;
+    color:var(--green-dark);
+  }
+  .structure-ui .history-cycle-item{
+    margin:8px 0 0;
+    padding:8px 9px 9px;
+    border-top:1px solid rgba(128,96,42,.22);
+    background:rgba(255,255,255,.20);
+  }
+  .structure-ui .history-cycle-item:first-of-type{ border-top:0; }
+  .structure-ui .history-cycle-item-head{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    flex-wrap:wrap;
+    gap:8px;
+    font-weight:700;
+  }
+  .structure-ui .zero-percent-continuation{
+    margin:9px 0 4px;
+    padding:9px 10px;
+    border:1px solid rgba(176,118,28,.55);
+    border-radius:6px;
+    background:rgba(255,239,194,.55);
+  }
+  .structure-ui .zero-percent-continuation .small-note{ display:block; margin-bottom:5px; }
   .structure-ui .obtained-result-row{ margin-top:10px; }
   .structure-ui .obtained-result-row > div > label{ min-height:2.2em; }
   .structure-ui .cycle-context{ margin:8px 0 10px; }
@@ -11960,7 +12009,6 @@
     iPost.value=Math.max(0,num(postaz.postRichiesti,0));
     iPost.addEventListener("change",function(){var proposed=Math.max(0,num(iPost.value,0));if(!validateGlobalIntervalOrAlert(postaz.startIndex,proposed)){iPost.value=postaz.postRichiesti;return;}postaz.postRichiesti=proposed;scheduleSave(0);renderAll();});
     dPost.appendChild(iPost); row.appendChild(dPost);
-    if(sub.erbCicloConsumataPerFallimento){dPost.appendChild(el("div","small-note","Ciclo consumato per esito 0%: nessun post richiesto, ma conta nel totale dei Cicli della Fase."));}
 
     var dStart=el("div"); dStart.appendChild(el("label",null,"Dal post globale n°"));
     var iStart=el("input"); iStart.type="number"; iStart.min="1"; iStart.step="1";
@@ -12083,8 +12131,14 @@
   function newSubEntry(){
     return {
       esitoLink:"", esitoText:"", postRichiesti:0, startIndex:nextGlobalPostNumber(),
-      ottenuti:"", ottenutiLink:"", ottenutiQuantita:""
+      ottenuti:"", ottenutiLink:"", ottenutiQuantita:"", erbCicloConsumataPerFallimento:false
     };
+  }
+
+  function zeroPercentOutcomeEntered(value){
+    var text=String(value&&typeof value==="object"?value.esitoText:value||"").trim();
+    if(!text){return false;}
+    return /ciclo\s+fallito/i.test(text) || /(^|[^0-9])0(?:[.,]0+)?\s*%(?=$|[^0-9])/i.test(text);
   }
 
   function normalizeSubEntry(sub){
@@ -12092,7 +12146,7 @@
     if(sub.esitoLink==null){sub.esitoLink="";}
     if(sub.esitoText==null){sub.esitoText="";}
     if(sub.postRichiesti==null){sub.postRichiesti=0;}
-    if(sub.erbCicloConsumataPerFallimento==null){sub.erbCicloConsumataPerFallimento=/ciclo\s+fallito|(?:^|\D)0\s*%/i.test(String(sub.esitoText||""));}
+    if(sub.erbCicloConsumataPerFallimento==null){sub.erbCicloConsumataPerFallimento=zeroPercentOutcomeEntered(sub.esitoText);}
     if(sub.startIndex==null){sub.startIndex=nextGlobalPostNumber();}
     if(sub.ottenuti==null){sub.ottenuti="";}
     if(sub.ottenutiLink==null){sub.ottenutiLink="";}
@@ -13067,8 +13121,15 @@
 
     var dEsito = el("div"); dEsito.appendChild(el("label", null, "Esito (es. 100%)"));
     var iEsito = el("input"); iEsito.type="text"; iEsito.value = sub.esitoText;
-    iEsito.addEventListener("input", function(){ sub.esitoText = iEsito.value; });
-    iEsito.addEventListener("change", function(){ sub.esitoText = iEsito.value; renderAll(); });
+    function syncCycleOutcomeEdit(){
+      sub.esitoText=iEsito.value;
+      /* Se un Ciclo già segnato 0% viene corretto con un esito diverso, torna modificabile. */
+      if(sub.erbCicloConsumataPerFallimento && !zeroPercentOutcomeEntered(sub.esitoText)){
+        sub.erbCicloConsumataPerFallimento=false;
+      }
+    }
+    iEsito.addEventListener("input", syncCycleOutcomeEdit);
+    iEsito.addEventListener("change", function(){ syncCycleOutcomeEdit(); renderAll(); });
     dEsito.appendChild(iEsito); row.appendChild(dEsito);
 
     var dPost = el("div"); dPost.appendChild(el("label", null, "Post necessari"));
@@ -13092,6 +13153,13 @@
 
     var pr=subEntryProgress(sub);
     wrap.appendChild(progressStatusNode("", pr.filled, pr.total));
+    if(sub.erbCicloConsumataPerFallimento){
+      wrap.appendChild(el("div","small-note","Ciclo consumato con esito 0%: nessun Post o raccolto richiesto; il Ciclo conta come TERMINATO nella Fase."));
+    }
+    if(options.occupant&&options.stage&&options.config){
+      var zeroAdvance=buildZeroPercentAdvanceControl(options.occupant,options.stage,options.config,sub,options.keySuffix,options);
+      if(zeroAdvance){wrap.appendChild(zeroAdvance);}
+    }
 
     if(ottenutiLabel){
       var resultRow=el("div","row obtained-result-row");
@@ -13674,6 +13742,77 @@
     return wrap;
   }
 
+  function markZeroPercentCycleTerminated(sub){
+    sub=normalizeSubEntry(sub);
+    sub.erbCicloConsumataPerFallimento=true;
+    sub.postRichiesti=0;
+    sub.ottenuti="";
+    sub.ottenutiLink="";
+    sub.ottenutiQuantita="";
+    sub.harvest={};
+    if(sub.dispensaTransfer&&sub.dispensaTransfer.done===true){
+      sub.dispensaTransfer.needsCorrection=true;
+      sub.dispensaTransfer.correctionReason=sub.dispensaTransfer.correctionReason||"Il Ciclo è stato segnato 0% dopo un precedente trasferimento in Dispensa.";
+    }
+  }
+
+  function buildZeroPercentAdvanceControl(occupant,stage,config,sub,keySuffix,options){
+    options=options||{};
+    if(options.isHistory || options.canStart===false || subEntryFilled(sub) || !zeroPercentOutcomeEntered(sub)){return null;}
+    if(stage.type!=="cicli" && stage.type!=="ripro"){return null;}
+
+    var box=el("div","zero-percent-continuation");
+    box.appendChild(el("span","small-note","Esito 0%: il Ciclo non produce Ingredienti. Conferma per consumarlo, farlo risultare TERMINATO e proseguire."));
+    var btn=el("button","action","Passa al Ciclo o alla Fase vitale successiva");
+    btn.type="button";
+    btn.addEventListener(EV,function(){
+      markZeroPercentCycleTerminated(sub);
+
+      var cd=occupant.cicli[stage.key]||{};
+      var list=Array.isArray(cd.list)?cd.list:[];
+      var nextProd=-1;
+      for(var i=0;i<list.length;i++){
+        if(!subEntryFilled(list[i])){nextProd=i;break;}
+      }
+
+      var targetId="";
+      if(nextProd>=0){
+        var nextKey="prod-"+nextProd;
+        OPEN_DETAILS["ciclo:produzione:"+config.tipoLabel+":"+occupant.id+":"+stage.key]=true;
+        OPEN_DETAILS["ciclo:item:"+config.tipoLabel+":"+occupant.id+":"+stage.key+":"+nextKey]=true;
+        targetId=cycleItemAnchorId(occupant,stage,config,nextKey);
+      }else if(stage.type==="ripro" && cd.evento && !subEntryFilled(cd.evento)){
+        OPEN_DETAILS["ciclo:riproduzione:"+config.tipoLabel+":"+occupant.id+":"+stage.key]=true;
+        OPEN_DETAILS["ciclo:item:"+config.tipoLabel+":"+occupant.id+":"+stage.key+":ripro"]=true;
+        targetId=cycleItemAnchorId(occupant,stage,config,"ripro");
+      }else{
+        var stages=currentStagesForConfig(config);
+        var pending=pendingHarvestEntriesForOccupant(occupant,stages,config,stage.key);
+        var res=countCompletedCicli(occupant,stage);
+        var phaseReady=stage.type==="ripro"
+          ? !!(res&&res.total>0&&res.completed>=res.total&&res.reproDone>=1)
+          : !!(res&&res.total>0&&res.completed>=res.total);
+        var nextLabel=nextStageLabel(stages,occupant.faseAttuale);
+
+        if(!pending.length && phaseReady && nextLabel){
+          pushPhaseHistory(occupant);
+          occupant.faseAttuale=canonicalStageLabel(stages,nextLabel);
+          occupant.faseDataInizio="";
+          openStageDetails(occupant,stages,config,occupant.faseAttuale);
+          targetId=entityCardAnchorId(occupant,config);
+        }else if(pending.length){
+          targetId=harvestPriorityAnchorId(pending[0].occupant,pending[0].stage,pending[0].keySuffix);
+        }
+      }
+
+      scheduleSave(0);
+      renderAll();
+      if(targetId){scrollAfterRender(targetId);}
+    });
+    box.appendChild(btn);
+    return box;
+  }
+
   function buildCycleItemDetails(occupant, stage, config, sub, title, ottenutiLabel, keySuffix, showIra, options){
     options=options||{};
     var canStart=options.canStart!==false;
@@ -13835,21 +13974,127 @@
     return det;
   }
 
+  function buildHistoryCycleItemBlock(occupant,stage,config,sub,title,ottenutiLabel,keySuffix,showIra,options){
+    options=options||{};
+    var canStart=options.canStart!==false;
+    var isReproduction=!!options.isReproduction;
+    var block=el("div","history-cycle-item");
+
+    var head=el("div","history-cycle-item-head");
+    var titleSpan=el("span");
+    if(isReproduction){titleSpan.appendChild(makeReproductionIcon(config));}
+    titleSpan.appendChild(document.createTextNode(title));
+    head.appendChild(titleSpan);
+    var status=cycleStatusInfo(sub,canStart);
+    head.appendChild(el("span","cycle-status "+status.key,status.label));
+    block.appendChild(head);
+
+    options.occupant=occupant;
+    options.stage=stage;
+    options.config=config;
+    options.keySuffix=keySuffix;
+    options.isHistory=true;
+    var subUi=buildSubEntryUI(sub,"<b>"+title+"</b>",ottenutiLabel,options);
+    if(!canStart&&!subEntryFilled(sub)){lockCycleUi(subUi);}
+    block.appendChild(subUi);
+
+    if(subEntryFilled(sub)){
+      var harvestInline=buildHarvestCycleInlineStatus(occupant,stage,sub,isReproduction,config,keySuffix);
+      if(harvestInline){block.appendChild(harvestInline);}
+      block.appendChild(buildActivityAckControl(activityCycleId(config.tipoLabel,occupant.id,stage.key,keySuffix)));
+    }
+    if(showIra){
+      var iraUi=buildIraCheck(sub,occupant);
+      if(!canStart&&!subEntryFilled(sub)){lockCycleUi(iraUi);}
+      block.appendChild(iraUi);
+    }
+    return block;
+  }
+
+  function buildHistoryStageBody(occupant,stage,config){
+    var wrap=el("div","cycle-sections history-stage-body");
+    wrap.appendChild(el("p","small-note cycle-context","Storico fase: <b>"+stage.label+"</b>."));
+
+    var cicliData=occupant.cicli[stage.key];
+    var isCreatura=config.tipoLabel==="Creatura";
+    var altaClasse=occupant.classificazione==="XXXX"||occupant.classificazione==="XXXXX";
+    var mostraIra=isCreatura&&altaClasse;
+
+    if(stage.type==="cicli"||stage.type==="ripro"){
+      var prod=el("div","history-cycle-group");
+      prod.appendChild(el("div","history-cycle-group-title","Produzione"));
+      if(!cicliData.list.length){prod.appendChild(el("p","small-note","Nessun Ciclo di Produzione previsto per questa fase."));}
+      var previousCompleted=true;
+      for(var i=0;i<cicliData.list.length;i++){
+        var currentSub=cicliData.list[i];
+        prod.appendChild(buildHistoryCycleItemBlock(
+          occupant,stage,config,currentSub,
+          "Ciclo di Produzione "+(i+1),
+          "Ingredienti ottenuti",
+          "prod-"+i,
+          mostraIra,
+          {canStart:previousCompleted,isReproduction:false,isHistory:true}
+        ));
+        if(!subEntryFilled(currentSub)){previousCompleted=false;}
+      }
+      wrap.appendChild(prod);
+    }
+
+    if(stage.type==="ripro"){
+      var rip=el("div","history-cycle-group");
+      var ripHead=el("div","history-cycle-group-title");
+      ripHead.appendChild(makeReproductionIcon(config));
+      ripHead.appendChild(document.createTextNode("Riproduzione"));
+      rip.appendChild(ripHead);
+      rip.appendChild(buildHistoryCycleItemBlock(
+        occupant,stage,config,cicliData.evento,
+        "Ciclo di Riproduzione 1",stage.ottenuti,"ripro",false,
+        {canStart:true,isReproduction:true,isHistory:true}
+      ));
+      wrap.appendChild(rip);
+    }
+
+    if(stage.type==="passaggio"){
+      var pass=el("div","history-cycle-group");
+      pass.appendChild(el("div","history-cycle-group-title","Passaggio alla Germinazione"));
+      pass.appendChild(buildHistoryCycleItemBlock(
+        occupant,stage,config,cicliData.evento,
+        "Passaggio alla Germinazione",null,"passaggio-germinazione",false,
+        {canStart:true,isReproduction:false,isHistory:true}
+      ));
+      wrap.appendChild(pass);
+    }
+
+    if(stage.type==="gestazione"){
+      var gest=el("div","history-cycle-group");
+      var gestHead=el("div","history-cycle-group-title");
+      gestHead.appendChild(makeReproductionIcon(config));
+      gestHead.appendChild(document.createTextNode("Gestazione / Schiusa"));
+      gest.appendChild(gestHead);
+      gest.appendChild(buildHistoryCycleItemBlock(
+        occupant,stage,config,cicliData.evento,
+        "Gestazione / Schiusa",null,"gestazione",false,
+        {canStart:true,isReproduction:true,isHistory:true}
+      ));
+      wrap.appendChild(gest);
+    }
+    return wrap;
+  }
+
   function buildPhaseHistoryDetails(occupant, stages, config, currentStageIdx){
     if(currentStageIdx<=0){return null;}
-    var det=el("details","phase-history-details");
-    keepDetailsState(det,"storico-fasi:"+config.tipoLabel+":"+occupant.id,false);
-    det.appendChild(el("summary",null,"Storico delle altre Fasi"));
+    var wrap=el("div","phase-history-details");
+    wrap.appendChild(el("div","phase-history-title","Storico delle altre Fasi"));
 
     for(var i=0;i<currentStageIdx;i++){
       var st=stages[i];
       var histStage=el("details","phase-history-stage");
       keepDetailsState(histStage,"storico-fase:"+config.tipoLabel+":"+occupant.id+":"+st.key,false);
       histStage.appendChild(el("summary",null,st.label));
-      histStage.appendChild(buildStageDetails(occupant,st,config,false,true));
-      det.appendChild(histStage);
+      histStage.appendChild(buildHistoryStageBody(occupant,st,config));
+      wrap.appendChild(histStage);
     }
-    return det;
+    return wrap;
   }
 
   function countCompletedCicli(occupant, stage){
