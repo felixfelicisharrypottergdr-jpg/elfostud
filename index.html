@@ -1,104 +1,14 @@
-
-
-<!-- v195 — audit persistenza: coda locale anche per modifiche persistenti rilevate dal listener universale; flush prima di Cambia Elfo; flush best-effort strutture condivise su hidden/pagehide; 09/09/2026 -->
-<!-- v175: ripristinato import completo Erbologia (ciclo, esito, post, legalità Pianta e campi v137). -->
-<!-- elfo_studente_v202 — rimosso il paragrafo tecnico iniziale sulla ricerca PG; comportamento ottimizzato e avvisi contestuali invariati. -->
-<!-- elfo_studente_v203 — audit trasversale Serra/Riserva/Dispensa: raccolti Magizoologia importati nel Ciclo e trasferibili atomicamente in Dispensa; deduplicazione/correzioni allineate a Erbologia. -->
-<!-- elfo_studente_v204 — audit eliminazione/archivio: registro storico persistente dei raccolti trasferiti, anti-doppio accredito anche dopo rimozione dell'esemplare. -->
-<!-- elfo_studente_v205 — fix import specialistici: helper neutro per protezioni di struttura non previste nello Studente; nessun ReferenceError. -->
-<!-- elfo_studente_v206 — audit controlli illegali: storico importato non distruttivo, campi assenti non cancellano esiti già risolti; modifiche manuali salvate. -->
-<!-- elfo_studente_v207 — audit Legale/Illegale: storico precedente conservato e visibile come non attivo; nessun rilancio implicito. -->
-<!-- elfo_studente_v208 — pacchetto trasferimento v3: snapshot Dispensa completo incluso cycleTransferLedger anti-doppio accredito. -->
-<!-- elfo_studente_v209 — migrazione ledger legacy al caricamento e nei reload da conflitto, con consolidamento tecnico sicuro. -->
-<!-- elfo_studente_v210 — audit import correttivi: Legalità assente non forza Legale; correzioni metadata/storico applicate anche con Ciclo e raccolto identici. -->
-<!-- elfo_studente_v211 — Ripristino Pozioni: rispetto del limite di Postazioni previsto dall’Anno Scolastico. -->
-<!-- elfo_studente_v212 — Undo/Redo allineato allo schema corrente 29. -->
-<!-- elfo_studente_v213 — correzioni raccolto atomiche: blocco se lotto Dispensa già usato/modificato; nessun rollback quando il raccolto non cambia. -->
-<!-- elfo_studente_v214 — fix ReferenceError ledger: identificativo PG usa STUDENTE.nome nel ramo Studente. -->
-<!-- elfo_studente_v215 — rimosso codice dormiente Adulto/shared che dipendeva da PG_ID nello Studente. -->
-<!-- elfo_studente_v216 — ledger legacy: tipo Pianta/Creatura passato esplicitamente quando harvest.context manca. -->
-<!-- elfo_studente_v217 — migrazione ledger già esistente: chiavi legacy senza tipo vengono riscritte come Pianta/Creatura e deduplicate. -->
-<!-- elfo_studente_v218 — rimozione esemplare attivo preserva il ledger anti-doppio accredito prima dello splice. -->
-<!-- elfo_studente_v219 — correzioni atomiche: Esito/Post e Semi validati prima di qualsiasi rollback della Dispensa. -->
-<!-- elfo_studente_v220 — import rifiutati senza side effect: rollback non sicuro non marca needsCorrection durante il preflight. -->
-<!-- elfo_studente_v221 — fix Taccuino: apertura Role con URL normalizzata; supporto ForumFree abbreviato/BBCode; niente navigazione relativa all'iframe. -->
-<!-- elfo_studente_v222 — Taccuino multi-dispositivo: CAS cloudRevision, niente overwrite stale; pending locale confrontata col cloud prima del push. -->
-<!-- elfo_studente_v223 — Taccuino multi-device audit: cloudBaseRevision persistente; niente decisioni basate sull'orologio; conflict/pending stale quarantinati nel Recovery. -->
-<!-- elfo_studente_v224 — Taccuino readonly: il cloud viene mostrato senza sovrascrivere localStorage del proprietario. -->
-<!-- elfo_studente_v225 — Recovery/relogin: rebase solo su cloud verificato; baseline invalidata al logout per evitare revisioni stale. -->
-<!-- elfo_studente_v226 — conflitti stato generale: snapshot locale immediato appena il save viene rifiutato, prima dell'overlay. -->
-<!-- elfo_studente_v227 — rebase multi-device: ricontrollo stato locale live prima del merge, evitando perdita di edit durante la richiesta Firebase. -->
-<!-- elfo_studente_v228 — Recovery generale three-way: pending conserva baseline; ripristino fonde solo sezioni locali disgiunte e chiede conferma su overlap/legacy. -->
-<!-- elfo_studente_v229 — I tuoi Post: Salva/pagehide consolidano sincronicamente le bozze link prima di collectState, evitando Post visibili ma non ancora persistiti. -->
-<!-- elfo_studente_v230 — salvataggio generale: flush centrale dei link Post prima di ogni serializedSaveLatest; copre autosave, Salva, Disconnetti, Cambia Elfo e retry. -->
-<!-- elfo_studente_v231 — audit salvataggi/I tuoi Post: Recovery baseline compatta + flush campo attivo su Salva/pagehide/Disconnetti/Cambia Elfo. -->
-<!-- elfo_studente_v232 — Taccuino: permission-denied non ritenta; copia locale esplicitata. Fix fallback conflitto generale: rimosso riferimento `deleted` fuori scope. Richiede Rules v60 per cloudRevision. -->
-<!-- elfo_studente_v233 — UI Taccuino cloud silenziosa: nessun messaggio per attesa/sync riuscita; solo errori/avvisi reali. -->
-<!-- elfo_studente_v234 — fix UI Taccuino silenziosa: usa TACC_CLOUD_TEXT/TACC_CLOUD_ERROR originali e nessun renderAll dal setter. -->
-<!-- elfo_studente_v235 — Role estive in I tuoi Post: una registrazione per topic, 0 Punti Casa; accrediti Narratore autoritativi senza popup. -->
-<!-- elfo_studente_v237 — ponte Felix Token v2: Role concluse + mesi consecutivi esportati localmente, nessuna lettura Firebase aggiuntiva; 11/09/2026 -->
 <!DOCTYPE html>
+<!-- elfo_studente_v238 — ponte Felix Token: esporta stato chiuso/accreditato dei Mesi per missioni periodiche, senza nuove letture Firebase; 12/09/2026 -->
+<!-- elfo_studente_v237 — ponte Felix Token v2: Role concluse + mesi consecutivi esportati localmente, nessuna lettura Firebase aggiuntiva; 11/09/2026 -->
 <!-- elfo_studente_v236 — ponte locale Felix Token: esporta mesi/Post della Camera Blindata in localStorage condiviso, senza letture Firebase aggiuntive; 11/09/2026 -->
-<!-- v174 — rimosso promemoria Lista della Spesa alla chiusura Role fuori conteggio; 08/09/2026 -->
-<!-- v165 — fix mirato post-password: ricalcolo altezza ritardato dopo sblocco modifica; rollback automatismi So-Tutto non necessari; 08/09/2026 -->
-<!-- v163 — fix altezza iframe: misura robusta scrollHeight + bounding box; include controllo sezioni escluse v162; nessuna lettura Firebase aggiuntiva; 08/09/2026 -->
-<!-- v162 — I tuoi Post: blocco automatico sezioni 0 Galeoni/fuori conteggio via bridge ForumFree; nessuna lettura Firebase aggiuntiva; include So-Tutto e tutti i fix v161; 08/09/2026 -->
-<!-- v161 — strutture: gerarchia uniforme + numeri Postazione automatici; avvisi solo per import automatici esterni; include v160; 08/09/2026 -->
-<!-- v160 — audit finale Laboratori/Missioni: premio So-Tutto collegabile direttamente dal Taccuino, auto-associazione alla Role quando possibile, nessun falso avviso Bagaglio; 08/09/2026 -->
-<!-- v159 — macro-audit Postazione/contatori + Missione So-Tutto-Sull'Argomento: N. globale in I tuoi Post, Pulizia chiara, premio PP automatico; include tutti i fix v158; 08/09/2026 -->
-<!-- v158 — Dispensa: alias Nogtail/Hodag + nome Pugnacio uniformato; include tutti i fix v157, 07/09/2026 -->
-<!-- v157 — Bonus: fix Firestore __primary__, contatore Usi per riga, editor semplificato, rerender stabile; ST invariati, 07/09/2026 -->
-<!-- v156 — fix Bonus __primary__ Firestore + rerender stabile senza saltino iframe; ST invariati, 07/09/2026 -->
-<!-- v155 — audit finale: diagnostica allineata al Gestore ST v73; transazione ST v57 invariata, 07/09/2026 -->
-<!-- v154 — macro-audit ST v57: saldo accoppiato direttamente agli usi + diagnostica v72, 07/09/2026 -->
-<!-- v153 — macro-audit: salvataggi Firestore sanitizzati + Staff Token v2/assoc diretta; 07/09/2026 -->
-<!-- v152 — Bonus: checkbox utilizzabili e stato utilizzi salvato subito; backup locale personale; diagnostica ST mirata, 07/09/2026 -->
-<!-- v151 — Staff Token: diagnostica allineata a Rules v57; transazione invariata, 07/09/2026 -->
-<!-- v150 — Staff Token: diagnostica allineata a Rules v57 / Gestore v70, 07/09/2026 -->
-<!-- v149 — Staff Token: diagnostica allineata a Rules v57 / Gestore v70, 07/09/2026 -->
-<!-- v148 — Dispensa: “Azzera Dispensa” sempre visibile; disabilitato solo se la Dispensa è vuota, 07/09/2026 -->
-<!-- v147 — audit post-modifiche: diagnostica Staff Token allineata alle Rules v57 + cleanup migrazione Bonus Casa, 07/09/2026 -->
-<!-- v146 — Taccuino: niente rilettura lazy cloud durante modifiche locali; liste Missioni aggiornate subito, 07/09/2026 -->
-<!-- v145 — Dispensa: import robusto da BBCode/HTML con URL e quantità interne, plurali italiani, report non bloccante e “Azzera Dispensa”; 07/09/2026 -->
-<!-- v144 — Staff Token: diagnostica aggiornata per Rules v50 e associazioni PG normalizzate, 07/09/2026 -->
-<!-- v143 — ulteriore risparmio letture: ricerca PG restringibile dalla cache, Staff Token solo usi attivi, Taccuino cloud lazy; 06/09/2026 -->
-<!-- v142 — ricerca PG a prefisso: nessun elenco completo, suggerimenti dinamici max 10 con debounce/cache; 06/09/2026 -->
-<!-- v141 — ulteriore risparmio Firestore: Staff Token senza listener globale + Medimagia locale immediata/cloud max 1 volta l’ora, 06/09/2026 -->
-<!-- v140 — risparmio letture Firestore: elenco PG cloud lazy+cache 24h e controllo Medimagia limitato a 10 minuti, 06/09/2026 -->
-<!-- v139 — anti resource-exhausted: coda locale Elfo, retry con backoff, autosave accorpato e audit cloud diradato, 06/09/2026 -->
-<!-- v138 — audit regressioni: stato details Punti Casa persistente + Azzera Bonus senza confirm nativo, 05/09/2026 -->
-<!-- v137 — Camera Blindata: rimosso il comando ridondante “Archivia questo Mese”; resta disponibile in “I tuoi Post”, 05/09/2026 -->
-<!-- v136 — Camera Blindata compatta: rimossa guida introduttiva e Bonus racchiusi in details chiuso di default, 05/09/2026 -->
-<!-- v135 — Punti Casa: automatici per tutti i Post da Settembre a Giugno incluso; Luglio e Agosto esclusi, rimossa esclusione manuale Spin-off, 05/09/2026 -->
-<!-- v134 — Punti Casa completi: scala mensile Settembre–Maggio, modificatore Stima dei Docenti, esclusione Spin-off, +2 Role stessa Casa e riepilogo completo, 05/09/2026 -->
-<!-- v133 — Camera Blindata: gestione +2 Punti Casa racchiusa in details chiuso di default, 05/09/2026 -->
-<!-- v132 — Camera Blindata: “Rimuovi Bonus” immediato e affidabile, senza confirm nativo; compatibile con Bonus Casa per Role, 05/09/2026 -->
-<!-- v131 — Punti Casa: «Role conclusa» chiude e rimuove la Role dal registro attivo mantenendo i +2 già assegnati; Dispensa: azione rinominata «Importa Ingredienti», 05/09/2026 -->
-<!-- v130 — Punti Casa per Role: stato attiva/conclusa, storico riapribile e riconoscimento robusto del topic ForumFree, 05/09/2026 -->
-<!-- v129 — Punti Casa per Role: registrazione globale del link e +2 automatici su tutti i Post della stessa Role, con esclusione manuale per singolo Post, 05/09/2026 -->
-<!-- v128 — Camera Blindata: post selezionati + preset +2 Punti Casa per free role della stessa Casa, 05/09/2026 -->
-<!-- v127 — Dispensa formato libero: riconoscimento Ingredienti indipendente da separatori, bullet e impaginazione; quantità opzionale, 05/09/2026 -->
-<!-- v126 — Dispensa tollerante: incolla multi-formato, pulizia HTML/BBCode, alias e fuzzy matching sicuro degli Ingredienti, 05/09/2026 -->
-<!-- v125 — fix Dispensa 10d90: riconosce Classificazione con trattino (X - Nome), quantità assente = 1 dose; corretto Malaclaw Maculato, 05/09/2026 -->
-<!-- v124 — protezione Taccuino universale: copie locali, coda pendente e recupero per ogni profilo/PG, anche prima della registrazione Firebase, 04/09/2026 -->
-<!-- v123 — Taccuino anti-perdita: coda locale persistente, recupero automatico delle modifiche non sincronizzate, retry cloud e stato salvataggio sempre visibile, 04/09/2026 -->
-<!-- v122 — fix restituzione Staff Token: uso autorevole dal record Firebase + percorso Rules v46 dedicato al rimborso, 04/09/2026 -->
-<!-- v121 — conflitti non bloccanti: revisioni/accrediti vengono ricaricati automaticamente dal cloud senza overlay; il popup resta solo come fallback se la rilettura automatica fallisce, 04/09/2026 -->
-<!-- v120 — fix accrediti/conflitti: le CB accreditate restano autoritative su Firebase ma non bloccano modifiche ad altre sezioni; conflitto solo se si modifica davvero il Mese accreditato, 04/09/2026 -->
-<!-- v112 — fix creazione PG: Nome e Cognome obbligatori appena il nome risulta nuovo + doppia protezione prima del salvataggio, 04/09/2026 -->
-<!-- v111 — stato Staffer attivo/non attivo: stop nuovi ST negli Elfi, consumi storici invariati, 04/09/2026 -->
-<!-- v110 — correzione semantica ST: eliminare un Mese NON rimborsa gli Staff Token già usati; consumo e storico restano validi, 04/09/2026 -->
-<!-- v109 — secondo audit: coerenza Staff Token su riferimenti attivi + protezione eliminazione Mesi con ST, 04/09/2026 -->
-<!-- v108 — audit Rules v42→v43: integrazione Staff Token verificata con sessione Staff sicura, 04/09/2026 -->
-<!-- v107 — segnalazioni community: import Fanta più robusto, Dispensa aggiornata, Nome+Cognome e elenco PG cloud, 04/09/2026 -->
-<!-- v106 — Staff Token live in Camera Blindata: saldo, uso/rimborso +1 PP e registro condiviso, 04/09/2026 -->
-<!-- v105 — audit incrociato Adulto/Studente: protezione completa dei campi Link e controlli da link antenati, 04/09/2026 -->
-<!-- v104 — details compatti estesi a tutte le Piante/Creature attive, 04/09/2026 -->
-<!-- v103 — dati generali strutture e Pozioni attive in details distinti, 04/09/2026 -->
-<!-- v102 — Disconnetti robusto: final save best-effort + timeout sessione, 04/09/2026 -->
-<!-- v101 - audit generico: uscita sicura con Taccuino cloud -->
-<!-- v99 - audit Elfo: Cambia Elfo unificato + migrazione sicura «Diventa Adulto → Esporta» -->
-<!-- v97 - Camera Blindata: Archivia/Riapri Mese + Cambia Elfo dopo Disconnetti -->
+<!-- elfo_studente_v235 — Role estive in I tuoi Post: una registrazione per topic, 0 Punti Casa; accrediti Narratore autoritativi senza popup. -->
+<!-- elfo_studente_v234 — fix UI Taccuino silenziosa: usa TACC_CLOUD_TEXT/TACC_CLOUD_ERROR originali e nessun renderAll dal setter. -->
+<!-- elfo_studente_v233 — UI Taccuino cloud silenziosa: nessun messaggio per attesa/sync riuscita; solo errori/avvisi reali. -->
+<!-- elfo_studente_v232 — Taccuino: permission-denied non ritenta; copia locale esplicitata. Fix fallback conflitto generale: rimosso riferimento `deleted` fuori scope. Richiede Rules v60 per cloudRevision. -->
+<!-- elfo_studente_v231 — audit salvataggi/I tuoi Post: Recovery baseline compatta + flush campo attivo su Salva/pagehide/Disconnetti/Cambia Elfo. -->
+<!-- elfo_studente_v230 — salvataggio generale: flush centrale dei link Post prima di ogni serializedSaveLatest; copre autosave, Salva, Disconnetti, Cambia Elfo e retry. -->
+<!-- elfo_studente_v229 — I tuoi Post: Salva/pagehide consolidano sincronicamente le bozze link prima di collectState, evitando Post visibili ma non ancora persistiti. -->
 <html lang="it">
 <head>
 <meta charset="UTF-8">
@@ -4006,7 +3916,15 @@
         if(!special)links.push(link);
       }
       links=Array.from(new Set(links));
-      months.push({id:String(mese.id==null?"":mese.id),name:name,postCount:links.length,links:links,archived:!!mese.chiuso});
+      var accreditationKnown=false,accredited=false;
+      try{
+        accreditationKnown=!!(typeof accreditiVerified==="function"&&accreditiVerified()&&accreditiCache!==null);
+        accredited=!!(accreditationKnown&&typeof monthIsAccredited==="function"&&monthIsAccredited(mese));
+      }catch(e){accreditationKnown=false;accredited=false;}
+      months.push({
+        id:String(mese.id==null?"":mese.id),name:name,postCount:links.length,links:links,
+        archived:!!mese.chiuso,closed:!!mese.chiuso,accreditationKnown:accreditationKnown,accredited:accredited
+      });
     }
     var closedRoles=[];
     try{
@@ -4027,7 +3945,7 @@
         });
       }
     }catch(e){}
-    return {schemaVersion:2,pgName:pg,pgKind:"studenti",updatedAt:new Date().toISOString(),months:months,closedRoles:closedRoles};
+    return {schemaVersion:3,pgName:pg,pgKind:"studenti",updatedAt:new Date().toISOString(),months:months,closedRoles:closedRoles};
   }
   function felixTokenBridgePublishNow(){
     FELIX_TOKEN_BRIDGE_TIMER=null;
