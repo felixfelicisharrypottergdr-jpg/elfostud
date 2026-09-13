@@ -1,4 +1,5 @@
 
+<!-- elfo_studente_v264 — Colori Classificazione completi: intero specchietto operativo (header + corpo) di Piante, Creature e Pozioni in palette X–XXXXX; allineato anche Archivio. Mantiene integralmente v263. 13/09/2026 -->
 <!-- elfo_studente_v263 — Parametri: details colorato per Classificazione e allineato fra Piante/Creature/Pozioni; Creature ora usano anche lo sfondo di Classificazione. Raccolti: riconciliazione Dispensa persistente, firma aggiornata e stato inline coerente col riquadro prioritario. 13/09/2026 -->
 <!-- elfo_studente_v262 — Audit esaustivo finale Parametri: tutte le Piante con effetti temporanei reali vengono riconosciute come Durata salvo regole specifiche; escluse finestre/preparazioni non pertinenti. Estese esclusioni Allevatore future-proof per specie/Esseri esplicitamente non allevabili. Nessuna nuova lettura Firebase. 13/09/2026 -->
 <!-- elfo_studente_v261 — Solo UI: «Applicazione bonus personale» rinominato in «Correzione manuale (facoltativa)». Nessuna logica modificata. 13/09/2026 -->
@@ -2157,6 +2158,55 @@
   .structure-ui .creature-card.creature-class-xxx{background:#fff2bd;border-color:#c9a74d;}
   .structure-ui .creature-card.creature-class-xxxx{background:#ffe1b9;border-color:#d48b3c;}
   .structure-ui .creature-card.creature-class-xxxxx{background:#f6cbc7;border-color:#bb554e;}
+</style>
+
+
+<style id="elfo-v274-full-classification-colours">
+  /* L'intero specchietto operativo segue la Classificazione, non solo la card interna. */
+  .structure-ui details.working-entity-details.entity-class-x,
+  .structure-ui details.working-entity-details.potion-class-x{background:#f0f8eb;border-color:#a8c89e;border-left-color:#7fa66c;}
+  .structure-ui details.working-entity-details.entity-class-x > summary,
+  .structure-ui details.working-entity-details.potion-class-x > summary{background:#f0f8eb;color:#315233;}
+  .structure-ui details.working-entity-details.entity-class-x > summary::before,
+  .structure-ui details.working-entity-details.potion-class-x > summary::before{color:#315233;}
+  .structure-ui details.working-entity-details.entity-class-x > .card,
+  .structure-ui details.working-entity-details.potion-class-x > .card{border-top-color:#a8c89e;}
+
+  .structure-ui details.working-entity-details.entity-class-xx,
+  .structure-ui details.working-entity-details.potion-class-xx{background:#dcefd1;border-color:#7fa66c;border-left-color:#6f9a64;}
+  .structure-ui details.working-entity-details.entity-class-xx > summary,
+  .structure-ui details.working-entity-details.potion-class-xx > summary{background:#dcefd1;color:#294b2e;}
+  .structure-ui details.working-entity-details.entity-class-xx > summary::before,
+  .structure-ui details.working-entity-details.potion-class-xx > summary::before{color:#294b2e;}
+  .structure-ui details.working-entity-details.entity-class-xx > .card,
+  .structure-ui details.working-entity-details.potion-class-xx > .card{border-top-color:#7fa66c;}
+
+  .structure-ui details.working-entity-details.entity-class-xxx,
+  .structure-ui details.working-entity-details.potion-class-xxx{background:#fff2bd;border-color:#c9a74d;border-left-color:#c9a74d;}
+  .structure-ui details.working-entity-details.entity-class-xxx > summary,
+  .structure-ui details.working-entity-details.potion-class-xxx > summary{background:#fff2bd;color:#5d4a12;}
+  .structure-ui details.working-entity-details.entity-class-xxx > summary::before,
+  .structure-ui details.working-entity-details.potion-class-xxx > summary::before{color:#5d4a12;}
+  .structure-ui details.working-entity-details.entity-class-xxx > .card,
+  .structure-ui details.working-entity-details.potion-class-xxx > .card{border-top-color:#c9a74d;}
+
+  .structure-ui details.working-entity-details.entity-class-xxxx,
+  .structure-ui details.working-entity-details.potion-class-xxxx{background:#ffe1b9;border-color:#d48b3c;border-left-color:#d48b3c;}
+  .structure-ui details.working-entity-details.entity-class-xxxx > summary,
+  .structure-ui details.working-entity-details.potion-class-xxxx > summary{background:#ffe1b9;color:#704116;}
+  .structure-ui details.working-entity-details.entity-class-xxxx > summary::before,
+  .structure-ui details.working-entity-details.potion-class-xxxx > summary::before{color:#704116;}
+  .structure-ui details.working-entity-details.entity-class-xxxx > .card,
+  .structure-ui details.working-entity-details.potion-class-xxxx > .card{border-top-color:#d48b3c;}
+
+  .structure-ui details.working-entity-details.entity-class-xxxxx,
+  .structure-ui details.working-entity-details.potion-class-xxxxx{background:#f6cbc7;border-color:#bb554e;border-left-color:#bb554e;}
+  .structure-ui details.working-entity-details.entity-class-xxxxx > summary,
+  .structure-ui details.working-entity-details.potion-class-xxxxx > summary{background:#f6cbc7;color:#742b28;}
+  .structure-ui details.working-entity-details.entity-class-xxxxx > summary::before,
+  .structure-ui details.working-entity-details.potion-class-xxxxx > summary::before{color:#742b28;}
+  .structure-ui details.working-entity-details.entity-class-xxxxx > .card,
+  .structure-ui details.working-entity-details.potion-class-xxxxx > .card{border-top-color:#bb554e;}
 </style>
 
 </head>
@@ -14345,6 +14395,7 @@
     var card=el("div","card entity-card "+(isPlant?"plant-card":"creature-card"));
     var cc=String(occupant.classificazione||"").toLowerCase().replace(/\s+/g,"");
     if(cc==="x"||cc==="xx"||cc==="xxx"||cc==="xxxx"||cc==="xxxxx"){
+      work.classList.add("entity-class-"+cc);
       card.classList.add((isPlant?"plant-class-":"creature-class-")+cc);
     }
     var h=el("h3");
@@ -15288,7 +15339,7 @@
 
     var arch=el("details","structure-archive");keepDetailsState(arch,(isCubicolo?"cubicolo:":"recinto:")+"archivio",false);arch.appendChild(el("summary",null,"📦 Archivio — "+(config.tipoLabel==="Pianta"?"Piante decedute":"Creature decedute")+" ("+ARCHIVIO.length+")"));
     if(!ARCHIVIO.length){arch.appendChild(el("p","small-note","Nessuna "+(config.tipoLabel==="Pianta"?"pianta":"creatura")+" nell'archivio."));}
-    for(var ai=0;ai<ARCHIVIO.length;ai++){(function(occ){var lockedOcc=archiveLocked(occ);var archCard=el("div","card entity-card"+(lockedOcc?" archive-locked":""));var ah=el("h3");ah.appendChild(el("span","entity-title "+(isCubicolo?"plant-title":"creature-title"),(occ.nome!==""?occ.nome:"(senza nome)")+" †"));var btnGroup=el("div","structure-actions");var btnRestore=el("button","action small",lockedOcc?"🔒 Consolidata":"Ripristina");btnRestore.disabled=lockedOcc;btnRestore.addEventListener(EV,function(){if(blockIfArchiveLocked(occ)){return;}if(LIST.length>=ANNO_POSTI[STUDENTE.anno]){alert("Non puoi ripristinare l’esemplare: hai già raggiunto il numero massimo consentito dal tuo Anno Scolastico.");return;}occ.morta=false;occ._archivedAt="";var idx=ARCHIVIO.indexOf(occ);if(idx>-1){ARCHIVIO.splice(idx,1);}LIST.push(occ);scheduleSave(0);renderAll();});btnGroup.appendChild(btnRestore);var btnDelete=el("button","action danger small","Elimina definitivamente");btnDelete.disabled=lockedOcc;btnDelete.addEventListener(EV,function(){if(blockIfArchiveLocked(occ)){return;}var nomeOcc=occ.nome!==""?occ.nome:(config.tipoLabel+" senza nome");if(!confirm("Eliminare definitivamente dall’Archivio «"+nomeOcc+"»?\n\nL’operazione verrà comunque protetta da uno snapshot automatico prima del salvataggio.")){return;}erbDetachDeletedPlantCycleLinks(occ,config.tipoLabel);var idx2=ARCHIVIO.indexOf(occ);if(idx2>-1){ARCHIVIO.splice(idx2,1);}scheduleSave(0);renderAll();});btnGroup.appendChild(btnDelete);ah.appendChild(btnGroup);archCard.appendChild(ah);if(lockedOcc){archCard.appendChild(el("div","archive-lock-note",archiveLockText(occ)));}archCard.appendChild(el("p","small-note","Classificazione "+occ.classificazione+" — ultima fase: "+occ.faseAttuale));arch.appendChild(archCard);})(ARCHIVIO[ai]);}
+    for(var ai=0;ai<ARCHIVIO.length;ai++){(function(occ){var lockedOcc=archiveLocked(occ);var archClass=String(occ.classificazione||"").toLowerCase().replace(/\\s+/g,""),archCard=el("div","card entity-card "+(isCubicolo?"plant-card plant-class-":"creature-card creature-class-")+archClass+(lockedOcc?" archive-locked":""));var ah=el("h3");ah.appendChild(el("span","entity-title "+(isCubicolo?"plant-title":"creature-title"),(occ.nome!==""?occ.nome:"(senza nome)")+" †"));var btnGroup=el("div","structure-actions");var btnRestore=el("button","action small",lockedOcc?"🔒 Consolidata":"Ripristina");btnRestore.disabled=lockedOcc;btnRestore.addEventListener(EV,function(){if(blockIfArchiveLocked(occ)){return;}if(LIST.length>=ANNO_POSTI[STUDENTE.anno]){alert("Non puoi ripristinare l’esemplare: hai già raggiunto il numero massimo consentito dal tuo Anno Scolastico.");return;}occ.morta=false;occ._archivedAt="";var idx=ARCHIVIO.indexOf(occ);if(idx>-1){ARCHIVIO.splice(idx,1);}LIST.push(occ);scheduleSave(0);renderAll();});btnGroup.appendChild(btnRestore);var btnDelete=el("button","action danger small","Elimina definitivamente");btnDelete.disabled=lockedOcc;btnDelete.addEventListener(EV,function(){if(blockIfArchiveLocked(occ)){return;}var nomeOcc=occ.nome!==""?occ.nome:(config.tipoLabel+" senza nome");if(!confirm("Eliminare definitivamente dall’Archivio «"+nomeOcc+"»?\n\nL’operazione verrà comunque protetta da uno snapshot automatico prima del salvataggio.")){return;}erbDetachDeletedPlantCycleLinks(occ,config.tipoLabel);var idx2=ARCHIVIO.indexOf(occ);if(idx2>-1){ARCHIVIO.splice(idx2,1);}scheduleSave(0);renderAll();});btnGroup.appendChild(btnDelete);ah.appendChild(btnGroup);archCard.appendChild(ah);if(lockedOcc){archCard.appendChild(el("div","archive-lock-note",archiveLockText(occ)));}archCard.appendChild(el("p","small-note","Classificazione "+occ.classificazione+" — ultima fase: "+occ.faseAttuale));arch.appendChild(archCard);})(ARCHIVIO[ai]);}
     p.appendChild(arch);
     container.appendChild(p);
   }
