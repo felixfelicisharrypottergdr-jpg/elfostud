@@ -1,4 +1,6 @@
 
+<!-- elfo_studente_v263 — Parametri: details colorato per Classificazione e allineato fra Piante/Creature/Pozioni; Creature ora usano anche lo sfondo di Classificazione. Raccolti: riconciliazione Dispensa persistente, firma aggiornata e stato inline coerente col riquadro prioritario. 13/09/2026 -->
+<!-- elfo_studente_v262 — Audit esaustivo finale Parametri: tutte le Piante con effetti temporanei reali vengono riconosciute come Durata salvo regole specifiche; escluse finestre/preparazioni non pertinenti. Estese esclusioni Allevatore future-proof per specie/Esseri esplicitamente non allevabili. Nessuna nuova lettura Firebase. 13/09/2026 -->
 <!-- elfo_studente_v261 — Solo UI: «Applicazione bonus personale» rinominato in «Correzione manuale (facoltativa)». Nessuna logica modificata. 13/09/2026 -->
 <!-- elfo_studente_v260 — Audit finale Parametri Piante/Creature: completate esclusioni Allevatore (Basilisco/Oni/Wampus + animali babbani), Horklump usa Coltivatore anche se gestito come Creatura, rimossi falsi bonus durata di Nogtail/Schiopodo. Cataloghi e regole incrociati integralmente col regolamento. Nessuna nuova lettura Firebase. 13/09/2026 -->
 <!-- elfo_studente_v259 — Terzo audit Parametri Piante/Creature: copertura completa dei bonus Coltivatore espliciti (aggiunta Pianta Mangiauomini), esclusione automatica Allevatore per specie non allevabili/possedibili, pulizia delle false regole durata; nessuna nuova lettura Firebase. 13/09/2026 -->
@@ -2123,6 +2125,40 @@
 </style>
 <!-- v183: re-import dello stesso Ciclo con stesso link aggiorna lo slot esistente anche se Esito/Post sono stati corretti. -->
 <!-- v180: import Erbologia assegna il primo ciclo libero e non sovrascrive cicli già consumati/completati. -->
+
+<style id="elfo-v273-parameter-class-colours">
+  .structure-ui details.entity-parameters.param-class-x,
+  .structure-ui details.potion-parameters.param-class-x{background:#f0f8eb;border-color:#a8c89e;}
+  .structure-ui details.entity-parameters.param-class-x > summary,
+  .structure-ui details.potion-parameters.param-class-x > summary{color:#315233;}
+
+  .structure-ui details.entity-parameters.param-class-xx,
+  .structure-ui details.potion-parameters.param-class-xx{background:#dcefd1;border-color:#7fa66c;}
+  .structure-ui details.entity-parameters.param-class-xx > summary,
+  .structure-ui details.potion-parameters.param-class-xx > summary{color:#294b2e;}
+
+  .structure-ui details.entity-parameters.param-class-xxx,
+  .structure-ui details.potion-parameters.param-class-xxx{background:#fff2bd;border-color:#c9a74d;}
+  .structure-ui details.entity-parameters.param-class-xxx > summary,
+  .structure-ui details.potion-parameters.param-class-xxx > summary{color:#5d4a12;}
+
+  .structure-ui details.entity-parameters.param-class-xxxx,
+  .structure-ui details.potion-parameters.param-class-xxxx{background:#ffe1b9;border-color:#d48b3c;}
+  .structure-ui details.entity-parameters.param-class-xxxx > summary,
+  .structure-ui details.potion-parameters.param-class-xxxx > summary{color:#704116;}
+
+  .structure-ui details.entity-parameters.param-class-xxxxx,
+  .structure-ui details.potion-parameters.param-class-xxxxx{background:#f6cbc7;border-color:#bb554e;}
+  .structure-ui details.entity-parameters.param-class-xxxxx > summary,
+  .structure-ui details.potion-parameters.param-class-xxxxx > summary{color:#742b28;}
+
+  .structure-ui .creature-card.creature-class-x{background:#f0f8eb;border-color:#a8c89e;}
+  .structure-ui .creature-card.creature-class-xx{background:#dcefd1;border-color:#7fa66c;}
+  .structure-ui .creature-card.creature-class-xxx{background:#fff2bd;border-color:#c9a74d;}
+  .structure-ui .creature-card.creature-class-xxxx{background:#ffe1b9;border-color:#d48b3c;}
+  .structure-ui .creature-card.creature-class-xxxxx{background:#f6cbc7;border-color:#bb554e;}
+</style>
+
 </head>
 <body>
 <div class="wrap">
@@ -12627,7 +12663,7 @@
   /* Regole esplicite del regolamento: quando lo specchietto della specie
      stabilisce che Coltivatore/Allevatore incide sulla durata, l'Elfo non
      applica automaticamente il +% ai Parametri propri dell'esemplare. */
-  var ELFO_PLANT_DURATION_BONUS={"algabranchia":1,"amarantacea":1,"felci imitanti":1,"fungo allucinogeno":1,"giaggiolo puzzolente":1,"grinzafico":1,"horklump":1,"menta tibetana":1,"moly":1,"orchidea fantasma":1,"platano colombiano":1,"radigorda":1};
+  var ELFO_PLANT_DURATION_BONUS={"algabranchia":1,"amarantacea":1,"felci imitanti":1,"fungo allucinogeno":1,"giaggiolo puzzolente":1,"grinzafico":1,"horklump":1,"menta tibetana":1,"moly":1,"orchidea fantasma":1,"platano colombiano":1,"radigorda":1,"arbusto autofertilizzante":1,"puffagiolo":1,"erbaschiuma":1,"prato messicano":1,"annientamento":1,"albero della vita":1,"loto di mahoutokoro":1,"bulbo balzellante":1,"cespuglio farfallino":1,"cavolo carnivoro cinese":1,"alioto":1,"canterose":1,"pianta vampiro":1,"primula veris":1,"mandragola":1};
   /* Secondo audit: per le Creature il regolamento dice che il bonus Allevatore
      agisce sui Parametri O sulla durata degli effetti dei loro attacchi/usi.
      Questa mappa contiene le specie del Bestiario che definiscono un effetto
@@ -12648,7 +12684,7 @@
   /* Specie che il Bestiario esclude esplicitamente dall'Allevamento/proprietà.
      Se compaiono in archivio o per vecchi dati, non devono ricevere automaticamente
      né +% ai Parametri né bonus durata da Allevatore. */
-  var ELFO_CREATURE_ALLEVATORE_EXCLUDED={"acromantula":1,"ashwinder":1,"centauro":1,"kappa":1,"lumaca carnivora":1,"lupo mannaro":1,"manticora":1,"maride":1,"pogrebin":1,"sobolan":1,"troll":1,"basilisco":1,"oni":1,"wampus":1,"gatto":1,"gufo":1,"rospo":1};
+  var ELFO_CREATURE_ALLEVATORE_EXCLUDED={"acromantula":1,"ashwinder":1,"centauro":1,"kappa":1,"lumaca carnivora":1,"lupo mannaro":1,"manticora":1,"maride":1,"pogrebin":1,"sobolan":1,"troll":1,"basilisco":1,"oni":1,"wampus":1,"gatto":1,"gufo":1,"rospo":1,"elfo domestico":1,"ciclope":1,"ninfa dei boschi":1,"orco":1,"lethifold":1,"vampiro":1,"jinn":1,"megera":1,"gigante":1,"lepricani":1,"veela":1,"fantasma":1,"drago":1,"poltergeist":1};
   var ELFO_PLANT_DURATION_OVERRIDE={
     "platano colombiano":{1:"+1 post",2:"+2 post",3:"+3 post",4:"+4 post",5:"+5 post"}
   };
@@ -12782,7 +12818,9 @@
   }
   function buildEntityParametersDetails(o,config){
     var isPlant=config.tipoLabel==="Pianta";ensureEntityParamState(o);
-    var det=el("details","entity-section entity-secondary-field entity-parameters");
+    var det=el("details","entity-section entity-secondary-field entity-parameters"),
+        paramClass=String(o.classificazione||"").toLowerCase().replace(/\s+/g,"");
+    if(paramClass==="x"||paramClass==="xx"||paramClass==="xxx"||paramClass==="xxxx"||paramClass==="xxxxx"){det.classList.add("param-class-"+paramClass);}
     keepDetailsState(det,"parametri:"+config.tipoLabel+":"+o.id,false);
     var calc=entityParamAutoRows(o,isPlant),autoRule=entityBonusAutoRule(o,isPlant),effectiveMode=entityBonusEffectiveMode(o,isPlant);
     det.appendChild(el("summary",null,entityParamSummary(o,isPlant)));
@@ -12824,7 +12862,7 @@
     controls.appendChild(mode);
 
     effectiveMode=entityBonusEffectiveMode(o,isPlant);
-    var autoMsg="<b>Riconosciuto automaticamente dal regolamento:</b> "+(autoRule.mode==="parametri"?"bonus ai Parametri":autoRule.mode==="durata"?"bonus alla durata":autoRule.mode==="specifico"?"effetto specifico dello specchietto":"nessun bonus Allevatore applicabile a questa specie")+".";
+    var autoMsg="<b>Riconosciuto automaticamente dal regolamento/specchietto:</b> "+(autoRule.mode==="parametri"?"bonus ai Parametri":autoRule.mode==="durata"?"bonus alla durata dell'effetto":autoRule.mode==="specifico"?"effetto specifico dello specchietto":"nessun bonus Allevatore applicabile a questa specie")+".";
     if(o.bonusPersonaleModalitaOverride)autoMsg+=" <b>Correzione manuale attiva:</b> "+effectiveMode+".";
     det.appendChild(el("div","small-note",autoMsg));
 
@@ -12896,7 +12934,10 @@
   }
   function buildPotionParametersDetails(pz){
     ensurePotionParameterState(pz);
-    var det=el("details","entity-section entity-secondary-field potion-parameters");keepDetailsState(det,"parametri:Pozione:"+pz.id,false);
+    var det=el("details","entity-section entity-secondary-field potion-parameters"),
+        paramClass=String(pz.classificazione||"").toLowerCase().replace(/\s+/g,"");
+    if(paramClass==="x"||paramClass==="xx"||paramClass==="xxx"||paramClass==="xxxx"||paramClass==="xxxxx"){det.classList.add("param-class-"+paramClass);}
+    keepDetailsState(det,"parametri:Pozione:"+pz.id,false);
     var sm="Parametri / Forza";
     if(pz.forzaFinale)sm+=" — Forza finale "+pz.forzaFinale;
     if(pz.categoriaFinale)sm+=" · "+pz.categoriaFinale;
@@ -13788,6 +13829,60 @@
     var led=ensureDispensaCycleLedger();for(var i=0;i<led.length;i++){if(led[i]&&String(led[i].key||"")===key)return led[i];}
     return null;
   }
+  function harvestComparableItems(items){
+    var map={};
+    (items||[]).forEach(function(x){
+      var name=String(x&&x.name||x&&x.nome||"").trim(),q=Math.max(0,parseInt(x&&x.quantita,10)||0);
+      if(!name||!q)return;
+      var k=plantHarvestNorm(name);map[k]=(map[k]||0)+q;
+    });
+    return map;
+  }
+  function harvestMapsEqual(a,b){
+    var ak=Object.keys(a||{}).sort(),bk=Object.keys(b||{}).sort();
+    if(ak.length!==bk.length)return false;
+    for(var i=0;i<ak.length;i++){if(ak[i]!==bk[i]||Number(a[ak[i]]||0)!==Number(b[bk[i]]||0))return false;}
+    return true;
+  }
+  function harvestCurrentComparableItems(sub){
+    var h=sub&&sub.harvest&&Array.isArray(sub.harvest.items)?sub.harvest.items.filter(function(x){return x&&parseInt(x.quantita,10)>0;}):[];
+    if(h.length)return h;
+    var raw=String(sub&&sub.ottenuti||"").trim(),out=[],re=/(\d+)\s*[×x]\s*([^·\n]+)/gi,m;
+    while((m=re.exec(raw))!==null){var q=parseInt(m[1],10)||0,n=String(m[2]||"").trim();if(q>0&&n)out.push({name:n,quantita:q});}
+    if(out.length)return out;
+    var q2=Math.max(0,parseInt(sub&&sub.ottenutiQuantita,10)||0);
+    if(q2&&raw)return [{name:raw.replace(/^\d+\s*[×x]\s*/i,"").trim(),quantita:q2}];
+    return [];
+  }
+  function harvestCycleLots(cycleKey){
+    var items=[];
+    if(!cycleKey||!DISPENSA||!Array.isArray(DISPENSA.ingredienti))return items;
+    for(var di=0;di<DISPENSA.ingredienti.length;di++){
+      var ing=DISPENSA.ingredienti[di];ensureIngredientLots(ing);
+      for(var li=0;li<ing.lotti.length;li++){
+        var lot=ing.lotti[li];
+        if(String(lot.sourceCycleKey||"")===String(cycleKey)){
+          var q=Math.max(0,parseInt(lot.quantita,10)||0);
+          if(q)items.push({name:String(ing.nome||lot.nome||"Ingrediente"),quantita:q});
+        }
+      }
+    }
+    return items;
+  }
+  function harvestReconcileCorrectDispensa(occupant,sub,isReproduction,config){
+    if(!sub||!sub.dispensaTransfer||sub.dispensaTransfer.done!==true)return false;
+    var tr=sub.dispensaTransfer,cycleKey=String(tr.sourceCycleKey||sub._erbDispensaCycleKey||""),
+        lotItems=harvestCycleLots(cycleKey),currentItems=harvestCurrentComparableItems(sub);
+    if(!lotItems.length||!currentItems.length)return false;
+    if(!harvestMapsEqual(harvestComparableItems(lotItems),harvestComparableItems(currentItems)))return false;
+    tr.needsCorrection=false;tr.correctionReason="";
+    tr.harvestSignature=erbHarvestSignature(sub);
+    tr.items=lotItems.map(function(x){return {nome:x.name,quantita:x.quantita};});
+    var type=isReproduction?"semi":"ingredienti";
+    harvestStampConfirmed(occupant,sub,type,config,tr.at||new Date().toISOString());
+    return true;
+  }
+
   function harvestRecoverCreditedCycle(occupant,stage,sub,isReproduction,config,keySuffix){
     if(!occupant||!stage||!sub)return false;
     var entity=String(config&&config.tipoLabel||"Pianta"),species=String(occupant.specieSesso||occupant.nome||""),
@@ -13816,13 +13911,18 @@
       sub.ottenuti=harvestItemsText(lotItems);
       sub.ottenutiQuantita=String(lotTotal);
     }
+    if(sub.dispensaTransfer&&sub.dispensaTransfer.needsCorrection===true&&cycleKey&&lotItems.length){
+      if(!harvestMapsEqual(harvestComparableItems(lotItems),harvestComparableItems(harvestCurrentComparableItems(sub))))return false;
+    }
     var matchedKey=hit?String(hit.key||""):(oldKey||exactKey);
     sub.dispensaTransfer=sub.dispensaTransfer&&typeof sub.dispensaTransfer==="object"?sub.dispensaTransfer:{};
-    sub.dispensaTransfer.done=true;sub.dispensaTransfer.needsCorrection=false;
+    sub.dispensaTransfer.done=true;sub.dispensaTransfer.needsCorrection=false;sub.dispensaTransfer.correctionReason="";
     sub.dispensaTransfer.at=sub.dispensaTransfer.at||(hit&&hit.at)||new Date().toISOString();
     sub.dispensaTransfer.ledgerKey=sub.dispensaTransfer.ledgerKey||matchedKey;
     if(cycleKey)sub.dispensaTransfer.sourceCycleKey=cycleKey;
+    if(lotItems.length)sub.dispensaTransfer.items=lotItems.map(function(x){return {nome:x.name,quantita:x.quantita};});
     harvestStampConfirmed(occupant,sub,type,config,sub.dispensaTransfer.at);
+    sub.dispensaTransfer.harvestSignature=erbHarvestSignature(sub);
     return true;
   }
   function applyHarvestItemsToSub(sub,h,items){h.items=items||[];var txt=harvestItemsText(h.items);if(txt)sub.ottenuti=txt;sub.ottenutiQuantita=String((h.items||[]).reduce(function(a,x){return a+(parseInt(x.quantita,10)||0);},0)||"");scheduleSave(0);}
@@ -14010,8 +14110,16 @@
     return wrap;
   }
   function buildHarvestCycleInlineStatus(occupant,stage,sub,isReproduction,config,keySuffix){
-    if(!subEntryFilled(sub))return null;var app=harvestApplicability(occupant,isReproduction,config,sub);if(!app.applicable)return app.note?el("div","harvest-inline-note",app.note):null;var done=harvestResolutionComplete(occupant,sub,isReproduction,config),h=ensurePlantHarvestState(sub,isReproduction?"semi":"ingredienti",occupant,config);
+    if(!subEntryFilled(sub))return null;
+    var app=harvestApplicability(occupant,isReproduction,config,sub);
+    if(!app.applicable)return app.note?el("div","harvest-inline-note",app.note):null;
+    if(harvestRecoverCreditedCycle(occupant,stage,sub,isReproduction,config,keySuffix)){scheduleSave(300,false);}
+    var done=harvestResolutionComplete(occupant,sub,isReproduction,config),
+        h=ensurePlantHarvestState(sub,isReproduction?"semi":"ingredienti",occupant,config);
     if(done)return el("div","harvest-inline-complete","✓ Raccolto registrato"+(String(sub.ottenuti||"").trim()?": "+String(sub.ottenuti).trim():""));
+    if(sub.dispensaTransfer&&sub.dispensaTransfer.needsCorrection){
+      return el("div","harvest-inline-pending","⚠ Verifica la rettifica della Dispensa per questo Ciclo.");
+    }
     return el("div","harvest-inline-pending",harvestUiIcon(config,false)+" Raccolto da completare nel riquadro prioritario in cima alla struttura.");
   }
 
@@ -14109,6 +14217,9 @@
           if(sub.dispensaTransfer.needsCorrection){
             wrap.appendChild(el("span","small-note"," Il Ciclo è stato corretto dopo il trasferimento. "+String(sub.dispensaTransfer.correctionReason||"Controlla i relativi lotti nella Dispensa.")+" "));
             var fixedDisp=el("button","action small","Ho corretto la Dispensa");fixedDisp.type="button";fixedDisp.addEventListener(EV,function(){
+              if(options.occupant&&options.config&&harvestReconcileCorrectDispensa(options.occupant,sub,!!options.isReproduction,options.config)){
+                scheduleSave(0);renderAll();return;
+              }
               var tr=sub.dispensaTransfer||{},cycleKey=String(tr.sourceCycleKey||sub._erbDispensaCycleKey||""),remaining=0;
               if(cycleKey&&DISPENSA&&Array.isArray(DISPENSA.ingredienti)){
                 for(var rdi=0;rdi<DISPENSA.ingredienti.length;rdi++){
@@ -14232,7 +14343,10 @@
     keepDetailsState(work,(isPlant?"cubicolo:pianta:":"recinto:creatura:")+occupant.id,false);
     work.id=entityCardAnchorId(occupant,config);
     var card=el("div","card entity-card "+(isPlant?"plant-card":"creature-card"));
-    if(isPlant){var cc=String(occupant.classificazione||"").toLowerCase();if(cc==="x"||cc==="xx"||cc==="xxx"||cc==="xxxx"||cc==="xxxxx"){card.classList.add("plant-class-"+cc);}}
+    var cc=String(occupant.classificazione||"").toLowerCase().replace(/\s+/g,"");
+    if(cc==="x"||cc==="xx"||cc==="xxx"||cc==="xxxx"||cc==="xxxxx"){
+      card.classList.add((isPlant?"plant-class-":"creature-class-")+cc);
+    }
     var h=el("h3");
     var headingMain=el("span","entity-heading-main");
     var titoloCard=occupant.nome!==""?occupant.nome:("Nuova "+config.tipoLabel);
