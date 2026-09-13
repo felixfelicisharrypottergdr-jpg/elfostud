@@ -1,3 +1,6 @@
+
+<!-- elfo_studente_v245 — Secondo audit Conteggi/Avvisi: flush dei Post prima di ogni rerender/navigazione, prevenzione 7/8 stale dopo cambio sezione; avvisi Cicli chiusi automaticamente quando il Player prosegue; navigazione apre il Ciclo esatto anche nello storico. Nessuna nuova lettura Firebase; 13/09/2026 -->
+<!-- elfo_studente_v244 — Conteggi e Avvisi: i conteggi usano i primi N Post validi dal N. globale iniziale, saltano buchi/Role escluse; fix aggiornamento immediato dei nuovi Post; avvisi stabili per firma, «Vai alla sezione» li chiude e raggiunge l’attività; Cicli 0% gestiti senza riavvisi; 13/09/2026 -->
 <!DOCTYPE html>
 <!-- elfo_studente_v243 — Audit testi UX: guide, tutorial, avvisi e messaggi riscritti per i Player; rimossi dettagli tecnici visibili senza modificare funzioni o salvataggi; 12/09/2026 -->
 <!-- elfo_studente_v242 — Taccuino UX/UI: Role compatte con Nuova Role in alto; raccolte semplificate; unico Altro personalizzato; Cronologia filtrabile/ordinabile con preferenza locale; Missioni in corso + archivio concluse; nessuna nuova lettura Firebase; 12/09/2026 -->
@@ -4338,6 +4341,19 @@
     for(var i=0;i<POSTS.length;i++){ if(parseInt(POSTS[i].globalNo,10) === n){ return POSTS[i]; } }
     return null;
   }
+  /* v254/v244 — startIndex è una soglia cronologica, non un intervallo rigido.
+     Conta i primi N Post generali validi con N. globale >= startIndex: eventuali
+     buchi storici o Role fuori conteggio non possono più bloccare un 7/8 per sempre. */
+  function countedLocalPostsFromGlobal(start,count){
+    start=parseInt(start,10);count=Math.max(0,parseInt(count,10)||0);
+    if(!(start>0)||!(count>0)){return [];}
+    var out=[];
+    for(var i=0;i<POSTS.length&&out.length<count;i++){
+      var p=POSTS[i],n=parseInt(p&&p.globalNo,10);
+      if(n>=start&&isValidPostLink(p&&p.link)&&!isSpecialRolePost(p)){out.push(p);}
+    }
+    return out;
+  }
   function recomputePosts(){
     ensurePermanentGlobalNumbers();
     POSTS = [];
@@ -4355,10 +4371,10 @@
   function collectActiveGlobalPostReferences(){
     var refs={};
     function add(n,label){n=parseInt(n,10);if(!(n>0)){return;}if(!refs[n]){refs[n]=[];}if(refs[n].indexOf(label)<0){refs[n].push(label);}}
-    function addRange(start,count,label){start=parseInt(start,10);count=parseInt(count,10);if(!(start>0)||!(count>0)){return;}for(var r=0;r<count;r++){add(start+r,label);}}
+    function addCounted(start,count,label){var chosen=countedLocalPostsFromGlobal(start,count);for(var r=0;r<chosen.length;r++){add(chosen[r].globalNo,label);}}
     function scan(obj,label){
       if(!obj||typeof obj!=="object"){return;}
-      if(Object.prototype.hasOwnProperty.call(obj,"startIndex")&&Object.prototype.hasOwnProperty.call(obj,"postRichiesti")){addRange(obj.startIndex,obj.postRichiesti,label);}
+      if(Object.prototype.hasOwnProperty.call(obj,"startIndex")&&Object.prototype.hasOwnProperty.call(obj,"postRichiesti")){addCounted(obj.startIndex,obj.postRichiesti,label);}
       if(Array.isArray(obj)){for(var i=0;i<obj.length;i++){scan(obj[i],label);}return;}
       Object.keys(obj).forEach(function(k){if(k.indexOf("ARCHIVIO_")===0||k==="archivioTotali"||k==="movimenti"||k==="ARCHIVIO_DB"){return;}scan(obj[k],label);});
     }
@@ -4444,17 +4460,11 @@
     return Object.keys(dups).map(function(x){return parseInt(x,10);}).sort(function(a,b){return a-b;});
   }
   function permanentGlobalHoles(start,count){
-    start=parseInt(start,10);count=Math.max(0,parseInt(count,10)||0);var holes=[];
-    /* v240 — il numero di Post richiesti può essere impostato prima di scegliere il primo Post globale. */
-    if(!(start>0)||!(count>0)){return holes;}
-    for(var i=0;i<count;i++){var n=start+i;if(n<=globalPostCounter&&!getPostByGlobalNo(n)){holes.push(n);}}
-    return holes;
+    /* Compatibilità API: i conteggi non dipendono più da numeri consecutivi. */
+    return [];
   }
   function validateGlobalIntervalOrAlert(start,count){
-    var holes=permanentGlobalHoles(start,count);if(!holes.length){return true;}
-    var shown=holes.slice(0,12).join(", ")+(holes.length>12?" …":"");
-    alert("Questo intervallo comprende numeri globali già trascorsi ma non più disponibili ("+shown+"). Questi numeri non verranno riutilizzati, quindi la lavorazione non potrebbe mai completarli. Scegli un intervallo senza buchi oppure parti dal prossimo numero globale disponibile.");
-    return false;
+    return (parseInt(start,10)||0)>0;
   }
 
   function newMese(nome){
@@ -5646,7 +5656,7 @@
   }
   function tutorialCommonAlerts(){
     return [
-      '<b>🔔 Riquadro giallo/oro:</b> una o più attività richiedono attenzione. «Vai alla sezione» apre il punto interessato; se quella sezione è disattivata, compare invece «Gestisci sezioni» e l’Elfo ti riporta alla prima pagina per riattivarla.',
+      '<b>🔔 Riquadro giallo/oro:</b> compare quando una nuova attività diventa davvero completa. «Vai alla sezione» apre il punto interessato e considera l’avviso visto; se quella sezione è disattivata, compare invece «Gestisci sezioni» e l’Elfo ti riporta alla prima pagina per riattivarla.',
       '<b>Avviso verde in alto:</b> l’Elfo ha ricevuto o importato qualcosa da un’altra funzione o strumento. L’avviso resta visibile anche cambiando pagina finché non premi «✓ Visualizzato».',
       '<b>↶ Annulla / ↷ Ripristina:</b> quando disponibili permettono di recuperare rapidamente una modifica recente senza usare conferme ridondanti.',
       '<b>Modalità visualizzazione:</b> puoi consultare il PG senza password; i controlli che cambiano dati vengono disabilitati finché non entri in modifica.'
@@ -6736,6 +6746,7 @@
       healings:[],
       activityState:{},
       activityAlertsInitialized:false,
+      activityAlertsVersion:2,
       categories:taccBaseCategories(),
       customRoleTypes:[],
       png:[],
@@ -6767,6 +6778,7 @@
     });
     d.activityState=(raw.activityState&&typeof raw.activityState==="object"&&!Array.isArray(raw.activityState))?raw.activityState:{};
     d.activityAlertsInitialized=raw.activityAlertsInitialized===true;
+    d.activityAlertsVersion=(raw.activityAlertsVersion==null)?0:Math.max(0,parseInt(raw.activityAlertsVersion,10)||0);
     d.categories=Array.isArray(raw.categories)?raw.categories.filter(function(x){return String(x||"").trim();}):[];
     d.customRoleTypes=Array.isArray(raw.customRoleTypes)?raw.customRoleTypes.map(function(x){return String(x||"").trim();}).filter(Boolean):[];
     d.roles=d.roles.filter(function(r){return r&&typeof r==="object";}).map(function(r){
@@ -7521,46 +7533,122 @@
 
 
   function activityStateMap(){TACCUINO.activityState=(TACCUINO.activityState&&typeof TACCUINO.activityState==="object"&&!Array.isArray(TACCUINO.activityState))?TACCUINO.activityState:{};return TACCUINO.activityState;}
+  var ACTIVITY_ALERT_ENGINE_VERSION=2;
   function activityPotionId(pz){return "potion:"+String(pz&&pz.id!=null?pz.id:"")+":cleaning";}
   function activityHealingId(h){return "healing:"+String(h&&h.id||"");}
   function activityCycleId(type,occId,stageKey,suffix){return "cycle:"+String(type||"").toLowerCase()+":"+String(occId)+":"+String(stageKey)+":"+String(suffix);}
-  function activityPotionProgress(pz){var total=Math.max(0,parseInt(pz&&pz.postRichiesti,10)||0),start=parseInt(pz&&pz.startIndex,10)||0,filled=0;if(total>0&&start>0){for(var i=0;i<total;i++){var post=getPostByGlobalNo(start+i);if(post&&String(post.link||"").trim()){filled++;}}}return {filled:filled,total:total,waitingStart:total>0&&!(start>0),complete:total>0&&start>0&&filled>=total};}
+  function activityCycleAnchor(type,o,st,suffix){try{return cycleItemAnchorId(o,st,{tipoLabel:type},suffix);}catch(e){return "";}}
+  function activityCycleSignature(sub){
+    if(sub&&sub.erbCicloConsumataPerFallimento){return ["zero",String(sub.esitoText||""),String(sub.esitoLink||""),String(sub.activityCompletedAt||"")].join("|");}
+    var pr=subEntryProgress(sub),nums=(pr.posts||[]).map(function(p){return String(p&&p.globalNo||"");});
+    return ["posts",pr.total,pr.startIndex||0,nums.join(","),String(pr.responsabilePg||"")].join("|");
+  }
+  function activityPotionSignature(pz,pr){var nums=(pr.posts||[]).map(function(p){return String(p&&p.globalNo||"");});return ["cleaning",pr.total,parseInt(pz&&pz.startIndex,10)||0,nums.join(","),String(pr.responsabilePg||"")].join("|");}
+  function activityHealingSignature(h,pr){return ["healing",Math.max(0,parseInt(pr&&pr.required,10)||0),Math.max(0,parseInt(pr&&pr.count,10)||0),String(h&&h.status||"active")].join("|");}
+  function activityPotionProgress(pz){
+    var total=Math.max(0,parseInt(pz&&pz.postRichiesti,10)||0),start=parseInt(pz&&pz.startIndex,10)||0,posts=countedLocalPostsFromGlobal(start,total);
+    return {filled:posts.length,total:total,waitingStart:total>0&&!(start>0),complete:total>0&&start>0&&posts.length>=total,posts:posts};
+  }
   function activityCompletionItems(){
-    var out=[];
-    function add(id,label,step,kind){if(id){out.push({id:id,label:label,step:step,kind:kind||""});}}
-    function scanPotions(list){(Array.isArray(list)?list:[]).forEach(function(pz){var pr=activityPotionProgress(pz);if(pr.complete){add(activityPotionId(pz),(pz.nomePozione||("Pozione/Postazione "+(pz.numero||pz.id||"")))+" — Pulizia completata ("+pr.filled+"/"+pr.total+")",TACC_MODE==="studente"?"postazione":"laboratorio","pozione");}});}
+    var out=[],seen={};
+    function add(id,label,step,kind,signature,anchor){id=String(id||"");if(!id||seen[id])return;seen[id]=1;out.push({id:id,label:label,step:step,kind:kind||"",signature:String(signature||""),anchor:String(anchor||"")});}
+    function scanPotions(list){(Array.isArray(list)?list:[]).forEach(function(pz){var pr=activityPotionProgress(pz);if(pr.complete){add(activityPotionId(pz),(pz.nomePozione||("Pozione/Postazione "+(pz.numero||pz.id||"")))+" — Pulizia completata ("+pr.filled+"/"+pr.total+")",TACC_MODE==="studente"?"postazione":"laboratorio","pozione",activityPotionSignature(pz,pr),"");}});}
     if(typeof CALDERONI!=="undefined"){scanPotions(CALDERONI);}
     if(typeof LABORATORI!=="undefined"&&Array.isArray(LABORATORI)){LABORATORI.forEach(function(l){scanPotions(l&&l.POSTAZIONI);});}
-    function scanOccupants(list,type,stages,step){(Array.isArray(list)?list:[]).forEach(function(o){if(!o){return;}ensureOccupantStageData(o,stages);stages.forEach(function(st){var data=o.cicli&&o.cicli[st.key];if(!data){return;}if(Array.isArray(data.list)){data.list.forEach(function(sub,i){if(subEntryFilled(sub)){add(activityCycleId(type,o.id,st.key,"prod-"+i),(o.nome||type)+" — "+st.label+": Ciclo di Produzione "+(i+1)+" completato",step,type.toLowerCase());}});}if(st.type==="ripro"&&data.evento&&subEntryFilled(data.evento)){add(activityCycleId(type,o.id,st.key,"ripro"),(o.nome||type)+" — Ciclo di Riproduzione completato",step,type.toLowerCase());}if(st.type==="passaggio"&&data.evento&&subEntryFilled(data.evento)){add(activityCycleId(type,o.id,st.key,"passaggio-germinazione"),(o.nome||type)+" — Passaggio alla Germinazione completato",step,type.toLowerCase());}if(st.type==="gestazione"&&data.evento&&subEntryFilled(data.evento)){add(activityCycleId(type,o.id,st.key,"gestazione"),(o.nome||type)+" — Gestazione/Schiusa completata",step,type.toLowerCase());}});});}
+    function scanOccupants(list,type,stages,step){(Array.isArray(list)?list:[]).forEach(function(o){if(!o)return;ensureOccupantStageData(o,stages);stages.forEach(function(st){var data=o.cicli&&o.cicli[st.key];if(!data)return;
+      if(Array.isArray(data.list)){data.list.forEach(function(sub,i){if(subEntryFilled(sub)){var key="prod-"+i;add(activityCycleId(type,o.id,st.key,key),(o.nome||type)+" — "+st.label+": Ciclo di Produzione "+(i+1)+" completato",step,type.toLowerCase(),activityCycleSignature(sub),activityCycleAnchor(type,o,st,key));}});}
+      if(st.type==="ripro"&&data.evento&&subEntryFilled(data.evento)){add(activityCycleId(type,o.id,st.key,"ripro"),(o.nome||type)+" — Ciclo di Riproduzione completato",step,type.toLowerCase(),activityCycleSignature(data.evento),activityCycleAnchor(type,o,st,"ripro"));}
+      if(st.type==="passaggio"&&data.evento&&subEntryFilled(data.evento)){add(activityCycleId(type,o.id,st.key,"passaggio-germinazione"),(o.nome||type)+" — Passaggio alla Germinazione completato",step,type.toLowerCase(),activityCycleSignature(data.evento),activityCycleAnchor(type,o,st,"passaggio-germinazione"));}
+      if(st.type==="gestazione"&&data.evento&&subEntryFilled(data.evento)){add(activityCycleId(type,o.id,st.key,"gestazione"),(o.nome||type)+" — Gestazione/Schiusa completata",step,type.toLowerCase(),activityCycleSignature(data.evento),activityCycleAnchor(type,o,st,"gestazione"));}
+    });});}
     if(typeof PIANTE!=="undefined"){scanOccupants(PIANTE,"Pianta",plantStages(),"cubicolo");}
     if(typeof CREATURE!=="undefined"){scanOccupants(CREATURE,"Creatura",creatureStages(),"recinto");}
     if(typeof SERRE!=="undefined"&&Array.isArray(SERRE)){SERRE.forEach(function(s){scanOccupants(s&&s.PIANTE,"Pianta",plantStages(),"serra");});}
     if(typeof RISERVE!=="undefined"&&Array.isArray(RISERVE)){RISERVE.forEach(function(r){scanOccupants(r&&r.CREATURE,"Creatura",creatureStages(),"riserva");});}
-    (TACCUINO.healings||[]).forEach(function(h){if(h&&h.status!=="completed"){var pr=healingProgress(h);if(pr.count>=pr.required){add(activityHealingId(h),(h.methodName||"Guarigione")+(h.maxClass?" · "+h.maxClass:"")+" — "+pr.count+"/"+pr.required+" Post completati","posts","guarigione");}}});
+    (TACCUINO.healings||[]).forEach(function(h){if(h&&h.status!=="completed"){var pr=healingProgress(h);if(pr.count>=pr.required){add(activityHealingId(h),(h.methodName||"Guarigione")+(h.maxClass?" · "+h.maxClass:"")+" — "+pr.count+"/"+pr.required+" Post completati","posts","guarigione",activityHealingSignature(h,pr),"");}}});
     return out;
   }
+  function activityCurrentItem(id){var items=activityCompletionItems();for(var i=0;i<items.length;i++){if(items[i].id===id)return items[i];}return null;}
   function activityRefreshState(){
-    var state=activityStateMap(),items=activityCompletionItems(),current={};items.forEach(function(it){current[it.id]=1;});var changed=false;
-    if(!TACCUINO.activityAlertsInitialized){items.forEach(function(it){state[it.id]={complete:true,ack:true};});TACCUINO.activityAlertsInitialized=true;changed=true;}
-    else{
-      Object.keys(state).forEach(function(id){if(!current[id]&&state[id]&&state[id].complete){state[id].complete=false;changed=true;}});
-      items.forEach(function(it){var s=state[it.id];if(!s||s.complete===false){state[it.id]={complete:true,ack:false};changed=true;}else if(typeof s.ack!=="boolean"){s.ack=false;changed=true;}});
+    var state=activityStateMap(),items=activityCompletionItems(),current={},changed=false,oldInitialized=TACCUINO.activityAlertsInitialized===true,oldVersion=Math.max(0,parseInt(TACCUINO.activityAlertsVersion,10)||0);
+    items.forEach(function(it){current[it.id]=it;});
+    if(oldVersion<ACTIVITY_ALERT_ENGINE_VERSION){
+      items.forEach(function(it){var old=state[it.id],ack=!oldInitialized?true:!!(old&&old.complete===true);state[it.id]={complete:true,ack:ack,signature:it.signature,updatedAt:new Date().toISOString()};});
+      TACCUINO.activityAlertsInitialized=true;TACCUINO.activityAlertsVersion=ACTIVITY_ALERT_ENGINE_VERSION;changed=true;
+    }else if(!TACCUINO.activityAlertsInitialized){
+      items.forEach(function(it){state[it.id]={complete:true,ack:true,signature:it.signature,updatedAt:new Date().toISOString()};});
+      TACCUINO.activityAlertsInitialized=true;changed=true;
+    }else{
+      Object.keys(state).forEach(function(id){var s=state[id];if(!current[id]&&s&&s.complete){s.complete=false;s.updatedAt=new Date().toISOString();changed=true;}});
+      items.forEach(function(it){
+        var s=state[it.id];
+        if(!s){state[it.id]={complete:true,ack:false,signature:it.signature,updatedAt:new Date().toISOString()};changed=true;return;}
+        var same=String(s.signature||"")===String(it.signature||"");
+        if(!same){s.signature=it.signature;s.ack=false;changed=true;}
+        if(s.complete!==true){s.complete=true;changed=true;}
+        if(typeof s.ack!=="boolean"){s.ack=false;changed=true;}
+        s.updatedAt=s.updatedAt||new Date().toISOString();
+      });
     }
-    if(changed){taccSave();}return items;
+    if(changed){taccSave();}
+    return items;
   }
   function activityAcked(id){var s=activityStateMap()[id];return !!(s&&s.complete&&s.ack);}
-  function activitySetAck(id,value){var st=activityStateMap();if(!st[id]){st[id]={complete:true,ack:false};}st[id].ack=!!value;taccSave();}
+  function activitySetAck(id,value,signature){
+    var st=activityStateMap(),it=signature==null?activityCurrentItem(id):null,sig=signature!=null?String(signature):String(it&&it.signature||"");
+    if(!st[id]){st[id]={complete:true,ack:false,signature:sig,updatedAt:new Date().toISOString()};}
+    st[id].complete=true;st[id].ack=!!value;if(sig)st[id].signature=sig;st[id].updatedAt=new Date().toISOString();TACCUINO.activityAlertsVersion=ACTIVITY_ALERT_ENGINE_VERSION;TACCUINO.activityAlertsInitialized=true;taccSave();
+  }
+  function activityPrepareNavigation(it){
+    if(!it||String(it.id||"").indexOf("cycle:")!==0)return;
+    var parts=String(it.id).split(":");if(parts.length<5)return;
+    var type=String(parts[1]||"").toLowerCase(),occId=parts[2],stageKey=parts[3],suffix=parts.slice(4).join(":");
+    var typeLabel=type==="pianta"?"Pianta":(type==="creatura"?"Creatura":"");
+    if(!typeLabel)return;
+    if(suffix.indexOf("prod-")===0){OPEN_DETAILS["ciclo:produzione:"+typeLabel+":"+occId+":"+stageKey]=true;}
+    else if(suffix==="ripro"){OPEN_DETAILS["ciclo:riproduzione:"+typeLabel+":"+occId+":"+stageKey]=true;}
+    OPEN_DETAILS["ciclo:item:"+typeLabel+":"+occId+":"+stageKey+":"+suffix]=true;
+  }
+  function activityAckCompletedStage(occupant,stage,config){
+    if(!occupant||!stage||!config)return;
+    var data=occupant.cicli&&occupant.cicli[stage.key];if(!data)return;
+    var state=activityStateMap(),changed=false,type=config.tipoLabel;
+    function ack(sub,suffix){
+      if(!sub||!subEntryFilled(sub))return;
+      var id=activityCycleId(type,occupant.id,stage.key,suffix),sig=activityCycleSignature(sub),s=state[id];
+      if(!s){state[id]={complete:true,ack:true,signature:sig,updatedAt:new Date().toISOString()};changed=true;return;}
+      if(s.complete!==true||s.ack!==true||String(s.signature||"")!==String(sig||""))changed=true;
+      s.complete=true;s.ack=true;s.signature=sig;s.updatedAt=new Date().toISOString();
+    }
+    if(Array.isArray(data.list)){for(var i=0;i<data.list.length;i++)ack(data.list[i],"prod-"+i);}
+    if(stage.type==="ripro"&&data.evento)ack(data.evento,"ripro");
+    if(stage.type==="passaggio"&&data.evento)ack(data.evento,"passaggio-germinazione");
+    if(stage.type==="gestazione"&&data.evento)ack(data.evento,"gestazione");
+    if(changed){
+      TACCUINO.activityAlertsVersion=ACTIVITY_ALERT_ENGINE_VERSION;
+      TACCUINO.activityAlertsInitialized=true;
+      taccSave();
+    }
+  }
   function buildActivityAckControl(id){var lab=el("label","activity-ack"),cb=document.createElement("input");cb.type="checkbox";cb.checked=activityAcked(id);cb.addEventListener("change",function(){activitySetAck(id,cb.checked);renderAll();});lab.appendChild(cb);lab.appendChild(document.createTextNode("Presa visione"));return lab;}
   function buildGlobalActivityAlerts(){
-    if(!EDIT_UNLOCKED){return null;}var items=activityRefreshState().filter(function(it){return !activityAcked(it.id);});if(!items.length){return null;}
-    var box=el("div","global-activity-alerts");box.appendChild(el("strong",null,"🔔 "+items.length+(items.length===1?" attività richiede":" attività richiedono")+" la tua attenzione"));items.forEach(function(it){
+    if(!EDIT_UNLOCKED)return null;
+    var items=activityRefreshState().filter(function(it){return !activityAcked(it.id);});if(!items.length)return null;
+    var box=el("div","global-activity-alerts");box.appendChild(el("strong",null,"🔔 "+items.length+(items.length===1?" attività richiede":" attività richiedono")+" la tua attenzione"));
+    items.forEach(function(it){
       var row=el("div","global-activity-alert-row");row.appendChild(el("span",null,it.label));
-      var targetVisible=navCanOpenStepKey(it.step);
-      var b=el("button","action small",targetVisible?"Vai alla sezione":"Gestisci sezioni");b.type="button";
-      b.title=targetVisible?"Apri la sezione interessata":"La sezione interessata è nascosta: apri le Strutture per riattivarla";
-      b.addEventListener(EV,function(){currentStep=navResolvedTargetKey(it.step);renderAll({skipAutoSave:true});});
+      var targetVisible=navCanOpenStepKey(it.step),b=el("button","action small",targetVisible?"Vai alla sezione":"Gestisci sezioni");b.type="button";
+      b.title=targetVisible?"Apri la sezione interessata e considera visto questo avviso":"La sezione interessata è nascosta: apri le Strutture per riattivarla";
+      b.addEventListener(EV,function(){
+        activitySetAck(it.id,true,it.signature);
+        activityPrepareNavigation(it);
+        currentStep=navResolvedTargetKey(it.step);
+        renderAll({skipAutoSave:true});
+        if(targetVisible&&it.anchor){setTimeout(function(){var node=document.getElementById(it.anchor);if(node&&node.scrollIntoView)node.scrollIntoView({behavior:"smooth",block:"center"});},60);}
+      });
       row.appendChild(b);box.appendChild(row);
-    });return box;
+    });
+    return box;
   }
 
   function taccCurrentPgName(){
@@ -8911,6 +8999,9 @@
   var FF_LAST_RENDERED_STEP="";
   function renderAll(options){
     options=options||{};
+    /* v255/v245 — se il Player cambia pagina prima dei 120 ms del debounce,
+       il vecchio campo Link è ancora nel DOM: consolidalo prima di ricostruire POSTS. */
+    try{flushGeneralPostInputsToState();}catch(e){}
     ensureCurrentStepVisible();
     recomputePosts();
     felixTokenBridgeSchedule();
@@ -9748,6 +9839,7 @@
           if(summerEntry){post.summerRoleExcluded=true;post.summerRoleKey=summerKey;}
           else if(post.summerRoleExcluded===true&&post.summerRoleKey&&String(post.summerRoleKey)!==String(summerKey)){post.summerRoleExcluded=false;post.summerRoleKey="";}
           ensurePostGlobalNo(post);
+          recomputePosts();
           refreshInlineGlobal();
           syncHouseRoleBonusForPost(post,mese);
           scheduleSave(delay==null?0:delay);
@@ -12266,7 +12358,6 @@
 
     var dStart=el("div"); dStart.appendChild(el("label",null,"Dal post globale n°"));
     var potionStart=parseInt(postaz.startIndex,10)||0;
-    if(potionStart>0&&potionStart<=globalPostCounter&&!getPostByGlobalNo(potionStart)){postaz.startIndex="";potionStart=0;}
     var iStart=el("input"); iStart.type="number"; iStart.min="1"; iStart.step="1"; iStart.placeholder="Non ancora iniziato";
     iStart.value=potionStart>0?String(potionStart):"";
     iStart.addEventListener("change",function(){var raw=String(iStart.value||"").trim();if(!raw){postaz.startIndex="";scheduleSave(0);renderAll();return;}var proposed=parseInt(raw,10)||0;if(!(proposed>0)||!validateGlobalIntervalOrAlert(proposed,Math.max(0,num(postaz.postRichiesti,0)))){iStart.value=postaz.startIndex||"";return;}postaz.startIndex=proposed;scheduleSave(0);renderAll();});
@@ -12275,7 +12366,7 @@
     row.appendChild(dStart);
 
     wrap.appendChild(row);
-    wrap.appendChild(el("p","small-note","Il N. globale si trova in <b>I tuoi Post</b>. Non devi registrare qui i singoli post: la Pulizia avanza automaticamente quando quei Post vengono aggiunti all’Elfo."));
+    wrap.appendChild(el("p","small-note","Il N. globale indica da quale Post iniziare. Da lì l’Elfo conta i primi Post validi, saltando automaticamente eventuali buchi o Role fuori conteggio. Non devi registrarli anche qui."));
 
     var modRow=el("div","entity-secondary-field");
     modRow.appendChild(el("label",null,"Modificatori applicati (facoltativo)"));
@@ -12289,14 +12380,10 @@
   }
 
   function buildPostsFromSharedList(postaz){
-    var wrap = el("div");
-    var filled = 0, start=parseInt(postaz.startIndex,10)||0;
-    if(start>0){for(var s=0; s<postaz.postRichiesti; s++){
-      var post = getPostByGlobalNo(start + s);
-      if(post){ if(String(post.link || "").trim() !== ""){ filled = filled + 1; } }
-    }}
+    var wrap = el("div"),start=parseInt(postaz.startIndex,10)||0,
+        posts=countedLocalPostsFromGlobal(start,postaz.postRichiesti),filled=posts.length;
     wrap.appendChild(progressStatusNode("Pulizia del Calderone", filled, postaz.postRichiesti));
-    if(postaz.postRichiesti>0&&!(start>0)){wrap.appendChild(el("div","small-note","Post richiesti salvati. Il conteggio non è ancora iniziato: imposta il primo Post globale quando cominci davvero a postare."));}
+    if(postaz.postRichiesti>0&&!(start>0)){wrap.appendChild(el("div","small-note","Post richiesti salvati. Il conteggio non è ancora iniziato: imposta il primo Post globale quando cominci davvero a postare. Da quel numero verranno contati i primi Post validi successivi, anche se esistono buchi nella numerazione."));}
     if(postaz.postRichiesti>0&&filled>=postaz.postRichiesti){wrap.appendChild(buildActivityAckControl(activityPotionId(postaz)));}
     return wrap;
   }
@@ -12351,9 +12438,9 @@
       if(String(postaz.imbottModificatori||"").trim()!==""){ lines.push("<b>Modificatori applicati:</b> "+String(postaz.imbottModificatori).trim()); }
 
       lines.push("[SPOILER]");
-      var exportStart=parseInt(postaz.startIndex,10)||0;
+      var exportStart=parseInt(postaz.startIndex,10)||0,exportPicked=countedLocalPostsFromGlobal(exportStart,postaz.postRichiesti);
       for(var s=0; s<postaz.postRichiesti; s++){
-        var slotPost = exportStart>0 ? getPostByGlobalNo(exportStart + s) : null;
+        var slotPost=exportPicked[s]||null;
         lines.push(slotPost ? (s+1) + ": " + forumBbUrl(slotPost.link,"x") : (s+1) + ":");
       }
       lines.push("[/SPOILER]");
@@ -12410,10 +12497,7 @@
     if(sub.startIndex==null){sub.startIndex="";}
     var legacyStart=parseInt(sub.startIndex,10);
     if(!(legacyStart>0)){sub.startIndex="";}
-    else if(legacyStart<=globalPostCounter&&!getPostByGlobalNo(legacyStart)){
-      /* v240 — vecchi Cicli creati con un numero globale assegnato automaticamente: se quel numero è ormai un buco permanente, il conteggio non era realmente partito. */
-      sub.startIndex="";
-    }else{sub.startIndex=legacyStart;}
+    else{sub.startIndex=legacyStart;}
     if(sub.ottenuti==null){sub.ottenuti="";}
     if(sub.ottenutiLink==null){sub.ottenutiLink="";}
     if(sub.ottenutiQuantita==null){sub.ottenutiQuantita="";}
@@ -12433,14 +12517,8 @@
     sub=normalizeSubEntry(sub);
     var total=Math.max(0,num(sub.postRichiesti,0));
     var start=parseInt(sub.startIndex,10)||0;
-    var filled=0;
-    if(start>0){
-      for(var i=0;i<total;i++){
-        var post=getPostByGlobalNo(start+i);
-        if(post && String(post.link||"").trim()!==""){filled++;}
-      }
-    }
-    return {filled:filled,total:total,waitingStart:total>0&&!(start>0),startIndex:start};
+    var posts=countedLocalPostsFromGlobal(start,total);
+    return {filled:posts.length,total:total,waitingStart:total>0&&!(start>0),startIndex:start,posts:posts};
   }
 
   function newOccupant(stages){
@@ -13786,6 +13864,7 @@
       wrap.appendChild(el("div","advancement-next-cycle","Il prossimo passaggio ordinario è il Ciclo di Produzione <b>"+(nextCycle.index+1)+"/"+nextCycle.total+"</b>."));
       var btnCycle=el("button","action","Passa al Ciclo di Produzione "+(nextCycle.index+1)+"/"+nextCycle.total);btnCycle.type="button";
       btnCycle.addEventListener(EV,function(){
+        activityAckCompletedStage(occupant,currentStage,phaseConfig);
         var key=nextCycle.key;
         OPEN_DETAILS["ciclo:produzione:"+phaseConfig.tipoLabel+":"+occupant.id+":"+currentStage.key]=true;
         OPEN_DETAILS["ciclo:item:"+phaseConfig.tipoLabel+":"+occupant.id+":"+currentStage.key+":"+key]=true;
@@ -13796,6 +13875,7 @@
       if(offgame.ready && nextLabel){
         var btnSkip=el("button","action","Tempo OFFGame trascorso — passa a: "+nextLabel);btnSkip.type="button";
         btnSkip.addEventListener(EV,function(){
+          activityAckCompletedStage(occupant,currentStage,phaseConfig);
           pushPhaseHistory(occupant);
           occupant.faseAttuale=canonicalStageLabel(stages,nextLabel);
           occupant.faseDataInizio="";
@@ -13808,6 +13888,7 @@
       wrap.appendChild(el("div","advancement-next-cycle","I Cicli di Produzione sono completi: resta il Ciclo di Riproduzione <b>1/1</b>."));
       var btnRepro=el("button","action","Passa al Ciclo di Riproduzione 1/1");btnRepro.type="button";
       btnRepro.addEventListener(EV,function(){
+        activityAckCompletedStage(occupant,currentStage,phaseConfig);
         OPEN_DETAILS["ciclo:riproduzione:"+phaseConfig.tipoLabel+":"+occupant.id+":"+currentStage.key]=true;
         OPEN_DETAILS["ciclo:item:"+phaseConfig.tipoLabel+":"+occupant.id+":"+currentStage.key+":ripro"]=true;
         scheduleSave(0);renderAll();scrollAfterRender(cycleItemAnchorId(occupant,currentStage,phaseConfig,"ripro"));
@@ -13816,6 +13897,7 @@
       if(offgame.ready && nextLabel){
         var btnSkipRepro=el("button","action","Tempo OFFGame trascorso — passa a: "+nextLabel);btnSkipRepro.type="button";
         btnSkipRepro.addEventListener(EV,function(){
+          activityAckCompletedStage(occupant,currentStage,phaseConfig);
           pushPhaseHistory(occupant);
           occupant.faseAttuale=canonicalStageLabel(stages,nextLabel);
           occupant.faseDataInizio="";
@@ -13827,6 +13909,7 @@
     }else if(nextLabel && (phaseReady || offgame.ready)){
       var btn = el("button", "action", "Fai passare a: " + nextLabel);
       btn.addEventListener(EV, function(){
+        activityAckCompletedStage(occupant,currentStage,phaseConfig);
         pushPhaseHistory(occupant);
         occupant.faseAttuale = canonicalStageLabel(stages, nextLabel);
         occupant.faseDataInizio = "";
@@ -13837,6 +13920,7 @@
     }else if(!nextLabel && (phaseReady || offgame.ready)){
       var btnD = el("button", "action danger", "Segna come Morta/o e sposta in Archivio");
       btnD.addEventListener(EV, function(){
+        activityAckCompletedStage(occupant,currentStage,phaseConfig);
         occupant.morta = true;
         if(listRef){
           var idx = listRef.indexOf(occupant);
@@ -13965,17 +14049,17 @@
     var actionAdded=false;
     if(nextProd>=0){
       var nextKey="prod-"+nextProd,btnCycle=el("button","action","Passa al Ciclo di Produzione "+(nextProd+1)+"/"+list.length);btnCycle.type="button";
-      btnCycle.addEventListener(EV,function(){OPEN_DETAILS["ciclo:produzione:"+config.tipoLabel+":"+occupant.id+":"+stage.key]=true;OPEN_DETAILS["ciclo:item:"+config.tipoLabel+":"+occupant.id+":"+stage.key+":"+nextKey]=true;scheduleSave(0);renderAll();scrollAfterRender(cycleItemAnchorId(occupant,stage,config,nextKey));});
+      btnCycle.addEventListener(EV,function(){if(typeof activitySetAck==="function"){activitySetAck(activityCycleId(config.tipoLabel,occupant.id,stage.key,keySuffix),true,activityCycleSignature(sub));}OPEN_DETAILS["ciclo:produzione:"+config.tipoLabel+":"+occupant.id+":"+stage.key]=true;OPEN_DETAILS["ciclo:item:"+config.tipoLabel+":"+occupant.id+":"+stage.key+":"+nextKey]=true;scheduleSave(0);renderAll();scrollAfterRender(cycleItemAnchorId(occupant,stage,config,nextKey));});
       wrap.appendChild(btnCycle);actionAdded=true;
     }else if(stage.type==="ripro"&&cd.evento&&!subEntryFilled(cd.evento)){
       var btnRepro=el("button","action","Passa al Ciclo di Riproduzione 1/1");btnRepro.type="button";
-      btnRepro.addEventListener(EV,function(){OPEN_DETAILS["ciclo:riproduzione:"+config.tipoLabel+":"+occupant.id+":"+stage.key]=true;OPEN_DETAILS["ciclo:item:"+config.tipoLabel+":"+occupant.id+":"+stage.key+":ripro"]=true;scheduleSave(0);renderAll();scrollAfterRender(cycleItemAnchorId(occupant,stage,config,"ripro"));});
+      btnRepro.addEventListener(EV,function(){if(typeof activitySetAck==="function"){activitySetAck(activityCycleId(config.tipoLabel,occupant.id,stage.key,keySuffix),true,activityCycleSignature(sub));}OPEN_DETAILS["ciclo:riproduzione:"+config.tipoLabel+":"+occupant.id+":"+stage.key]=true;OPEN_DETAILS["ciclo:item:"+config.tipoLabel+":"+occupant.id+":"+stage.key+":ripro"]=true;scheduleSave(0);renderAll();scrollAfterRender(cycleItemAnchorId(occupant,stage,config,"ripro"));});
       wrap.appendChild(btnRepro);actionAdded=true;
     }else{
       var stages=currentStagesForConfig(config),pending=pendingHarvestEntriesForOccupant(occupant,stages,config,stage.key),nextLabel=nextStageLabel(stages,occupant.faseAttuale);
       if(!pending.length&&nextLabel){
         var btnPhase=el("button","action","Passa alla fase successiva: "+nextLabel);btnPhase.type="button";
-        btnPhase.addEventListener(EV,function(){pushPhaseHistory(occupant);occupant.faseAttuale=canonicalStageLabel(stages,nextLabel);occupant.faseDataInizio="";openStageDetails(occupant,stages,config,occupant.faseAttuale);scheduleSave(0);renderAll();scrollAfterRender(entityCardAnchorId(occupant,config));});
+        btnPhase.addEventListener(EV,function(){if(typeof activitySetAck==="function"){activitySetAck(activityCycleId(config.tipoLabel,occupant.id,stage.key,keySuffix),true,activityCycleSignature(sub));}activityAckCompletedStage(occupant,stage,config);pushPhaseHistory(occupant);occupant.faseAttuale=canonicalStageLabel(stages,nextLabel);occupant.faseDataInizio="";openStageDetails(occupant,stages,config,occupant.faseAttuale);scheduleSave(0);renderAll();scrollAfterRender(entityCardAnchorId(occupant,config));});
         wrap.appendChild(btnPhase);actionAdded=true;
       }else if(pending.length){
         var first=pending[0],btnHarvest=el("button","action","Completa il prossimo raccolto");btnHarvest.type="button";
@@ -13990,6 +14074,7 @@
   function markZeroPercentCycleTerminated(sub){
     sub=normalizeSubEntry(sub);
     sub.erbCicloConsumataPerFallimento=true;
+    sub.activityCompletedAt=new Date().toISOString();
     sub.postRichiesti=0;
     sub.ottenuti="";
     sub.ottenutiLink="";
@@ -14012,6 +14097,7 @@
     btn.type="button";
     btn.addEventListener(EV,function(){
       markZeroPercentCycleTerminated(sub);
+      if(typeof activitySetAck==="function"){activitySetAck(activityCycleId(config.tipoLabel,occupant.id,stage.key,keySuffix),true,activityCycleSignature(sub));}
 
       var cd=occupant.cicli[stage.key]||{};
       var list=Array.isArray(cd.list)?cd.list:[];
@@ -14226,6 +14312,7 @@
     var canStart=options.canStart!==false;
     var isReproduction=!!options.isReproduction;
     var block=el("div","history-cycle-item");
+    block.id=cycleItemAnchorId(occupant,stage,config,keySuffix);
 
     var head=el("div","history-cycle-item-head");
     var titleSpan=el("span");
@@ -14368,9 +14455,9 @@
 
     if(pr.total>0){
       out+="<ol>";
+      var exportPosts=Array.isArray(pr.posts)?pr.posts:[];
       for(var i=0;i<pr.total;i++){
-        var exportStart=parseInt(sub.startIndex,10)||0;
-        var post=exportStart>0?getPostByGlobalNo(exportStart+i):null;
+        var post=exportPosts[i]||null;
         out+="<li>"+(post?forumBbUrl(post.link,"Post "+(i+1)):"Post "+(i+1))+"</li>";
       }
       out+="</ol>";
