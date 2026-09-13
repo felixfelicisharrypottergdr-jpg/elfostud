@@ -1,4 +1,8 @@
 
+<!-- elfo_studente_v249 — Taccuino Role: la data è ora «Ambientata al giorno», si sceglie già in Nuova Role e, se lasciata vuota, usa la data di apertura della Role. Nessun'altra funzione modificata. 13/09/2026 -->
+<!-- elfo_studente_v248 — Audit campi Creature/Pozioni: i blur dei campi non distruggono più il pulsante che il Player sta cliccando; rerender differito per Cicli/raccolti e Pulizia Pozioni, campi nome/link salvati senza salto. Mantiene v247 e tutti i fix conteggi/avvisi/copia. 13/09/2026 -->
+<!-- elfo_studente_v247 — Trasferimento raccolti: primo click non più perso dal blur/rerender; Ciclo resta aperto e in vista; Semi delle Piante trasferibili in Dispensa come materiale di coltivazione non commerciabile; corretto anche sourceCycleKey nel fallback singolo Ingrediente. 13/09/2026 -->
+<!-- elfo_studente_v246 — Copia senza salto pagina: preserva scroll/focus anche nel fallback execCommand e blocca il comportamento predefinito dei pulsanti Copia; mantiene audit Conteggi/Avvisi v245. 13/09/2026 -->
 <!-- elfo_studente_v245 — Secondo audit Conteggi/Avvisi: flush dei Post prima di ogni rerender/navigazione, prevenzione 7/8 stale dopo cambio sezione; avvisi Cicli chiusi automaticamente quando il Player prosegue; navigazione apre il Ciclo esatto anche nello storico. Nessuna nuova lettura Firebase; 13/09/2026 -->
 <!-- elfo_studente_v244 — Conteggi e Avvisi: i conteggi usano i primi N Post validi dal N. globale iniziale, saltano buchi/Role escluse; fix aggiornamento immediato dei nuovi Post; avvisi stabili per firma, «Vai alla sezione» li chiude e raggiunge l’attività; Cicli 0% gestiti senza riavvisi; 13/09/2026 -->
 <!DOCTYPE html>
@@ -5500,20 +5504,46 @@
     setTimeout(function(){ btn.textContent = old; }, 1600);
   }
   function fallbackCopyText(txt){
-    var ta = document.createElement("textarea");
-    ta.value = txt; ta.setAttribute("readonly", "");
-    ta.style.position = "fixed"; ta.style.top = "0"; ta.style.left = "-9999px";
-    document.body.appendChild(ta); ta.focus(); ta.select(); ta.setSelectionRange(0, txt.length);
-    var ok = false;
-    try{ ok = document.execCommand("copy"); } catch(e){ ok = false; }
+    /* v256/v246 — il vecchio textarea di fallback veniva focalizzato a top:0:
+       in alcuni browser/iframe il focus faceva scorrere tutta la pagina in cima. */
+    var sx=window.pageXOffset||document.documentElement.scrollLeft||0,
+        sy=window.pageYOffset||document.documentElement.scrollTop||0,
+        previous=document.activeElement,
+        ta=document.createElement("textarea");
+    ta.value=txt;ta.setAttribute("readonly","");
+    ta.setAttribute("aria-hidden","true");
+    ta.style.position="fixed";
+    ta.style.left="-10000px";
+    ta.style.top="-10000px";
+    ta.style.width="1px";
+    ta.style.height="1px";
+    ta.style.opacity="0";
+    ta.style.pointerEvents="none";
+    document.body.appendChild(ta);
+    try{ta.focus({preventScroll:true});}catch(e){try{ta.focus();}catch(_e){}}
+    ta.select();ta.setSelectionRange(0,txt.length);
+    var ok=false;
+    try{ok=document.execCommand("copy");}catch(e){ok=false;}
     document.body.removeChild(ta);
+    try{
+      if(previous&&previous.focus){
+        try{previous.focus({preventScroll:true});}catch(e){previous.focus();}
+      }
+    }catch(e){}
+    try{window.scrollTo(sx,sy);}catch(e){}
+    if(window.requestAnimationFrame){
+      window.requestAnimationFrame(function(){try{window.scrollTo(sx,sy);}catch(e){}});
+    }
     return ok;
   }
   function attachCopy(btnId, sourceId){
     var btn = document.getElementById(btnId);
     if(!btn){ return; }
-    btn.addEventListener(EV, function(){
+    btn.type="button";
+    btn.addEventListener(EV, function(ev){
+      if(ev){ev.preventDefault();ev.stopPropagation();}
       var src = document.getElementById(sourceId);
+      if(!src){return;}
       var txt = src.textContent;
       var handledAsync = false;
       if(navigator.clipboard){
@@ -6579,6 +6609,18 @@
       }).catch(function(e){console.error(e);if(personalTransientSaveCode((e&&e.code)||"")){personalHandleTransientFailure(e.code,state);fbStatusText=saveErrorStatus();}else{fbStatusText="Errore nel salvataggio, riprova";}updateFbIndicator();});
     }, requestedDelay);
     updateFbIndicator();
+  }
+
+  var SAFE_FIELD_RENDER_TIMER=null;
+  function scheduleSafeFieldRender(delayMs){
+    if(SAFE_FIELD_RENDER_TIMER){clearTimeout(SAFE_FIELD_RENDER_TIMER);}
+    SAFE_FIELD_RENDER_TIMER=setTimeout(function(){
+      SAFE_FIELD_RENDER_TIMER=null;
+      try{renderAll({skipAutoSave:true});}catch(e){console.error(e);}
+    },Math.max(180,Number(delayMs)||240));
+  }
+  function cancelSafeFieldRender(){
+    if(SAFE_FIELD_RENDER_TIMER){clearTimeout(SAFE_FIELD_RENDER_TIMER);SAFE_FIELD_RENDER_TIMER=null;}
   }
 
   if(!window.__ELFO_PERSONAL_PENDING_VISIBILITY_BOUND){
@@ -8299,9 +8341,10 @@
         d=taccSelect(taccCollectionLabel(),TACCUINO.categories,taccDefaultRoleCategory()),
         rt=taccRoleTypeSelect("free"),
         per=taccInput("Periodo ONGame",""),
+        date=taccInput("Ambientata al giorno","","date"),
         loc=taccInput("Luogo","");
-    b.input.type="url";per.input.placeholder=TACC_MODE==="studente"?"Es. settembre 2026, estate…":"Es. novembre 2026, estate…";loc.input.placeholder="Es. Biblioteca, Hogsmeade…";
-    [a.wrap,b.wrap,c.wrap,d.wrap,rt.wrap,per.wrap,loc.wrap].forEach(function(x){g.appendChild(x);});form.appendChild(g);
+    b.input.type="url";date.input.type="date";per.input.placeholder=TACC_MODE==="studente"?"Es. settembre 2026, estate…":"Es. novembre 2026, estate…";loc.input.placeholder="Es. Biblioteca, Hogsmeade…";
+    [a.wrap,b.wrap,c.wrap,d.wrap,rt.wrap,per.wrap,date.wrap,loc.wrap].forEach(function(x){g.appendChild(x);});form.appendChild(g);
     var noteWrap=el("div","tacc-form-note");noteWrap.appendChild(el("label",null,"Note"));var note=el("textarea");note.placeholder="Promemoria facoltativi";noteWrap.appendChild(note);form.appendChild(noteWrap);
     var formActions=el("div","tacc-inline-actions");
     var add=el("button","action","+ Aggiungi Role");add.type="button";
@@ -8314,7 +8357,7 @@
       if(rt.select.value==="__custom__"&&!String(rt.customInput.value||"").trim()){alert("Scrivi il tipo di Role personalizzato oppure scegli un tipo dal menu.");return;}
       var roleType=rt.getValue("free");if(roleType.indexOf("custom:")===0){rt.rememberCustom();}
       var newId=taccId("role");
-      TACCUINO.roles.push({id:newId,title:title,url:String(b.input.value||"").trim(),withWhom:String(c.input.value||"").trim(),category:d.select.value||taccDefaultRoleCategory(),roleType:roleType,period:String(per.input.value||"").trim(),location:String(loc.input.value||"").trim(),notes:String(note.value||"").trim(),openedAt:taccToday(),closedAt:"",status:"open"});
+      TACCUINO.roles.push({id:newId,title:title,url:String(b.input.value||"").trim(),withWhom:String(c.input.value||"").trim(),category:d.select.value||taccDefaultRoleCategory(),roleType:roleType,period:String(per.input.value||"").trim(),location:String(loc.input.value||"").trim(),notes:String(note.value||"").trim(),openedAt:String(date.input.value||"").trim()||taccToday(),closedAt:"",status:"open"});
       taccSave();renderAll();setTimeout(function(){var node=document.getElementById("tacc-role-"+newId);if(node){node.scrollIntoView({behavior:"smooth",block:"center"});}},0);
     });
 
@@ -8334,7 +8377,7 @@
       if(r.category){meta.appendChild(el("span","tacc-collection-badge",r.category));}
       if(r.withWhom){meta.appendChild(el("span",null,"Con: "+r.withWhom));}
       if(r.location){meta.appendChild(el("span",null,"📍 "+r.location));}
-      if(r.openedAt){meta.appendChild(el("span",null,"dal "+r.openedAt));}
+      if(r.openedAt){meta.appendChild(el("span",null,"Ambientata al "+r.openedAt));}
       main.appendChild(meta);summary.appendChild(main);det.appendChild(summary);
 
       var body=el("div","tacc-open-role-body");
@@ -8345,7 +8388,7 @@
           url=taccInput("Link",r.url||""),
           who=taccInput("Con chi",r.withWhom||""),
           cat=taccSelect(taccCollectionLabel(),TACCUINO.categories,r.category||taccDefaultRoleCategory()),
-          date=taccInput("Aperta nel Taccuino il",r.openedAt||"","date"),
+          date=taccInput("Ambientata al giorno",r.openedAt||"","date"),
           rt=taccRoleTypeSelect(r.roleType||"free"),
           per=taccInput("Periodo ONGame",r.period||""),
           loc=taccInput("Luogo",r.location||"");
@@ -8999,6 +9042,7 @@
   var FF_LAST_RENDERED_STEP="";
   function renderAll(options){
     options=options||{};
+    cancelSafeFieldRender();
     /* v255/v245 — se il Player cambia pagina prima dei 120 ms del debounce,
        il vecchio campo Link è ancora nel DOM: consolidalo prima di ricostruire POSTS. */
     try{flushGeneralPostInputsToState();}catch(e){}
@@ -11365,6 +11409,33 @@
     if(existing){addLotToIngredient(existing,quantita,provenienza,link,produttore,"",existing.id,sourceCycleKey);syncIngredienteFromCatalog(existing);return {ok:true,merged:true,id:existing.id};}
     var ing=newIngredienteDispensa();ing.nome=rec.nome;ing.lotti=[];ing.quantita=0;addLotToIngredient(ing,quantita,provenienza,link,produttore,"",ing.id,sourceCycleKey);syncIngredienteFromCatalog(ing);DISPENSA.ingredienti.push(ing);return {ok:true,merged:false,id:ing.id};
   }
+  function addSemiColtivazioneDispensa(nome,quantita,link,produttore,sourceCycleKey){
+    nome=String(nome||"").trim();quantita=Math.max(1,parseInt(quantita,10)||1);
+    link=String(link||"").trim();produttore=String(produttore||"").trim();sourceCycleKey=String(sourceCycleKey||"");
+    if(!nome){return {ok:false,error:"Nome dei Semi mancante."};}
+    var existing=null;
+    for(var i=0;i<DISPENSA.ingredienti.length;i++){
+      var x=DISPENSA.ingredienti[i];
+      if(normalizeIngredientName(x.nome)===normalizeIngredientName(nome)){existing=x;break;}
+    }
+    if(!existing){
+      existing=newIngredienteDispensa();
+      existing.nome=nome;
+      existing.classificazione="Non classificato";
+      existing.classeBene="Non Commerciabile — materiale di coltivazione";
+      existing.provenienzaGlossario="Coltivazione";
+      existing.inventarioTipo="semi";
+      existing.note="Semi autoprodotti destinati alla coltivazione.";
+      existing.lotti=[];existing.quantita=0;
+      DISPENSA.ingredienti.push(existing);
+    }else if(!existing.inventarioTipo){
+      /* Se il nome coincide con una voce storica non catalogata, la qualifichiamo senza alterarne i lotti. */
+      existing.inventarioTipo="semi";
+      if(!existing.classeBene)existing.classeBene="Non Commerciabile — materiale di coltivazione";
+    }
+    addLotToIngredient(existing,quantita,"Autoprodotto",link,produttore,"",existing.id,sourceCycleKey);
+    return {ok:true,merged:true,id:existing.id};
+  }
 
   function decodeDispensaHtmlEntities(s){
     var ta=document.createElement("textarea");ta.innerHTML=String(s||"");return ta.value;
@@ -12168,7 +12239,7 @@
 
     var dDistMax=el("div");dDistMax.appendChild(el("label",null,"Distillatori disponibili"));
     var iDistMax=el("input");iDistMax.type="number";iDistMax.min="0";iDistMax.step="1";iDistMax.value=POSTAZIONE_FAC.distillatoriMax||0;
-    iDistMax.addEventListener("change",function(){POSTAZIONE_FAC.distillatoriMax=Math.max(0,num(iDistMax.value,0));renderAll();});
+    iDistMax.addEventListener("change",function(){POSTAZIONE_FAC.distillatoriMax=Math.max(0,num(iDistMax.value,0));scheduleSave(80);scheduleSafeFieldRender(240);});
     dDistMax.appendChild(iDistMax);capRow.appendChild(dDistMax);
     general.appendChild(capRow);
 
@@ -12216,7 +12287,7 @@
     var row1=el("div","row"); var dDataT=el("div"); dDataT.appendChild(el("label",null,"Data di creazione (GG/MM/AAAA)")); var iDataT=buildDateInput(postaz.dataTesto,function(v){postaz.dataTesto=v;}); dDataT.appendChild(iDataT); row1.appendChild(dDataT);
     var dDataL=el("div"); dDataL.appendChild(el("label",null,"Link della role")); var iDataL=el("input"); iDataL.type="text"; iDataL.value=postaz.dataLink; iDataL.addEventListener("input",function(){postaz.dataLink=iDataL.value;}); dDataL.appendChild(iDataL); row1.appendChild(dDataL); card.appendChild(row1);
 
-    var row2=el("div","row"); var dNome=el("div"); dNome.appendChild(el("label",null,"Nome Pozione")); var iNome=el("input"); iNome.type="text"; iNome.value=postaz.nomePozione; iNome.addEventListener("input",function(){postaz.nomePozione=iNome.value;}); iNome.addEventListener("change",function(){renderAll();}); dNome.appendChild(iNome); row2.appendChild(dNome);
+    var row2=el("div","row"); var dNome=el("div"); dNome.appendChild(el("label",null,"Nome Pozione")); var iNome=el("input"); iNome.type="text"; iNome.value=postaz.nomePozione; iNome.addEventListener("input",function(){postaz.nomePozione=iNome.value;}); iNome.addEventListener("change",function(){postaz.nomePozione=iNome.value;scheduleSave(80);}); dNome.appendChild(iNome); row2.appendChild(dNome);
     var dClass=el("div"); dClass.appendChild(el("label",null,"Classificazione")); dClass.appendChild(buildSelect(CLASSI_STUD,postaz.classificazione,function(v){postaz.classificazione=v;renderAll();})); row2.appendChild(dClass);
     var dTipo=el("div"); dTipo.appendChild(el("label",null,"Tipologia")); dTipo.appendChild(buildSelect(TIPOLOGIE,postaz.tipologia,function(v){postaz.tipologia=v;})); row2.appendChild(dTipo); card.appendChild(row2);
 
@@ -12353,14 +12424,14 @@
     var dPost=el("div"); dPost.appendChild(el("label",null,"Post necessari"));
     var iPost=el("input"); iPost.type="number"; iPost.min="0"; iPost.step="1";
     iPost.value=Math.max(0,num(postaz.postRichiesti,0));
-    iPost.addEventListener("change",function(){var proposed=Math.max(0,num(iPost.value,0));postaz.postRichiesti=proposed;scheduleSave(0);renderAll();});
+    iPost.addEventListener("change",function(){var proposed=Math.max(0,num(iPost.value,0));postaz.postRichiesti=proposed;scheduleSave(0);scheduleSafeFieldRender(240);});
     dPost.appendChild(iPost); row.appendChild(dPost);
 
     var dStart=el("div"); dStart.appendChild(el("label",null,"Dal post globale n°"));
     var potionStart=parseInt(postaz.startIndex,10)||0;
     var iStart=el("input"); iStart.type="number"; iStart.min="1"; iStart.step="1"; iStart.placeholder="Non ancora iniziato";
     iStart.value=potionStart>0?String(potionStart):"";
-    iStart.addEventListener("change",function(){var raw=String(iStart.value||"").trim();if(!raw){postaz.startIndex="";scheduleSave(0);renderAll();return;}var proposed=parseInt(raw,10)||0;if(!(proposed>0)||!validateGlobalIntervalOrAlert(proposed,Math.max(0,num(postaz.postRichiesti,0)))){iStart.value=postaz.startIndex||"";return;}postaz.startIndex=proposed;scheduleSave(0);renderAll();});
+    iStart.addEventListener("change",function(){var raw=String(iStart.value||"").trim();if(!raw){postaz.startIndex="";scheduleSave(0);scheduleSafeFieldRender(240);return;}var proposed=parseInt(raw,10)||0;if(!(proposed>0)||!validateGlobalIntervalOrAlert(proposed,Math.max(0,num(postaz.postRichiesti,0)))){iStart.value=postaz.startIndex||"";return;}postaz.startIndex=proposed;scheduleSave(0);scheduleSafeFieldRender(240);});
     dStart.appendChild(iStart);
     var btnStart=el("button","action small","Inizia dal prossimo Post globale");btnStart.type="button";btnStart.addEventListener(EV,function(){var proposed=nextGlobalPostNumber();if(!validateGlobalIntervalOrAlert(proposed,Math.max(0,num(postaz.postRichiesti,0))))return;postaz.startIndex=proposed;scheduleSave(0);renderAll();});dStart.appendChild(btnStart);
     row.appendChild(dStart);
@@ -13299,7 +13370,7 @@
     h.context=sig;h.type=type;h.toolManaged=true;h.version=41;if(h.quantityRoll==null)h.quantityRoll="";if(h.finalQty==null)h.finalQty="";if(h.finalManual==null)h.finalManual=false;if(!Array.isArray(h.distribution))h.distribution=[];if(!Array.isArray(h.items))h.items=[];
     if(h.confirmed==null)h.confirmed=!!legacyHadResult;if(h.resolvedAt==null)h.resolvedAt="";if(h.duckbillWinter==null)h.duckbillWinter=false;sub.harvest=h;return h;
   }
-  function harvestCopyButton(text,label){var b=el("button","action small",label||"Copia dado");b.type="button";b.addEventListener(EV,function(){var ok=fallbackCopyText(text);flashCopied(b,ok);});return b;}
+  function harvestCopyButton(text,label){var b=el("button","action small",label||"Copia dado");b.type="button";b.addEventListener(EV,function(ev){if(ev){ev.preventDefault();ev.stopPropagation();}var handled=false;if(navigator.clipboard&&navigator.clipboard.writeText){handled=true;navigator.clipboard.writeText(text).then(function(){flashCopied(b,true);}).catch(function(){var ok=fallbackCopyText(text);flashCopied(b,ok);});}if(!handled){var ok2=fallbackCopyText(text);flashCopied(b,ok2);}});return b;}
   function syncHarvestFinal(h,standard){if(!h.finalManual||String(h.finalQty||"").trim()===""){h.finalQty=standard==null?"":String(standard);}}
   function harvestFinalQty(h,max){var n=parseInt(h&&h.finalQty,10);if(!Number.isInteger(n)||n<0)return null;if(max!=null&&n>max)return null;return n;}
   function harvestOutcomeAllowsProduction(sub){var p=plantHarvestOutcomePct(sub);return p===33||p===66||p===100;}
@@ -13383,7 +13454,7 @@
   }
   function harvestManualResultEditor(box,sub,h,total,label){
     var r=el("div","harvest-result-grid"),l=el("label",null,label||"Ingredienti ottenuti (inserimento manuale)"),i=el("input");i.type="text";i.value=String(sub.ottenuti||"");i.placeholder=total?"Es. "+total+" × Nome Ingrediente":"Scrivi gli Ingredienti ottenuti";
-    i.addEventListener("input",function(){sub.ottenuti=i.value;h.confirmed=false;});i.addEventListener("change",function(){sub.ottenuti=i.value;h.confirmed=false;scheduleSave(0);renderAll();});l.appendChild(i);r.appendChild(l);box.appendChild(r);
+    i.addEventListener("input",function(){sub.ottenuti=i.value;h.confirmed=false;});i.addEventListener("change",function(){sub.ottenuti=i.value;h.confirmed=false;scheduleSave(0);scheduleSafeFieldRender(240);});l.appendChild(i);r.appendChild(l);box.appendChild(r);
   }
   function harvestConfirmIfReady(box,occupant,sub,h,isReproduction,config,ready){
     if(!ready)return;var b=el("button","action harvest-confirm","✓ Registra raccolto");b.type="button";b.addEventListener(EV,function(){h.confirmed=true;h.resolvedAt=new Date().toISOString();scheduleSave(0);renderAll();});box.appendChild(b);
@@ -13408,13 +13479,13 @@
     var standard=null,q=plantHarvestQtySpec(occupant.classificazione,type),isMandragola=entity==="Pianta"&&!isReproduction&&normSpec==="mandragola";
     if(isMandragola){
       box.appendChild(el("div","harvest-note","<b>Mandragola:</b> il regolamento indica fino a 7 Ingredienti per il singolo Ciclo, ma le fonti aggiornate non definiscono in modo univoco il dado quantità/distribuzione. L’Elfo non lo inventa."));
-      var mr=el("div","harvest-result-grid"),ml=el("label",null,"Quantità ottenuta (1–7)"),mi=el("input");mi.type="number";mi.min="1";mi.max="7";mi.value=h.finalQty;mi.addEventListener("change",function(){var v=parseInt(mi.value,10);if(!(v>=1&&v<=7)){mi.value=h.finalQty;return;}h.finalQty=String(v);h.finalManual=true;h.confirmed=false;scheduleSave(0);renderAll();});ml.appendChild(mi);mr.appendChild(ml);box.appendChild(mr);
+      var mr=el("div","harvest-result-grid"),ml=el("label",null,"Quantità ottenuta (1–7)"),mi=el("input");mi.type="number";mi.min="1";mi.max="7";mi.value=h.finalQty;mi.addEventListener("change",function(){var v=parseInt(mi.value,10);if(!(v>=1&&v<=7)){mi.value=h.finalQty;return;}h.finalQty=String(v);h.finalManual=true;h.confirmed=false;scheduleSave(0);scheduleSafeFieldRender(240);});ml.appendChild(mi);mr.appendChild(ml);box.appendChild(mr);
     }else if(q){
       var base=q[0],faces=q[1],harvestEntityName=(spec||occupant.nome||entity),code=faces?("[dice=1d"+faces+"]"+(isReproduction?"Semi":"Ingredienti")+" extra — "+entity+" "+occupant.classificazione+" — "+harvestEntityName+"[/dice]"):"";
       var quantityCopyText=faces?(code+" · aggiungi "+base):"";
-      if(faces){box.appendChild(el("div","harvest-code",quantityCopyText));box.appendChild(harvestCopyButton(quantityCopyText,"Copia dado quantità"));var qr=el("div","harvest-result-grid"),ql=el("label",null,"Risultato 1d"+faces),qi=el("input");qi.type="number";qi.min="1";qi.max=String(faces);qi.value=h.quantityRoll;qi.addEventListener("change",function(){var v=parseInt(qi.value,10);if(!(v>=1&&v<=faces)){qi.value=h.quantityRoll;return;}h.quantityRoll=String(v);h.confirmed=false;syncHarvestFinal(h,base+v);scheduleSave(0);renderAll();});ql.appendChild(qi);qr.appendChild(ql);box.appendChild(qr);var rv=parseInt(h.quantityRoll,10);if(rv>=1&&rv<=faces)standard=base+rv;}else{standard=base;syncHarvestFinal(h,standard);box.appendChild(el("div","harvest-summary","Quantità prevista dalla Classificazione: <b>"+base+"</b> "+(isReproduction?"Semi":"Ingredienti")+"."));}
+      if(faces){box.appendChild(el("div","harvest-code",quantityCopyText));box.appendChild(harvestCopyButton(quantityCopyText,"Copia dado quantità"));var qr=el("div","harvest-result-grid"),ql=el("label",null,"Risultato 1d"+faces),qi=el("input");qi.type="number";qi.min="1";qi.max=String(faces);qi.value=h.quantityRoll;qi.addEventListener("change",function(){var v=parseInt(qi.value,10);if(!(v>=1&&v<=faces)){qi.value=h.quantityRoll;return;}h.quantityRoll=String(v);h.confirmed=false;syncHarvestFinal(h,base+v);scheduleSave(0);scheduleSafeFieldRender(240);});ql.appendChild(qi);qr.appendChild(ql);box.appendChild(qr);var rv=parseInt(h.quantityRoll,10);if(rv>=1&&rv<=faces)standard=base+rv;}else{standard=base;syncHarvestFinal(h,standard);box.appendChild(el("div","harvest-summary","Quantità prevista dalla Classificazione: <b>"+base+"</b> "+(isReproduction?"Semi":"Ingredienti")+"."));}
       if(standard!=null)syncHarvestFinal(h,standard);
-      var fq=el("div","harvest-result-grid"),fl=el("label",null,"Quantità finale"),fi=el("input");fi.type="number";fi.min="0";fi.value=h.finalQty;fi.title="Puoi correggere questo totale se al ciclo si applicano bonus o malus già determinati dal regolamento specialistico.";fi.addEventListener("change",function(){var v=parseInt(fi.value,10);if(!(v>=0)){fi.value=h.finalQty;return;}h.finalQty=String(v);h.finalManual=true;h.confirmed=false;scheduleSave(0);renderAll();});fl.appendChild(fi);fq.appendChild(fl);box.appendChild(fq);
+      var fq=el("div","harvest-result-grid"),fl=el("label",null,"Quantità finale"),fi=el("input");fi.type="number";fi.min="0";fi.value=h.finalQty;fi.title="Puoi correggere questo totale se al ciclo si applicano bonus o malus già determinati dal regolamento specialistico.";fi.addEventListener("change",function(){var v=parseInt(fi.value,10);if(!(v>=0)){fi.value=h.finalQty;return;}h.finalQty=String(v);h.finalManual=true;h.confirmed=false;scheduleSave(0);scheduleSafeFieldRender(240);});fl.appendChild(fi);fq.appendChild(fl);box.appendChild(fq);
       box.appendChild(el("div","harvest-note","La quantità finale parte dal valore standard della Classificazione. Se lo strumento specialistico aveva determinato bonus/malus specifici, correggila qui senza aggiungere automatismi non previsti."));
     }
     var total=harvestFinalQty(h,isMandragola?7:null);if(total==null||total<=0)return box;
@@ -13427,7 +13498,7 @@
     var quoteText="[quote]<b>Ingredienti ottenibili — "+harvestTargetLabel+"</b>\n"+legendLines.join("\n")+"[/quote]";
     var dice=[];for(var d=0;d<total;d++)dice.push("[dice=1d"+data.items.length+"]Ingrediente "+(d+1)+"/"+total+" — "+harvestTargetLabel+"[/dice]");var dtext=dice.join("\n"),fullDiceText=quoteText+"\n"+dtext;box.appendChild(el("div","harvest-code",fullDiceText));box.appendChild(harvestCopyButton(fullDiceText,"Copia quote + dadi Ingredienti"));
     if(h.distribution.length!==total){var old=h.distribution.slice();h.distribution=Array(total).fill("");for(var oi=0;oi<Math.min(old.length,total);oi++)h.distribution[oi]=old[oi];}
-    var grid=el("div","harvest-result-grid");for(var di=0;di<total;di++){(function(idx){var lab=el("label",null,"Ingrediente "+(idx+1)+" — risultato 1d"+data.items.length),inp=el("input");inp.type="number";inp.min="1";inp.max=String(data.items.length);inp.value=h.distribution[idx]||"";inp.addEventListener("change",function(){var v=parseInt(inp.value,10);if(!(v>=1&&v<=data.items.length)){h.distribution[idx]="";}else h.distribution[idx]=String(v);h.confirmed=false;var items=plantHarvestSummaryFromDistribution(data,h.distribution,total);if(items)applyHarvestItemsToSub(sub,h,items);scheduleSave(0);renderAll();});lab.appendChild(inp);grid.appendChild(lab);})(di);}box.appendChild(grid);
+    var grid=el("div","harvest-result-grid");for(var di=0;di<total;di++){(function(idx){var lab=el("label",null,"Ingrediente "+(idx+1)+" — risultato 1d"+data.items.length),inp=el("input");inp.type="number";inp.min="1";inp.max=String(data.items.length);inp.value=h.distribution[idx]||"";inp.addEventListener("change",function(){var v=parseInt(inp.value,10);if(!(v>=1&&v<=data.items.length)){h.distribution[idx]="";}else h.distribution[idx]=String(v);h.confirmed=false;var items=plantHarvestSummaryFromDistribution(data,h.distribution,total);if(items)applyHarvestItemsToSub(sub,h,items);scheduleSave(0);scheduleSafeFieldRender(240);});lab.appendChild(inp);grid.appendChild(lab);})(di);}box.appendChild(grid);
     var items=plantHarvestSummaryFromDistribution(data,h.distribution,total);if(items){applyHarvestItemsToSub(sub,h,items);box.appendChild(el("div","harvest-summary","<b>Riepilogo raccolto:</b> "+harvestItemsText(items)));harvestConfirmIfReady(box,occupant,sub,h,isReproduction,config,true);}else box.appendChild(el("div","harvest-note","Inserisci tutti i risultati per ottenere automaticamente i nomi e il riepilogo degli Ingredienti."));
     return box;
   }
@@ -13463,7 +13534,7 @@
     var dLink = el("div"); dLink.appendChild(el("label", null, "Link esito dado"));
     var iLink = el("input"); iLink.type="text"; iLink.value = sub.esitoLink;
     iLink.addEventListener("input", function(){ sub.esitoLink = iLink.value; });
-    iLink.addEventListener("change", function(){ sub.esitoLink = iLink.value; renderAll(); });
+    iLink.addEventListener("change", function(){ sub.esitoLink = iLink.value; scheduleSave(80); });
     dLink.appendChild(iLink); row.appendChild(dLink);
 
     var dEsito = el("div"); dEsito.appendChild(el("label", null, "Esito (es. 100%)"));
@@ -13476,14 +13547,14 @@
       }
     }
     iEsito.addEventListener("input", syncCycleOutcomeEdit);
-    iEsito.addEventListener("change", function(){ syncCycleOutcomeEdit(); renderAll(); });
+    iEsito.addEventListener("change", function(){ syncCycleOutcomeEdit(); scheduleSave(80); scheduleSafeFieldRender(240); });
     dEsito.appendChild(iEsito); row.appendChild(dEsito);
 
     var dPost = el("div"); dPost.appendChild(el("label", null, "Post necessari"));
     var iPost = el("input"); iPost.type="number"; iPost.min="0"; iPost.value = sub.postRichiesti;
     iPost.addEventListener("change", function(){
       var proposed=Math.max(0,num(iPost.value,0));
-      sub.postRichiesti=proposed;scheduleSave(0);renderAll();
+      sub.postRichiesti=proposed;scheduleSave(0);scheduleSafeFieldRender(240);
     });
     dPost.appendChild(iPost); row.appendChild(dPost);
 
@@ -13491,10 +13562,10 @@
     var iStart = el("input"); iStart.type="number"; iStart.min="1"; iStart.placeholder="Non ancora iniziato"; iStart.value = (parseInt(sub.startIndex,10)>0?String(parseInt(sub.startIndex,10)):"");
     iStart.addEventListener("change", function(){
       var raw=String(iStart.value||"").trim();
-      if(!raw){sub.startIndex="";scheduleSave(0);renderAll();return;}
+      if(!raw){sub.startIndex="";scheduleSave(0);scheduleSafeFieldRender(240);return;}
       var proposed=parseInt(raw,10)||0;
       if(!(proposed>0)||!validateGlobalIntervalOrAlert(proposed,sub.postRichiesti)){iStart.value=sub.startIndex||"";return;}
-      sub.startIndex=proposed;scheduleSave(0);renderAll();
+      sub.startIndex=proposed;scheduleSave(0);scheduleSafeFieldRender(240);
     });
     dStart.appendChild(iStart);
     var btnStart=el("button","action small","Inizia dal prossimo Post globale");btnStart.type="button";btnStart.addEventListener(EV,function(){var proposed=nextGlobalPostNumber();if(!validateGlobalIntervalOrAlert(proposed,Math.max(0,num(sub.postRichiesti,0))))return;sub.startIndex=proposed;scheduleSave(0);renderAll();});dStart.appendChild(btnStart);
@@ -13519,26 +13590,27 @@
       var iOtt = el("input"); iOtt.type="text"; iOtt.value = sub.ottenuti;
       iOtt.placeholder=options.isReproduction ? "Es. Semi di Amarantacea / Uova di Occamy" : "Es. 1 foglia e 1 radici";
       iOtt.addEventListener("input", function(){ sub.ottenuti = iOtt.value; if(sub.harvest)sub.harvest.confirmed=false; });
-      iOtt.addEventListener("change", function(){ sub.ottenuti = iOtt.value; if(sub.harvest)sub.harvest.confirmed=false; renderAll(); });
+      iOtt.addEventListener("change", function(){ sub.ottenuti = iOtt.value; if(sub.harvest)sub.harvest.confirmed=false; scheduleSave(80); });
       dOtt.appendChild(iOtt); resultRow.appendChild(dOtt);
 
       if(options.isReproduction){
         var dQty=el("div"); dQty.appendChild(el("label",null,"Quantità ottenuta"));
         var iQty=el("input"); iQty.type="text"; iQty.value=sub.ottenutiQuantita||""; iQty.placeholder="Es. 1";
         iQty.addEventListener("input",function(){sub.ottenutiQuantita=iQty.value;if(sub.harvest)sub.harvest.confirmed=false;});
-        iQty.addEventListener("change",function(){sub.ottenutiQuantita=iQty.value;if(sub.harvest)sub.harvest.confirmed=false;renderAll();});
+        iQty.addEventListener("change",function(){sub.ottenutiQuantita=iQty.value;if(sub.harvest)sub.harvest.confirmed=false;scheduleSave(80);});
         dQty.appendChild(iQty); resultRow.appendChild(dQty);
       }
 
       var dOttLink=el("div"); dOttLink.appendChild(el("label",null,"Link ottenimento"));
       var iOttLink=el("input"); iOttLink.type="text"; iOttLink.value=sub.ottenutiLink||""; iOttLink.placeholder="Link del post in cui ottieni il risultato";
       iOttLink.addEventListener("input",function(){sub.ottenutiLink=iOttLink.value;});
-      iOttLink.addEventListener("change",function(){sub.ottenutiLink=iOttLink.value;renderAll();});
+      iOttLink.addEventListener("change",function(){sub.ottenutiLink=iOttLink.value;scheduleSave(80);});
       dOttLink.appendChild(iOttLink); resultRow.appendChild(dOttLink);
 
       wrap.appendChild(resultRow);
 
-      if(/Ingredienti/i.test(ottenutiLabel) && STRUTTURE.dispensa){
+      var isPlantSeedTransfer=!!(options.isReproduction&&options.config&&options.config.tipoLabel==="Pianta"&&/Semi/i.test(ottenutiLabel));
+      if((/Ingredienti/i.test(ottenutiLabel)||isPlantSeedTransfer) && STRUTTURE.dispensa){
         if(sub.dispensaTransfer && sub.dispensaTransfer.done){
           var doneDisp=el("button","action small",sub.dispensaTransfer.needsCorrection?"⚠ Dispensa da rettificare":"✓ Già aggiunto alla Dispensa");
           doneDisp.type="button";doneDisp.disabled=true;wrap.appendChild(doneDisp);
@@ -13565,12 +13637,42 @@
             });wrap.appendChild(fixedDisp);
           }else wrap.appendChild(el("span","small-note"," Trasferimento già registrato."));
         }else{
-          var toDisp=el("button","action small","Aggiungi ottenuto alla Dispensa");
+          var toDisp=el("button","action small",isPlantSeedTransfer?"Aggiungi Semi alla Dispensa":"Aggiungi ottenuto alla Dispensa");
           toDisp.type="button";
-          toDisp.addEventListener(EV,function(){
+          toDisp.addEventListener(EV,function(ev){
+            if(ev){ev.preventDefault();ev.stopPropagation();}
             var ledgerEntity=String(options&&options.config&&options.config.tipoLabel||""),ledgerSpecies=String(options&&options.occupant&&(options.occupant.specieSesso||options.occupant.nome)||""),ledgerStage=String(options&&options.stage&&options.stage.key||""),ledgerSuffix=String(options&&options.keySuffix||""),ledgerKey=dispensaCycleLedgerKey(ledgerEntity,ledgerSpecies,ledgerStage,ledgerSuffix,sub.esitoLink);
+            var cycleAnchor=(options&&options.occupant&&options.stage&&options.config)?cycleItemAnchorId(options.occupant,options.stage,options.config,ledgerSuffix):"";
+            if(options&&options.occupant&&options.stage&&options.config){
+              var openType=options.isReproduction?"riproduzione":"produzione";
+              OPEN_DETAILS["ciclo:"+openType+":"+options.config.tipoLabel+":"+options.occupant.id+":"+options.stage.key]=true;
+              OPEN_DETAILS["ciclo:item:"+options.config.tipoLabel+":"+options.occupant.id+":"+options.stage.key+":"+ledgerSuffix]=true;
+            }
             if(ledgerKey&&dispensaCycleLedgerHas(ledgerKey)){
               alert("Questo Ciclo risulta già accreditato in Dispensa nello storico dell’Elfo. L’eliminazione o l’archiviazione dell’esemplare non consente un secondo accredito dello stesso raccolto.");
+              return;
+            }
+            if(isPlantSeedTransfer){
+              var seedQty=Math.max(0,parseInt(sub.ottenutiQuantita,10)||0);
+              var seedName=String(sub.ottenuti||"").trim();
+              if(!seedQty&&sub.harvest&&Array.isArray(sub.harvest.items)&&sub.harvest.items.length){
+                seedQty=Math.max(0,parseInt(sub.harvest.items[0]&&sub.harvest.items[0].quantita,10)||0);
+                if(!seedName)seedName=String(sub.harvest.items[0]&&sub.harvest.items[0].name||"").trim();
+              }
+              if(seedName&&!/^Semi\s+di\s+/i.test(seedName)){
+                seedName="Semi di "+String(options.occupant&&(options.occupant.specieSesso||options.occupant.nome)||seedName).trim();
+              }
+              if(!(seedQty>0)||!seedName){
+                alert("Completa prima il risultato del Ciclo di Riproduzione e la quantità di Semi ottenuti.");
+                return;
+              }
+              var seedCycleKey=erbCycleDispensaKey(sub);
+              var seedRes=addSemiColtivazioneDispensa(seedName,seedQty,sub.ottenutiLink||sub.esitoLink||"",STUDENTE.nome,seedCycleKey);
+              if(!seedRes.ok){alert(seedRes.error||"Non sono riuscito ad aggiungere i Semi alla Dispensa.");return;}
+              dispensaCycleLedgerAdd(ledgerKey,sub);
+              sub.dispensaTransfer={done:true,nome:seedName,quantita:seedQty,items:[{nome:seedName,quantita:seedQty}],tipo:"semi",at:new Date().toISOString(),sourceCycleKey:seedCycleKey,harvestSignature:erbHarvestSignature(sub),ledgerKey:ledgerKey};
+              scheduleSave(0);renderAll();if(cycleAnchor)scrollAfterRender(cycleAnchor);
+              alert("Aggiunti alla Dispensa: "+seedQty+" × "+seedName+".");
               return;
             }
             var harvestItems=(sub.harvest&&Array.isArray(sub.harvest.items))?sub.harvest.items.filter(function(x){return x&&parseInt(x.quantita,10)>0;}):[];
@@ -13601,7 +13703,7 @@
               if(added.length===prepared.length){
                 dispensaCycleLedgerAdd(ledgerKey,sub);
                 sub.dispensaTransfer={done:true,items:added,at:new Date().toISOString(),sourceCycleKey:cycleSourceKey,harvestSignature:erbHarvestSignature(sub),ledgerKey:ledgerKey};
-                scheduleSave(0);renderAll();
+                scheduleSave(0);renderAll();if(cycleAnchor)scrollAfterRender(cycleAnchor);
                 alert("Aggiunti alla Dispensa: "+added.map(function(x){return x.quantita+" × "+x.nome;}).join(", ")+".");
                 return;
               }
@@ -13613,11 +13715,12 @@
               alert("Completa prima «Raccogli i tuoi Ingredienti», oppure scrivi nel campo un singolo Ingrediente del Glossario (eventualmente preceduto dalla quantità, es. «2 x Ala di Doxy»).");
               return;
             }
-            var res=addIngredienteCatalogo(rec.nome,qty,"Autoprodotto",sub.ottenutiLink||sub.esitoLink||"",STUDENTE.nome);
+            var cycleSourceKey2=erbCycleDispensaKey(sub);
+            var res=addIngredienteCatalogo(rec.nome,qty,"Autoprodotto",sub.ottenutiLink||sub.esitoLink||"",STUDENTE.nome,cycleSourceKey2);
             if(res.ok){
               dispensaCycleLedgerAdd(ledgerKey,sub);
               sub.dispensaTransfer={done:true,nome:rec.nome,quantita:qty,at:new Date().toISOString(),sourceCycleKey:cycleSourceKey2,harvestSignature:erbHarvestSignature(sub),ledgerKey:ledgerKey};
-              scheduleSave(0);renderAll();alert(rec.nome+" aggiunto alla Dispensa come autoprodotto.");
+              scheduleSave(0);renderAll();if(cycleAnchor)scrollAfterRender(cycleAnchor);alert(rec.nome+" aggiunto alla Dispensa come autoprodotto.");
             }
           });
           wrap.appendChild(toDisp);
@@ -13659,7 +13762,7 @@
     h.appendChild(actionWrap);
     card.appendChild(h);
 
-    var row1=el("div","row"); var dNome=el("div"); dNome.appendChild(el("label",null,"Nome "+config.tipoLabel)); var iNome=el("input"); iNome.type="text"; iNome.value=occupant.nome; iNome.addEventListener("change",function(){occupant.nome=iNome.value;renderAll();}); dNome.appendChild(iNome); row1.appendChild(dNome);
+    var row1=el("div","row"); var dNome=el("div"); dNome.appendChild(el("label",null,"Nome "+config.tipoLabel)); var iNome=el("input"); iNome.type="text"; iNome.value=occupant.nome; iNome.addEventListener("input",function(){occupant.nome=iNome.value;}); iNome.addEventListener("change",function(){occupant.nome=iNome.value;scheduleSave(80);}); dNome.appendChild(iNome); row1.appendChild(dNome);
     var dData=el("div"); dData.appendChild(el("label",null,"Data ritrovamento/domesticazione (GG/MM/AAAA)")); var iData=buildDateInput(occupant.dataTesto,function(v){occupant.dataTesto=v;}); dData.appendChild(iData); row1.appendChild(dData);
     var dDataL=el("div"); dDataL.appendChild(el("label",null,"Link del ritrovamento/domesticazione")); var iDataL=el("input"); iDataL.type="text"; iDataL.value=occupant.dataLink||""; iDataL.placeholder="Incolla qui il link completo della role"; function syncDataLink(){occupant.dataLink=iDataL.value;scheduleSave();} iDataL.addEventListener("input",syncDataLink); iDataL.addEventListener("change",syncDataLink); iDataL.addEventListener("paste",function(){setTimeout(syncDataLink,0);}); dDataL.appendChild(iDataL); row1.appendChild(dDataL); card.appendChild(row1);
 
@@ -13952,7 +14055,7 @@
     var dRes = el("div"); dRes.appendChild(el("label", null, "Risultato 1d20"));
     var iRes = el("input"); iRes.type="number"; iRes.min="1"; iRes.max="20";
     iRes.value = sub.iraResult ? sub.iraResult : "";
-    iRes.addEventListener("change", function(){ sub.iraResult = iRes.value; renderAll(); });
+    iRes.addEventListener("change", function(){ sub.iraResult = iRes.value; scheduleSave(80); scheduleSafeFieldRender(240); });
     dRes.appendChild(iRes); row.appendChild(dRes);
     wrap.appendChild(row);
 
