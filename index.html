@@ -1,4 +1,6 @@
 
+<!-- elfo_studente_v254 — Migrazione Semi legacy resa specie-specifica: un vecchio risultato viene recuperato solo se i Semi appartengono alla stessa Pianta e allo stesso Ciclo di Riproduzione. Nessun'altra funzione modificata. 13/09/2026 -->
+<!-- elfo_studente_v253 — Semi/Raccolti: recupera automaticamente i risultati Semi già registrati nei vecchi Cicli; compilazione quantità senza rerender durante la digitazione e conferma esplicita. 13/09/2026 -->
 <!-- elfo_studente_v252 — Raccolti: un trasferimento valido già registrato in Dispensa chiude definitivamente il raccolto e non ricompare nei «Raccolti da completare»; gli input numerici dei dadi/raccolti non vengono più distrutti durante la compilazione. 13/09/2026 -->
 <!-- elfo_studente_v251 — Dispensa: i Semi hanno un details dedicato «Semi», posizionato sopra Ingredienti X; non compaiono più in Ingredienti non classificati. Nessun'altra modifica. 13/09/2026 -->
 <!-- elfo_studente_v250 — Fix raccolto già trasferito: se il trasferimento in Dispensa è valido, il raccolto è considerato completato anche se il vecchio flag interno «confirmed» era rimasto falso; i nuovi trasferimenti sincronizzano anche quel flag. Nessun'altra funzione modificata. 13/09/2026 -->
@@ -13380,7 +13382,31 @@
     var legacyManaged=!!h.toolManaged,legacyHadResult=legacyManaged&&h.confirmed==null&&Array.isArray(h.items)&&h.items.length&&String(sub.ottenuti||"").trim();
     if(h.context&&h.context!==sig&&h.toolManaged){sub.ottenuti="";sub.ottenutiQuantita="";h={};legacyHadResult=false;}
     h.context=sig;h.type=type;h.toolManaged=true;h.version=41;if(h.quantityRoll==null)h.quantityRoll="";if(h.finalQty==null)h.finalQty="";if(h.finalManual==null)h.finalManual=false;if(!Array.isArray(h.distribution))h.distribution=[];if(!Array.isArray(h.items))h.items=[];
-    if(h.confirmed==null)h.confirmed=!!legacyHadResult;if(h.resolvedAt==null)h.resolvedAt="";if(h.duckbillWinter==null)h.duckbillWinter=false;sub.harvest=h;return h;
+    if(h.confirmed==null)h.confirmed=!!legacyHadResult;if(h.resolvedAt==null)h.resolvedAt="";if(h.duckbillWinter==null)h.duckbillWinter=false;
+    /* v263/v253 — prima del riquadro automatico i Semi venivano già salvati nei
+       campi del Ciclo (es. "2 × Semi di Dittamo" / quantità 2), ma senza stato
+       harvest. Non chiedere al Player di rifare un dado già risolto. */
+    if(type==="semi"&&!h.confirmed&&!String(h.quantityRoll||"").trim()&&!String(h.finalQty||"").trim()&&!h.items.length){
+      var legacySeedText=String(sub.ottenuti||"").trim(),legacySeedQty=Math.max(0,parseInt(sub.ottenutiQuantita,10)||0);
+      if(!legacySeedQty){
+        var legacySeedMatch=legacySeedText.match(/(\d+)\s*[×x]\s*(Semi\s+di\s+.+)$/i);
+        if(legacySeedMatch){legacySeedQty=Math.max(0,parseInt(legacySeedMatch[1],10)||0);legacySeedText=String(legacySeedMatch[2]||"").trim();}
+      }
+      if(legacySeedQty>0&&/\bSemi\b/i.test(legacySeedText)){
+        var legacySeedName=legacySeedText.replace(/^\d+\s*[×x]\s*/i,"").trim(),
+            expectedSeedName="Semi di "+String(plantHarvestSpecies(occupant)||"").trim(),
+            sameSeedSpecies=plantHarvestNorm(legacySeedName)===plantHarvestNorm(expectedSeedName);
+        /* v264/v254 — non basta trovare "Semi" nello stesso sub-record:
+           devono essere proprio i Semi della Pianta a cui appartiene questo
+           Ciclo di Riproduzione. Semi di altre specie non vengono migrati. */
+        if(sameSeedSpecies){
+          h.finalQty=String(legacySeedQty);h.finalManual=true;h.items=[{name:legacySeedName,quantita:legacySeedQty}];
+          h.confirmed=true;h.resolvedAt=h.resolvedAt||new Date().toISOString();
+          sub.ottenuti=legacySeedName;sub.ottenutiQuantita=String(legacySeedQty);
+        }
+      }
+    }
+    sub.harvest=h;return h;
   }
   function harvestCopyButton(text,label){var b=el("button","action small",label||"Copia dado");b.type="button";b.addEventListener(EV,function(ev){if(ev){ev.preventDefault();ev.stopPropagation();}var handled=false;if(navigator.clipboard&&navigator.clipboard.writeText){handled=true;navigator.clipboard.writeText(text).then(function(){flashCopied(b,true);}).catch(function(){var ok=fallbackCopyText(text);flashCopied(b,ok);});}if(!handled){var ok2=fallbackCopyText(text);flashCopied(b,ok2);}});return b;}
   function syncHarvestFinal(h,standard){if(!h.finalManual||String(h.finalQty||"").trim()===""){h.finalQty=standard==null?"":String(standard);}}
@@ -13505,13 +13531,29 @@
     var standard=null,q=plantHarvestQtySpec(occupant.classificazione,type),isMandragola=entity==="Pianta"&&!isReproduction&&normSpec==="mandragola";
     if(isMandragola){
       box.appendChild(el("div","harvest-note","<b>Mandragola:</b> il regolamento indica fino a 7 Ingredienti per il singolo Ciclo, ma le fonti aggiornate non definiscono in modo univoco il dado quantità/distribuzione. L’Elfo non lo inventa."));
-      var mr=el("div","harvest-result-grid"),ml=el("label",null,"Quantità ottenuta (1–7)"),mi=el("input");mi.type="number";mi.min="1";mi.max="7";mi.value=h.finalQty;mi.addEventListener("input",function(){var v=parseInt(mi.value,10);if(v>=1&&v<=7){h.finalQty=String(v);h.finalManual=true;h.confirmed=false;}});mi.addEventListener("change",function(){var v=parseInt(mi.value,10);if(!(v>=1&&v<=7)){mi.value=h.finalQty;return;}h.finalQty=String(v);h.finalManual=true;h.confirmed=false;scheduleSave(0);scheduleSafeFieldRender(300);});ml.appendChild(mi);mr.appendChild(ml);box.appendChild(mr);
+      var mr=el("div","harvest-result-grid"),ml=el("label",null,"Quantità ottenuta (1–7)"),mi=el("input");mi.type="number";mi.min="1";mi.max="7";mi.value=h.finalQty;mi.addEventListener("input",function(){var v=parseInt(mi.value,10);if(v>=1&&v<=7){h.finalQty=String(v);h.finalManual=true;h.confirmed=false;}});mi.addEventListener("change",function(){var v=parseInt(mi.value,10);if(!(v>=1&&v<=7)){mi.value=h.finalQty;return;}h.finalQty=String(v);h.finalManual=true;h.confirmed=false;scheduleSave(80);});ml.appendChild(mi);mr.appendChild(ml);box.appendChild(mr);
     }else if(q){
       var base=q[0],faces=q[1],harvestEntityName=(spec||occupant.nome||entity),code=faces?("[dice=1d"+faces+"]"+(isReproduction?"Semi":"Ingredienti")+" extra — "+entity+" "+occupant.classificazione+" — "+harvestEntityName+"[/dice]"):"";
       var quantityCopyText=faces?(code+" · aggiungi "+base):"";
-      if(faces){box.appendChild(el("div","harvest-code",quantityCopyText));box.appendChild(harvestCopyButton(quantityCopyText,"Copia dado quantità"));var qr=el("div","harvest-result-grid"),ql=el("label",null,"Risultato 1d"+faces),qi=el("input");qi.type="number";qi.min="1";qi.max=String(faces);qi.value=h.quantityRoll;qi.addEventListener("input",function(){var v=parseInt(qi.value,10);if(v>=1&&v<=faces){h.quantityRoll=String(v);h.confirmed=false;syncHarvestFinal(h,base+v);}});qi.addEventListener("change",function(){var v=parseInt(qi.value,10);if(!(v>=1&&v<=faces)){qi.value=h.quantityRoll;return;}h.quantityRoll=String(v);h.confirmed=false;syncHarvestFinal(h,base+v);scheduleSave(0);scheduleSafeFieldRender(300);});ql.appendChild(qi);qr.appendChild(ql);box.appendChild(qr);var rv=parseInt(h.quantityRoll,10);if(rv>=1&&rv<=faces)standard=base+rv;}else{standard=base;syncHarvestFinal(h,standard);box.appendChild(el("div","harvest-summary","Quantità prevista dalla Classificazione: <b>"+base+"</b> "+(isReproduction?"Semi":"Ingredienti")+"."));}
+      if(faces){box.appendChild(el("div","harvest-code",quantityCopyText));box.appendChild(harvestCopyButton(quantityCopyText,"Copia dado quantità"));var qr=el("div","harvest-result-grid"),ql=el("label",null,"Risultato 1d"+faces),qi=el("input");qi.type="number";qi.min="1";qi.max=String(faces);qi.value=h.quantityRoll;qi.addEventListener("input",function(){var v=parseInt(qi.value,10);if(v>=1&&v<=faces){h.quantityRoll=String(v);h.confirmed=false;syncHarvestFinal(h,base+v);if(typeof fi!=="undefined"&&fi&&!h.finalManual){fi.value=h.finalQty;}}});qi.addEventListener("change",function(){var v=parseInt(qi.value,10);if(!(v>=1&&v<=faces)){qi.value=h.quantityRoll;return;}h.quantityRoll=String(v);h.confirmed=false;syncHarvestFinal(h,base+v);if(typeof fi!=="undefined"&&fi&&!h.finalManual){fi.value=h.finalQty;}scheduleSave(80);});ql.appendChild(qi);qr.appendChild(ql);box.appendChild(qr);var rv=parseInt(h.quantityRoll,10);if(rv>=1&&rv<=faces)standard=base+rv;}else{standard=base;syncHarvestFinal(h,standard);box.appendChild(el("div","harvest-summary","Quantità prevista dalla Classificazione: <b>"+base+"</b> "+(isReproduction?"Semi":"Ingredienti")+"."));}
       if(standard!=null)syncHarvestFinal(h,standard);
-      var fq=el("div","harvest-result-grid"),fl=el("label",null,"Quantità finale"),fi=el("input");fi.type="number";fi.min="0";fi.value=h.finalQty;fi.title="Puoi correggere questo totale se al ciclo si applicano bonus o malus già determinati dal regolamento specialistico.";fi.addEventListener("input",function(){var v=parseInt(fi.value,10);if(v>=0){h.finalQty=String(v);h.finalManual=true;h.confirmed=false;}});fi.addEventListener("change",function(){var v=parseInt(fi.value,10);if(!(v>=0)){fi.value=h.finalQty;return;}h.finalQty=String(v);h.finalManual=true;h.confirmed=false;scheduleSave(0);scheduleSafeFieldRender(300);});fl.appendChild(fi);fq.appendChild(fl);box.appendChild(fq);
+      var fq=el("div","harvest-result-grid"),fl=el("label",null,"Quantità finale"),fi=el("input");fi.type="number";fi.min="0";fi.value=h.finalQty;fi.title="Puoi correggere questo totale se al ciclo si applicano bonus o malus già determinati dal regolamento specialistico.";fi.addEventListener("input",function(){var v=parseInt(fi.value,10);if(v>=0){h.finalQty=String(v);h.finalManual=true;h.confirmed=false;}});fi.addEventListener("change",function(){var v=parseInt(fi.value,10);if(!(v>=0)){fi.value=h.finalQty;return;}h.finalQty=String(v);h.finalManual=true;h.confirmed=false;scheduleSave(80);});fl.appendChild(fi);fq.appendChild(fl);box.appendChild(fq);
+      if(faces){
+        var qtyContinue=el("button","action small",isReproduction?"✓ Registra raccolto di Semi":"Conferma quantità e continua");qtyContinue.type="button";
+        qtyContinue.addEventListener(EV,function(ev){
+          if(ev){ev.preventDefault();ev.stopPropagation();}
+          var roll=parseInt(h.quantityRoll,10),finalN=parseInt(h.finalQty,10);
+          if(!(roll>=1&&roll<=faces)){alert("Inserisci prima il risultato del dado 1d"+faces+".");try{qi.focus();}catch(e){}return;}
+          if(!(finalN>0)){alert("Inserisci una quantità finale valida.");try{fi.focus();}catch(e){}return;}
+          if(isReproduction){
+            var liveSeedName="Semi di "+(spec||occupant.nome||"Pianta");
+            h.items=[{name:liveSeedName,quantita:finalN}];h.confirmed=true;h.resolvedAt=new Date().toISOString();
+            sub.ottenuti=liveSeedName;sub.ottenutiQuantita=String(finalN);
+          }
+          scheduleSave(0);renderAll();scrollAfterRender(harvestPriorityAnchorId(occupant,stage,isReproduction?"ripro":"prod"));
+        });
+        box.appendChild(qtyContinue);
+      }
       box.appendChild(el("div","harvest-note","La quantità finale parte dal valore standard della Classificazione. Se lo strumento specialistico aveva determinato bonus/malus specifici, correggila qui senza aggiungere automatismi non previsti."));
     }
     var total=harvestFinalQty(h,isMandragola?7:null);if(total==null||total<=0)return box;
@@ -13540,6 +13582,7 @@
   function buildFacilityPendingHarvests(LIST,stages,config){
     var all=[];(LIST||[]).forEach(function(o){all=all.concat(pendingHarvestEntriesForOccupant(o,stages,config));});if(!all.length)return null;
     var wrap=el("div","harvest-priority-zone");wrap.appendChild(el("h3",null,harvestUiIcon(config,false)+" Raccolti da completare"));wrap.appendChild(el("p","small-note","I Post necessari sono terminati. Completa qui il raccolto prima di avanzare la fase vitale: non serve aprire Produzione → singolo Ciclo."));
+    if(!EDIT_UNLOCKED){wrap.appendChild(el("div","elfo-readonly-note","🔒 <b>Se i campi non si lasciano compilare, questo Elfo è aperto in sola visualizzazione.</b> Inserisci la Password di modifica dalla pagina iniziale per registrare il raccolto."));}
     all.forEach(function(x){var card=el("div","harvest-priority-card");card.id=harvestPriorityAnchorId(x.occupant,x.stage,x.keySuffix);var nm=String(x.occupant.nome||x.occupant.specieSesso||config.tipoLabel);card.appendChild(el("h4",null,harvestUiIcon(config,x.isReproduction)+" "+(x.isReproduction?"Raccogli i tuoi Semi":"Raccogli i tuoi Ingredienti")+" — "+nm+" · "+x.stage.label+" · "+x.title));var resolver=buildPlantHarvestResolution(x.occupant,x.stage,x.sub,x.isReproduction,config);if(resolver){var duplicateTitle=resolver.querySelector("h4");if(duplicateTitle)duplicateTitle.remove();card.appendChild(resolver);}wrap.appendChild(card);});
     return wrap;
   }
