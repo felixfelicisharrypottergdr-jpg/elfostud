@@ -1,4 +1,5 @@
 
+<!-- elfo_studente_v261 — Solo UI: «Applicazione bonus personale» rinominato in «Correzione manuale (facoltativa)». Nessuna logica modificata. 13/09/2026 -->
 <!-- elfo_studente_v260 — Audit finale Parametri Piante/Creature: completate esclusioni Allevatore (Basilisco/Oni/Wampus + animali babbani), Horklump usa Coltivatore anche se gestito come Creatura, rimossi falsi bonus durata di Nogtail/Schiopodo. Cataloghi e regole incrociati integralmente col regolamento. Nessuna nuova lettura Firebase. 13/09/2026 -->
 <!-- elfo_studente_v259 — Terzo audit Parametri Piante/Creature: copertura completa dei bonus Coltivatore espliciti (aggiunta Pianta Mangiauomini), esclusione automatica Allevatore per specie non allevabili/possedibili, pulizia delle false regole durata; nessuna nuova lettura Firebase. 13/09/2026 -->
 <!-- elfo_studente_v258 — Secondo audit Parametri Piante/Creature: Grinzafico riconosciuto come bonus durata; Creature con effetti temporanei riconosciute automaticamente come durata; Diricawl gestito come effetto specifico; aggiunti Parametri mancanti di Dugbog, Duriccio, Gufo e Rospo; Gatto segnalato come base variabile da 45 punti. Nessuna nuova lettura Firebase. 13/09/2026 -->
@@ -12811,7 +12812,7 @@
       setEntityBonusFromLevel(o,isPlant,map[v]||0);o.bonusPersonaleManuale=true;scheduleSave(0);renderAll();
     });lev.appendChild(sel);controls.appendChild(lev);
 
-    var mode=el("div");mode.appendChild(el("label",null,"Applicazione bonus personale"));
+    var mode=el("div");mode.appendChild(el("label",null,"Correzione manuale (facoltativa)"));
     var autoLabel="automatico — "+(autoRule.mode==="specifico"?"effetto specifico":autoRule.mode);
     var modeOptions=[autoLabel,"parametri","durata","specifico","nessuno"];
     var modeSelected=o.bonusPersonaleModalitaOverride?String(o.bonusPersonaleModalitaOverride):autoLabel;
