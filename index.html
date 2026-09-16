@@ -1,3 +1,4 @@
+<!-- elfo_studente_v266 — Coppa delle Case: riepilogo mensile arricchito con Stima reale, fascia e modificatore per post; mantiene il ponte compatto v265 senza nuove letture Firebase. 16/09/2026 -->
 <!-- elfo_studente_v265 — Ponte Coppa delle Case: pubblica un riepilogo numerico annuale solo dopo un salvataggio Elfo riuscito e solo se cambiano Post/Stima/bonus Casa rilevanti. Nessuna nuova lettura Firebase; una sola scrittura compatta quando serve. 15/09/2026 -->
 
 <!-- elfo_studente_v264 — Colori Classificazione completi: intero specchietto operativo (header + corpo) di Piante, Creature e Pozioni in palette X–XXXXX; allineato anche Archivio. Mantiene integralmente v263. 13/09/2026 -->
@@ -10567,9 +10568,12 @@
     var start=houseCupCurrentYearStart(new Date()),yearId=houseCupYearId(start),months={};
     for(var i=0;i<MESI.length;i++){
       var mese=MESI[i]||{},key=houseCupMonthKey(mese.nome,start);if(!key)continue;
-      var posts=Array.isArray(mese.posts)?mese.posts:[],b=housePointsBreakdown(mese,posts),prev=months[key]||{posts:0,base:0,stima:0,role:0,manual:0,total:0};
+      var posts=Array.isArray(mese.posts)?mese.posts:[],b=housePointsBreakdown(mese,posts),prev=months[key]||{posts:0,base:0,stimaValue:b.stimaValue,stimaLabel:b.stimaLabel,stimaModifier:b.stimaModifier,stimaPoints:0,stima:0,role:0,manual:0,total:0};
       prev.posts+=Math.max(0,parseInt(b.eligiblePosts,10)||0);
-      prev.base+=parseInt(b.base,10)||0;prev.stima+=parseInt(b.stima,10)||0;prev.role+=parseInt(b.role,10)||0;prev.manual+=parseInt(b.manual,10)||0;prev.total+=parseInt(b.total,10)||0;
+      prev.base+=parseInt(b.base,10)||0;
+      prev.stimaValue=b.stimaValue;prev.stimaLabel=b.stimaLabel;prev.stimaModifier=parseInt(b.stimaModifier,10)||0;
+      prev.stimaPoints+=parseInt(b.stima,10)||0;prev.stima=prev.stimaPoints;
+      prev.role+=parseInt(b.role,10)||0;prev.manual+=parseInt(b.manual,10)||0;prev.total=prev.base+prev.stimaPoints+prev.role+prev.manual;
       months[key]=prev;
     }
     return {schemaVersion:1,pgId:pg,schoolYear:yearId,months:months};
