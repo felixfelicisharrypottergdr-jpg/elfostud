@@ -10181,6 +10181,11 @@
           verifyAndCommitGeneralPostLink(candidate,0);
         });
         tdLink.appendChild(iLink);
+        if(isPostExcluded(post)){
+          tr.classList.add("post-row-excluded");
+          tdLink.appendChild(el("div","post-excluded-badge","⚠ Escluso dai conteggi"));
+          tdLink.appendChild(el("div","post-excluded-note","Motivo: "+(String(post.exclusionReason||"").trim()||"non specificato")));
+        }
         if(isSummerRolePost(post)){tdLink.appendChild(el("span","small-note special-role-post-note","☀ Estate · 0 Punti Casa"));}
         if(isSpecialRolePost(post)){
           var sri=specialRoleTypeInfo(post.specialRoleType);
