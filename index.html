@@ -1,6 +1,6 @@
 
+<!-- elfo_studente_v268 — Esclusione Post: sync realtime + conteggi progressivi; 18/09/2026 -->
 <!-- elfo_studente_v266 — Coppa delle Case: riepilogo mensile arricchito con Stima reale, fascia e modificatore per post; mantiene il ponte compatto v265 senza nuove letture Firebase. 16/09/2026 -->
-<!-- elfo_studente_v265 — Ponte Coppa delle Case: pubblica un riepilogo numerico annuale solo dopo un salvataggio Elfo riuscito e solo se cambiano Post/Stima/bonus Casa rilevanti. Nessuna nuova lettura Firebase; una sola scrittura compatta quando serve. 15/09/2026 -->
 
 <!-- elfo_studente_v264 — Colori Classificazione completi: intero specchietto operativo (header + corpo) di Piante, Creature e Pozioni in palette X–XXXXX; allineato anche Archivio. Mantiene integralmente v263. 13/09/2026 -->
 <!-- elfo_studente_v263 — Parametri: details colorato per Classificazione e allineato fra Piante/Creature/Pozioni; Creature ora usano anche lo sfondo di Classificazione. Raccolti: riconciliazione Dispensa persistente, firma aggiornata e stato inline coerente col riquadro prioritario. 13/09/2026 -->
@@ -2704,6 +2704,20 @@
     return getDoc(doc(fbDb, PERSON_COLLECTION, pgId)).then(function(snap){ return snap.exists() ? snap.data() : null; });
   };
 
+  /* Sync leggero delle sole esclusioni impostate dal Narratore. Non sostituisce lo stato
+     locale del Player: aggiorna esclusivamente excludedFromProgression/exclusionReason,
+     così eventuali modifiche non ancora salvate in altre sezioni non vengono sovrascritte. */
+  window.fbWatchPostProgressionState = function(pgId,onData,onError){
+    var id=String(pgId||"").trim();
+    if(!id){return function(){};}
+    return onSnapshot(doc(fbDb, PERSON_COLLECTION, id), function(snap){
+      if(!snap.exists()){if(typeof onData==="function"){onData(null);}return;}
+      var d=snap.data()||{};
+      if(d._deleted){if(typeof onData==="function"){onData(null);}return;}
+      if(typeof onData==="function"){onData({MESI:Array.isArray(d.MESI)?d.MESI:[],_dbRevision:Number(d._dbRevision||0),_lastModifiedAt:d._lastModifiedAt||null,_lastModifiedBy:String(d._lastModifiedBy||"")});}
+    }, function(e){console.error(e);if(typeof onError==="function"){onError(e);}});
+  };
+
   window.fbGetAccrediti = function(pgId){
     var accCollection = PERSON_COLLECTION === "personaggi_adulti" ? "accrediti_adulti" : "accrediti_studenti";
     return getDoc(doc(fbDb, accCollection, pgId)).then(function(snap){ return snap.exists() ? snap.data() : {}; });
@@ -4119,6 +4133,8 @@
   var ACCREDITI_LOAD_STATE = "idle";
   var ACCREDITI_UNSUB = null;
   var ACCREDITI_WATCH_ACTIVE = false;
+  var POST_EXCLUSION_UNSUB = null;
+  var POST_EXCLUSION_WATCH_PG = "";
   var SAVE_CONFLICT_LOCKED = false;
   var AUTO_CONFLICT_RELOAD_PROMISE = null;
   var LAST_MODIFIED_AT = null;
@@ -4758,6 +4774,49 @@
   function socialValuesComplete(values){ var defs=socialFieldDefs(),missing=[]; for(var i=0;i<defs.length;i++){if(defs[i].required&&socialNumber(values&&values[defs[i].key])===null){missing.push(defs[i].label);}} return {ok:missing.length===0,missing:missing}; }
   function fmtSocialValue(v){ var n=socialNumber(v); if(n===null){return "—";} return n.toLocaleString("it-IT",{maximumFractionDigits:2,minimumFractionDigits:(Math.abs(n%1)>.0001?1:0)}); }
   function socialMonthKey(name){ return normalizeMonthName(name); }
+  function stopPostExclusionWatch(){
+    if(typeof POST_EXCLUSION_UNSUB === "function"){try{POST_EXCLUSION_UNSUB();}catch(e){}}
+    POST_EXCLUSION_UNSUB=null;POST_EXCLUSION_WATCH_PG="";
+  }
+  function mergePostExclusionFlagsIntoState(target,remote){
+    if(!target||!Array.isArray(target.MESI)||!remote||!Array.isArray(remote.MESI))return false;
+    var changed=false,monthMap={};
+    for(var mi=0;mi<target.MESI.length;mi++){var tm=target.MESI[mi]||{};monthMap[String(tm.id)]=tm;}
+    for(var rmi=0;rmi<remote.MESI.length;rmi++){
+      var rm=remote.MESI[rmi]||{},lm=monthMap[String(rm.id)];if(!lm)continue;
+      var targetPosts=Array.isArray(lm.posts)?lm.posts:[],remotePosts=Array.isArray(rm.posts)?rm.posts:[],postMap={};
+      for(var pi=0;pi<targetPosts.length;pi++){var tp=targetPosts[pi];if(tp&&tp.id!=null)postMap[String(tp.id)]=tp;}
+      for(var rpi=0;rpi<remotePosts.length;rpi++){
+        var rp=remotePosts[rpi];if(!rp||rp.id==null)continue;
+        var lp=postMap[String(rp.id)];if(!lp)continue;
+        var rex=rp.excludedFromProgression===true,rreason=String(rp.exclusionReason||"");
+        if(lp.excludedFromProgression!==rex||String(lp.exclusionReason||"")!==rreason){lp.excludedFromProgression=rex;lp.exclusionReason=rex?rreason:"";changed=true;}
+      }
+    }
+    return changed;
+  }
+  function startPostExclusionWatch(pg){
+    stopPostExclusionWatch();
+    pg=String(pg||"").trim();if(!pg||typeof window.fbWatchPostProgressionState!=="function")return;
+    POST_EXCLUSION_WATCH_PG=pg;
+    POST_EXCLUSION_UNSUB=window.fbWatchPostProgressionState(pg,function(remote){
+      if(!remote||String(STUDENTE.nome||"").trim()!==pg)return;
+      var currentChanged=mergePostExclusionFlagsIntoState({MESI:MESI},remote);
+      if(!currentChanged)return;
+      mergePostExclusionFlagsIntoState(LAST_PERSISTED_STATE,remote);
+      mergePostExclusionFlagsIntoState(LAST_AUDITED_STATE,remote);
+      /* Non promuoviamo DB_REVISION: il documento potrebbe contenere anche modifiche
+         remote estranee alle sole esclusioni. Il salvataggio successivo userà il normale
+         controllo di revisione/rebase per evitare sovrascritture. */
+      if(remote._lastModifiedAt){LAST_MODIFIED_AT=remote._lastModifiedAt;}
+      LAST_MODIFIED_BY=remote._lastModifiedBy||LAST_MODIFIED_BY;
+      LAST_NARRATOR_ACTION="Post validi/esclusi aggiornati dal Narratore";
+      fbStatusText="Conteggi Post aggiornati dal Narratore";
+      DATA_DIRTY=!!(LAST_PERSISTED_STATE && stableComparableJson(persistenceComparableState(collectState()))!==stableComparableJson(LAST_PERSISTED_STATE));
+      renderAll({skipAutoSave:true});
+    },function(){/* Il normale controllo revisione resta il fallback. */});
+  }
+
   function stopAccreditiWatch(){
     if(typeof ACCREDITI_UNSUB === "function"){ try{ACCREDITI_UNSUB();}catch(e){} }
     ACCREDITI_UNSUB=null; ACCREDITI_WATCH_ACTIVE=false;
@@ -5157,7 +5216,7 @@
       SAVE_FORCE_AGAIN=false;
       rememberBrowserPg(nome);resetUndoRedoHistory();
       if(typeof taccSwitchLocalProfile==="function"){taccSwitchLocalProfile(nome);}
-      startAccreditiWatch(nome,true);
+      startAccreditiWatch(nome,true);startPostExclusionWatch(nome);
       document.querySelectorAll("#revision-conflict-overlay").forEach(function(x){if(x&&x.parentNode){x.remove();}});
       fbStatusText=wasUnlocked?"Dati aggiornati automaticamente · modifica autorizzata":"Dati aggiornati automaticamente · sola visualizzazione";
       renderAll({skipAutoSave:true});updateFbIndicator();
@@ -6359,7 +6418,7 @@
     DISPENSA = { ingredienti:[], movimenti:[], archivioTotali:{ galeoniVendite:0, perCommercianteTipo:{}, conteggiMovimenti:{} } }; ingredienteCounter = 0; movimentoCounter = 0; resetDispensaBatch(); PG_ARCHIVIATO = false; DELETE_REQUESTED = false; PG_DOC_EXISTS = false; DB_REVISION = 0;
     PARAMETRI_SOCIALI = {popolarita:null,stima:null,bonta:null,malvagita:null}; VERIFICHE_PARAMETRI_SOCIALI = {}; SOCIAL_SYNC_META = { lastStaffFingerprint:"" };
     TUTORIAL_STATE = { completedVersion:0, dismissedVersion:0, pendingVersion:0 }; TUTORIAL_RUNTIME = { active:false, index:0 };
-    OPEN_DETAILS = {}; stopAccreditiWatch(); accreditiCache = null; ACCREDITI_LOAD_STATE="idle"; ACCREDITI_WATCH_ACTIVE=false; SAVE_CONFLICT_LOCKED=false; var conflictOverlay=document.getElementById("revision-conflict-overlay");if(conflictOverlay){conflictOverlay.remove();} LAST_MODIFIED_AT=null; LAST_MODIFIED_BY=""; LAST_SESSION_ID=""; LAST_NARRATOR_AT=null; LAST_NARRATOR_ACTION=""; DATA_DIRTY=false; FORCE_PERSIST_SAVE=false; ARCHIVE_UNLOCK_UNTIL=null; LAST_PERSISTED_STATE=null; LAST_AUDITED_STATE=null; PENDING_AUDIT_STATE=null; SESSION_SNAPSHOT_DONE=false; LAST_SNAPSHOT_MS=0; SAVE_IN_FLIGHT_PROMISE=null; SAVE_FORCE_AGAIN=false; AUTO_CONFLICT_RELOAD_PROMISE=null; PERSONAL_CLOUD_BACKOFF_UNTIL=0; PERSONAL_CLOUD_RETRY_COUNT=0; if(PERSONAL_CLOUD_RETRY_TIMER){clearTimeout(PERSONAL_CLOUD_RETRY_TIMER);PERSONAL_CLOUD_RETRY_TIMER=null;} LAST_AUDIT_WRITE_MS=0;
+    OPEN_DETAILS = {}; stopPostExclusionWatch(); stopAccreditiWatch(); accreditiCache = null; ACCREDITI_LOAD_STATE="idle"; ACCREDITI_WATCH_ACTIVE=false; SAVE_CONFLICT_LOCKED=false; var conflictOverlay=document.getElementById("revision-conflict-overlay");if(conflictOverlay){conflictOverlay.remove();} LAST_MODIFIED_AT=null; LAST_MODIFIED_BY=""; LAST_SESSION_ID=""; LAST_NARRATOR_AT=null; LAST_NARRATOR_ACTION=""; DATA_DIRTY=false; FORCE_PERSIST_SAVE=false; ARCHIVE_UNLOCK_UNTIL=null; LAST_PERSISTED_STATE=null; LAST_AUDITED_STATE=null; PENDING_AUDIT_STATE=null; SESSION_SNAPSHOT_DONE=false; LAST_SNAPSHOT_MS=0; SAVE_IN_FLIGHT_PROMISE=null; SAVE_FORCE_AGAIN=false; AUTO_CONFLICT_RELOAD_PROMISE=null; PERSONAL_CLOUD_BACKOFF_UNTIL=0; PERSONAL_CLOUD_RETRY_COUNT=0; if(PERSONAL_CLOUD_RETRY_TIMER){clearTimeout(PERSONAL_CLOUD_RETRY_TIMER);PERSONAL_CLOUD_RETRY_TIMER=null;} LAST_AUDIT_WRITE_MS=0;
   }
 
   function collectState(){
@@ -9365,6 +9424,7 @@
       }
       if(EDIT_UNLOCKED){personalRestorePendingAfterLoad();}
       startAccreditiWatch(nome);
+      startPostExclusionWatch(nome);
       renderAll();
       if(typeof taccCloudQueueAfterLogin==="function"){taccCloudQueueAfterLogin(nome);}
       if(EDIT_UNLOCKED&&FORCE_PERSIST_SAVE){scheduleSave(0,false);}
@@ -9461,13 +9521,13 @@
       PG_DOC_EXISTS=true;fbConnected=true;NEW_PG_PENDING=false;NEW_PG_PASSWORD_DRAFT="";EDIT_UNLOCKED=true;EDIT_PASSWORD_CONFIGURED=true;
       LAST_MODIFIED_AT=new Date();LAST_MODIFIED_BY="pg";LAST_SESSION_ID=SESSION_ID;fbStatusText="Elfo creato · modifica autorizzata";showPasswordSessionNoticeOnce(nome);
       var st=collectState();LAST_PERSISTED_STATE=cloneHistoryState(persistenceComparableState(st));LAST_AUDITED_STATE=cloneHistoryState(historyComparableState(st));
-      rememberBrowserPg(nome);resetUndoRedoHistory();startAccreditiWatch(nome);
+      rememberBrowserPg(nome);resetUndoRedoHistory();startAccreditiWatch(nome);startPostExclusionWatch(nome);
       publicDirectoryUpsertLocal(nome,true);renderAll();ffNotifyParentHeightAfterUnlock();return true;
     });
   }
   function clearLoadedPg(){
     if(fbSaveTimer){clearTimeout(fbSaveTimer);fbSaveTimer=null;}
-    stopAccreditiWatch();rememberBrowserPg("");fbConnected=false;EDIT_UNLOCKED=false;EDIT_PASSWORD_CONFIGURED=false;NEW_PG_PENDING=false;NEW_PG_PASSWORD_DRAFT="";LOCKED_MIGRATION_PENDING=false;
+    stopPostExclusionWatch();stopAccreditiWatch();rememberBrowserPg("");fbConnected=false;EDIT_UNLOCKED=false;EDIT_PASSWORD_CONFIGURED=false;NEW_PG_PENDING=false;NEW_PG_PASSWORD_DRAFT="";LOCKED_MIGRATION_PENDING=false;
     resetDataState();STUDENTE.nome="";fbStatusText="";currentStep="pg";resetUndoRedoHistory();renderAll();
   }
   function flushTaccuinoCloudBeforeLock(){
