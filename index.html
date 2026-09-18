@@ -4781,23 +4781,60 @@
   }
   function mergePostExclusionFlagsIntoState(target,remote){
     if(!target||!Array.isArray(target.MESI)||!remote||!Array.isArray(remote.MESI))return false;
-    var changed=false,monthMap={};
-    for(var mi=0;mi<target.MESI.length;mi++){var tm=target.MESI[mi]||{};monthMap[String(tm.id)]=tm;}
-    for(var rmi=0;rmi<remote.MESI.length;rmi++){
-      var rm=remote.MESI[rmi]||{},lm=monthMap[String(rm.id)];if(!lm)continue;
-      var targetPosts=Array.isArray(lm.posts)?lm.posts:[],remotePosts=Array.isArray(rm.posts)?rm.posts:[],postMap={};
-      function syncPostKey(post){
-        if(!post)return "";
-        if(post.id!=null&&String(post.id)!=="")return "id:"+String(post.id);
-        var gn=parseInt(post.globalNo,10);if(gn>0)return "g:"+String(gn);
-        var link=String(post.link||"").trim();return link?"u:"+link:"";
+    var changed=false,monthMap={},monthNameMap={},globalPostMap={},linkPostMap={};
+    function normMonthNameLocal(v){return String(v||"").trim().replace(/\s+/g," ").toLocaleLowerCase("it-IT");}
+    function postLinkKey(post){
+      var link=String(post&&post.link||"").trim();
+      if(!link)return "";
+      try{
+        var u=new URL(link,window.location.href);
+        var t=u.searchParams.get("t"),st=u.searchParams.get("st"),h=String(u.hash||"").toLowerCase();
+        if(t){
+          var em=h.match(/^#entry(\d+)/i);
+          return em?"forumfree:t="+t+"|entry="+em[1]:"forumfree:t="+t+"|st="+(st||"")+"|hash="+h;
+        }
+        return (u.origin+u.pathname+u.search).replace(/\/$/,"");
+      }catch(e){return link;}
+    }
+    for(var mi=0;mi<target.MESI.length;mi++){
+      var tm=target.MESI[mi]||{},tid=String(tm.id==null?"":tm.id);
+      if(tid)monthMap[tid]=tm;
+      var tname=normMonthNameLocal(tm.nome);if(tname&&!monthNameMap[tname])monthNameMap[tname]=tm;
+      var tposts=Array.isArray(tm.posts)?tm.posts:[];
+      for(var tpi=0;tpi<tposts.length;tpi++){
+        var tpost=tposts[tpi];if(!tpost)continue;
+        var tgn=parseInt(tpost.globalNo,10);
+        if(tgn>0){if(globalPostMap[String(tgn)]===undefined)globalPostMap[String(tgn)]=tpost;else globalPostMap[String(tgn)]=null;}
+        var tlk=postLinkKey(tpost);
+        if(tlk){if(linkPostMap[tlk]===undefined)linkPostMap[tlk]=tpost;else linkPostMap[tlk]=null;}
       }
-      for(var pi=0;pi<targetPosts.length;pi++){var tp=targetPosts[pi],tk=syncPostKey(tp);if(tk)postMap[tk]=tp;}
+    }
+    for(var rmi=0;rmi<remote.MESI.length;rmi++){
+      var rm=remote.MESI[rmi]||{},rid=String(rm.id==null?"":rm.id),lm=rid?monthMap[rid]:null;
+      if(!lm){var rname=normMonthNameLocal(rm.nome);if(rname)lm=monthNameMap[rname]||null;}
+      var targetPosts=Array.isArray(lm&&lm.posts)?lm.posts:[],remotePosts=Array.isArray(rm.posts)?rm.posts:[];
+      var postById={},postByGlobal={},postByLink={};
+      for(var pi=0;pi<targetPosts.length;pi++){
+        var tp=targetPosts[pi];if(!tp)continue;
+        if(tp.id!=null&&String(tp.id)!=="")postById[String(tp.id)]=tp;
+        var tgn=parseInt(tp.globalNo,10);if(tgn>0)postByGlobal[String(tgn)]=tp;
+        var tlk=postLinkKey(tp);if(tlk)postByLink[tlk]=tp;
+      }
       for(var rpi=0;rpi<remotePosts.length;rpi++){
-        var rp=remotePosts[rpi],rk=syncPostKey(rp);if(!rk)continue;
-        var lp=postMap[rk];if(!lp)continue;
+        var rp=remotePosts[rpi];if(!rp)continue;
+        var lp=null;
+        if(rp.id!=null&&String(rp.id)!=="")lp=postById[String(rp.id)]||null;
+        if(!lp){var rgn=parseInt(rp.globalNo,10);if(rgn>0)lp=postByGlobal[String(rgn)]||null;}
+        if(!lp){var rlk=postLinkKey(rp);if(rlk)lp=postByLink[rlk]||null;}
+        if(!lp){var rgn2=parseInt(rp.globalNo,10);if(rgn2>0)lp=globalPostMap[String(rgn2)]||null;}
+        if(!lp){var rlk2=postLinkKey(rp);if(rlk2)lp=linkPostMap[rlk2]||null;}
+        if(!lp)continue;
         var rex=rp.excludedFromProgression===true,rreason=String(rp.exclusionReason||"");
-        if(lp.excludedFromProgression!==rex||String(lp.exclusionReason||"")!==rreason){lp.excludedFromProgression=rex;lp.exclusionReason=rex?rreason:"";changed=true;}
+        if(lp.excludedFromProgression!==rex||String(lp.exclusionReason||"")!==(rex?rreason:"")){
+          lp.excludedFromProgression=rex;
+          lp.exclusionReason=rex?rreason:"";
+          changed=true;
+        }
       }
     }
     return changed;
