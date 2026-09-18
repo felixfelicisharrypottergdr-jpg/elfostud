@@ -1,3 +1,4 @@
+
 <!-- elfo_studente_v266 — Coppa delle Case: riepilogo mensile arricchito con Stima reale, fascia e modificatore per post; mantiene il ponte compatto v265 senza nuove letture Firebase. 16/09/2026 -->
 <!-- elfo_studente_v265 — Ponte Coppa delle Case: pubblica un riepilogo numerico annuale solo dopo un salvataggio Elfo riuscito e solo se cambiano Post/Stima/bonus Casa rilevanti. Nessuna nuova lettura Firebase; una sola scrittura compatta quando serve. 15/09/2026 -->
 
@@ -1038,6 +1039,9 @@
 
   .link-input-wrap{ display:flex; align-items:center; gap:6px; width:100%; }
   .link-input-wrap input{ flex:1; min-width:0; }
+  .post-excluded-badge{display:inline-flex;align-items:center;gap:4px;margin:4px 0;padding:3px 7px;border:1px solid #a23a34;border-radius:999px;background:#f8dfda;color:#8f211d;font-size:.72rem;font-weight:800;line-height:1.2;}
+  .post-excluded-note{margin:4px 0;padding:5px 7px;border-left:3px solid #a23a34;background:#f8dfda;color:#6f211e;font-size:.74rem;line-height:1.35;}
+  .post-row-excluded td{background:rgba(155,51,43,.05);}
   .link-open-icon{
     display:inline-flex; align-items:center; justify-content:center; flex:0 0 32px;
     width:32px; height:30px; border:1px solid var(--gold); border-radius:5px;
@@ -3245,7 +3249,7 @@
   function staffTokenCountForPosts(posts,endExclusive,mese){
     posts=Array.isArray(posts)?posts:[];
     var limit=Math.min(posts.length,endExclusive==null?posts.length:endExclusive),n=0;
-    for(var i=0;i<limit;i++){if(posts[i]&&isValidPostLink(posts[i].link)&&!isSpecialRolePost(posts[i])&&staffTokenIsUsed(posts[i],mese))n++;}
+    for(var i=0;i<limit;i++){if(isProgressionPost(posts[i])&&staffTokenIsUsed(posts[i],mese))n++;}
     return n;
   }
   function staffTokenErrorText(code,operation,diagnostic){
@@ -3403,6 +3407,7 @@
     if(enabled&&STAFF_TOKEN_STATE.migrationRequired){if(!opts.silent)alert("Il collegamento Staff Token di questo PG deve essere aggiornato dallo Staff prima di poter usare nuovi ST.");return false;}
     if(!staffId){if(!opts.silent)alert("Non trovo lo Staffer proprietario di questo PG.");return false;}
     if(!isValidPostLink(post.link)){if(!opts.silent)alert("Inserisci prima un link valido per il Post.");return false;}
+    if(isPostExcluded(post)){if(!opts.silent)alert("Questo Post è escluso dai conteggi e non può usare Staff Token.");return false;}
     if(isSpecialRolePost(post)){if(!opts.silent)alert("Le Role di Linea dell’Età, Giratempo e Trix Tristis sono fuori conteggio e non possono usare Staff Token.");return false;}
     if(enabled&&STAFF_TOKEN_STATE.balance<=0){if(!opts.silent)alert("Non ci sono Staff Token disponibili.");return false;}
     if(!window.fbSetStaffTokenUsage){if(!opts.silent)alert("Il collegamento Staff Token non è momentaneamente disponibile. Riprova tra poco.");return false;}
@@ -3460,10 +3465,11 @@
     btn.setAttribute("data-staff-token-used",used?"1":"0");
     btn.innerHTML=used?"<i class=\"fa-solid fa-check\"></i> ST +1":"<i class=\"fa-solid fa-pen-nib\"></i> Usa ST";
     var busy=!!STAFF_TOKEN_BUSY[staffTokenUsageIdForPost(post,mese)];
-    btn.disabled=!!locked||!EDIT_UNLOCKED||!isValidPostLink(post.link)||busy||(!used&&STAFF_TOKEN_STATE.balance<=0);
+    btn.disabled=!!locked||!EDIT_UNLOCKED||!isValidPostLink(post.link)||isPostExcluded(post)||busy||(!used&&STAFF_TOKEN_STATE.balance<=0);
     if(locked)btn.title="Il Mese è in sola lettura.";
     else if(!EDIT_UNLOCKED)btn.title="Entra in modifica per usare o restituire lo Staff Token.";
-    else if(!isValidPostLink(post.link))btn.title="Inserisci prima il link del Post.";
+    else if(isPostExcluded(post))btn.title="Post escluso dai conteggi: lo Staff Token non può essere usato.";
+     else if(!isValidPostLink(post.link))btn.title="Inserisci prima il link del Post.";
     else if(!used&&STAFF_TOKEN_STATE.balance<=0)btn.title="Nessuno Staff Token disponibile.";
     else btn.title=used?"Clicca per restituire questo Staff Token.":"Usa 1 Staff Token su questo Post (+1 PP).";
     btn.addEventListener(EV,function(){setStaffTokenOnPost(post,mese,!staffTokenIsUsed(post,mese),{});});
@@ -3476,7 +3482,7 @@
   function staffTokenMonthHasHistory(posts,mese){
     posts=Array.isArray(posts)?posts:[];
     for(var i=0;i<posts.length;i++){
-      if(posts[i]&&isValidPostLink(posts[i].link)&&!isSpecialRolePost(posts[i])&&staffTokenIsUsed(posts[i],mese))return true;
+      if(isProgressionPost(posts[i])&&staffTokenIsUsed(posts[i],mese))return true;
     }
     return false;
   }
@@ -4171,10 +4177,11 @@
         var post=posts[pi];if(!post)continue;
         var link=String(post.link||"").trim();
         try{if(!isValidPostLink(link))continue;}catch(e){continue;}
-        var special=false;try{special=!!isSpecialRolePost(post);}catch(e){special=false;}
+        var excluded=!!post.excludedFromProgression;
+         var special=false;try{special=!!isSpecialRolePost(post);}catch(e){special=false;}
         var topicKey="";try{topicKey=typeof healingRoleUrlKey==="function"?healingRoleUrlKey(link):"";}catch(e){topicKey="";}
-        allPosts.push({link:link,month:name,topicKey:topicKey,special:special});
-        if(!special)links.push(link);
+        allPosts.push({link:link,month:name,topicKey:topicKey,special:special,excluded:excluded});
+         if(!special&&!excluded)links.push(link);
       }
       links=Array.from(new Set(links));
       var accreditationKnown=false,accredited=false;
@@ -4269,7 +4276,7 @@
     for(var mi=0;mi<MESI.length;mi++){
       var mese=MESI[mi],posts=Array.isArray(mese&&mese.posts)?mese.posts:[];
       for(var pi=0;pi<posts.length;pi++){
-        var p=posts[pi];if(!p||!isValidPostLink(p.link))continue;
+        var p=posts[pi];if(!p||!isValidPostLink(p.link)||isPostExcluded(p))continue;
         if(String(p.specialRoleKey||"")===String(entry.key)||specialRoleTopicKey(p.link)===String(entry.key)){out.push({mese:mese,post:p});}
       }
     }
@@ -4352,7 +4359,7 @@
     return pp+" · 0 Galeoni/Post";
   }
   function specialRoleRewardEntryForPost(post){
-    if(!post||!isSpecialRolePost(post))return null;
+    if(!post||isPostExcluded(post)||!isSpecialRolePost(post))return null;
     return {
       key:String(post.specialRoleKey||specialRoleTopicKey(post.link)||""),
       type:String(post.specialRoleType||""),
@@ -4480,7 +4487,7 @@
     var out=[];
     for(var i=0;i<POSTS.length&&out.length<count;i++){
       var p=POSTS[i],n=parseInt(p&&p.globalNo,10);
-      if(n>=start&&isValidPostLink(p&&p.link)&&!isSpecialRolePost(p)){out.push(p);}
+      if(n>=start&&isProgressionPost(p)){out.push(p);}
     }
     return out;
   }
@@ -4995,6 +5002,9 @@
     } catch(e){ return ""; }
   }
   function isValidPostLink(value){ return safeHttpUrl(value) !== ""; }
+  function isPostExcluded(post){ return !!(post && post.excludedFromProgression === true); }
+  function isProgressionPost(post){ return !!(post && isValidPostLink(post.link) && !isPostExcluded(post) && !isSpecialRolePost(post)); }
+  function getValidPosts(posts){ posts=Array.isArray(posts)?posts:[];return posts.filter(function(post){return isProgressionPost(post);}); }
   function canonicalPostLinkForDuplicate(value){
     var normalized=safeHttpUrl(value);if(!normalized){return "";}
     try{
@@ -7126,7 +7136,7 @@
     var n=0;
     for(var mi=0;mi<MESI.length;mi++){
       var posts=Array.isArray(MESI[mi]&&MESI[mi].posts)?MESI[mi].posts:[];
-      for(var pi=0;pi<posts.length;pi++){if(healingRoleUrlKey(posts[pi]&&posts[pi].link)===key)n++;}
+      for(var pi=0;pi<posts.length;pi++){var rp=posts[pi];if(rp&&!isPostExcluded(rp)&&healingRoleUrlKey(rp.link)===key)n++;}
     }
     return n;
   }
@@ -7173,7 +7183,7 @@
     return socialNumber(PARAMETRI_SOCIALI&&PARAMETRI_SOCIALI.stima);
   }
   function houseAutomaticPostEligible(mese,post){
-    return !!(houseSchoolMonth(mese)&&post&&isValidPostLink(post.link)&&!isSpecialRolePost(post)&&!isSummerRolePost(post));
+    return !!(houseSchoolMonth(mese)&&isProgressionPost(post)&&!isSummerRolePost(post));
   }
   function houseRolePointsOnPost(post,mese){
     return houseAutomaticPostEligible(mese,post)&&houseRoleAssigned(post)&&post.houseRoleBonusExcluded!==true?2:0;
@@ -7260,7 +7270,7 @@
     return changed;
   }
   function houseRoleMatchedPostsCount(key){
-    var n=0;for(var mi=0;mi<MESI.length;mi++){var posts=Array.isArray(MESI[mi]&&MESI[mi].posts)?MESI[mi].posts:[];for(var pi=0;pi<posts.length;pi++){if(healingRoleUrlKey(posts[pi]&&posts[pi].link)===key)n++;}}return n;
+    var n=0;for(var mi=0;mi<MESI.length;mi++){var posts=Array.isArray(MESI[mi]&&MESI[mi].posts)?MESI[mi].posts:[];for(var pi=0;pi<posts.length;pi++){var rp=posts[pi];if(rp&&!isPostExcluded(rp)&&healingRoleUrlKey(rp.link)===key)n++;}}return n;
   }
   function renderHouseRoleBonusManager(parent){
     migrateLegacyCompletedHouseRoles();
@@ -7340,7 +7350,7 @@
        rimossa o modificata. I Post futuri, invece, devono ancora appartenere a una
        delle role attualmente valide. */
     var postsByStableKey={};
-    (POSTS||[]).forEach(function(p){if(isSpecialRolePost(p))return;var pk=healingPostStableKey(p);if(pk&&!postsByStableKey[pk])postsByStableKey[pk]=p;});
+    (POSTS||[]).forEach(function(p){if(!isProgressionPost(p))return;var pk=healingPostStableKey(p);if(pk&&!postsByStableKey[pk])postsByStableKey[pk]=p;});
     var pinned=Array.isArray(h&&h.countedPostKeys)?h.countedPostKeys.map(String):[],seen={},counted=[],seq=0;
     pinned.forEach(function(pk){
       if(counted.length>=req||seen[pk])return;var p=postsByStableKey[pk];if(!p)return;seen[pk]=1;
@@ -7350,7 +7360,7 @@
 
     var currentCandidates=[];
     (POSTS||[]).forEach(function(p){
-      if(!p||!isValidPostLink(p.link)||isSpecialRolePost(p)){return;}var k=healingRoleUrlKey(p.link),rid=keys[k];if(!rid){return;}var pk=healingPostStableKey(p);if(!pk){return;}
+      if(!isProgressionPost(p)){return;}var k=healingRoleUrlKey(p.link),rid=keys[k];if(!rid){return;}var pk=healingPostStableKey(p);if(!pk){return;}
       perRoleMatched[rid]=(perRoleMatched[rid]||0)+1;
       if(seen[pk]){return;}var gn=parseInt(p.globalNo,10);currentCandidates.push({post:p,key:pk,rid:rid,order:(!isNaN(gn)&&gn>0?gn:1000000000+(seq++)),pinned:false});
     });
@@ -10149,7 +10159,7 @@
       /* La riga vuota è una BOZZA UI: non avanza postCounter e non tocca Firebase.
          Diventa un vero Post soltanto quando l'utente inizia a compilarla. In questo
          modo il semplice click su «Aggiungi post» non può generare conflitti. */
-      mese.posts.push({ id:"draft_"+Date.now().toString(36)+"_"+Math.random().toString(36).slice(2,7), globalNo:null, link: "", nota: "", pp: "", eventoBonusEscluso:false, bonusUtilizzi:{}, staffTokenUsato:false, staffTokenStaffId:"", staffTokenStaffName:"", staffTokenUsedAt:"" });
+      mese.posts.push({ id:"draft_"+Date.now().toString(36)+"_"+Math.random().toString(36).slice(2,7), globalNo:null, link: "", nota: "", pp: "", eventoBonusEscluso:false, bonusUtilizzi:{}, staffTokenUsato:false, staffTokenStaffId:"", staffTokenStaffName:"", excludedFromProgression:false, exclusionReason:"", staffTokenUsedAt:"" });
       renderAll();
     }
     addBtn.addEventListener(EV, function(){
@@ -10334,7 +10344,7 @@
     return r||null;
   }
   function postUsesLimitedBonus(post,b){
-    if(isSpecialRolePost(post)){return false;}
+    if(isSpecialRolePost(post)||isPostExcluded(post)){return false;}
     var r=getBonusUsageRecord(post,b,false);
     return !!(r&&r.used&&isValidPostLink(post&&post.link));
   }
@@ -10350,8 +10360,8 @@
     posts=Array.isArray(posts)?posts:[];
     for(var i=0;i<posts.length;i++){
       var post=posts[i];
-      if(!post||!isValidPostLink(post.link)){continue;}
-      localNo++;
+      if(!isProgressionPost(post)){continue;}
+       localNo++;
       if(!postUsesLimitedBonus(post,b)){continue;}
       var label="Post "+localNo;
       out.push(label);
@@ -10422,14 +10432,14 @@
   }
 
   function postEligibleForBonus(post,b,posts){
-    if(!post||!isValidPostLink(post.link)||isSpecialRolePost(post)){return false;}
+    if(!isProgressionPost(post)){return false;}
     if(b.modalita==="all"){return true;}
     if(b.modalita==="selected"){return postUsesLimitedBonus(post,b);}
     if(b.modalita==="posts"){return postUsesLimitedBonus(post,b);}
     if(b.modalita==="first"){
       var max=Math.max(0,parseInt(b.primiPost,10)||0);if(max<=0){return false;}
       posts=Array.isArray(posts)?posts:[];var seen=0;
-      for(var i=0;i<posts.length;i++){if(!posts[i]||!isValidPostLink(posts[i].link)||isSpecialRolePost(posts[i])){continue;}seen++;if(posts[i]===post){return seen<=max;}}
+      for(var i=0;i<posts.length;i++){if(!isProgressionPost(posts[i])){continue;}seen++;if(posts[i]===post){return seen<=max;}}
       return false;
     }
     return false;
@@ -10495,7 +10505,7 @@
     window.__ELFO_CURRENT_BONUS_POSTS=Array.isArray(mese&&mese.posts)?mese.posts:[];
     var bonuses=activeMonthBonuses(mese),tot=0;
     for(var i=0;i<bonuses.length;i++)tot+=bonusPPOnPost(bonuses[i],post);
-    if(!isSpecialRolePost(post)&&staffTokenIsUsed(post,mese)&&isValidPostLink(post&&post.link))tot+=1;
+    if(!isSpecialRolePost(post)&&!isPostExcluded(post)&&staffTokenIsUsed(post,mese)&&isValidPostLink(post&&post.link))tot+=1;
     return tot;
   }
   function bonusGForPost(mese,post){
@@ -10601,6 +10611,7 @@
   }
   function housePointsTotal(mese,posts,endExclusive){return housePointsBreakdown(mese,posts,endExclusive).total;}
   function postBonusTotals(mese,post){
+    if(isPostExcluded(post)){return {pp:0,galeoni:0,puntiCasa:0,altro:""};}
     return {
       pp:bonusPPForPost(mese,post),
       galeoni:bonusGForPost(mese,post),
@@ -10618,13 +10629,13 @@
   }
   function cumulativePP(posts,endExclusive,mese){return cumulativeBasePP(posts,endExclusive)+eventBonusTotal(mese,posts,endExclusive);}
   function cumulativeGWithEvent(posts,endExclusive,mese){
-    var linked=0;for(var i=0;i<endExclusive;i++){if(posts[i]&&isValidPostLink(posts[i].link)&&!isSpecialRolePost(posts[i]))linked++;}
+    var linked=0;for(var i=0;i<endExclusive;i++){if(isProgressionPost(posts[i]))linked++;}
     return cumulativeG(linked)+eventBonusGaleoniTotal(mese,posts,endExclusive);
   }
   function latestCreditInfo(mese,posts){
     posts=Array.isArray(posts)?posts:[];
     var idx=-1,linkedPos=0;
-    for(var i=0;i<posts.length;i++){if(posts[i]&&isValidPostLink(posts[i].link)&&!isSpecialRolePost(posts[i])){linkedPos++;idx=i;}}
+    for(var i=0;i<posts.length;i++){if(isProgressionPost(posts[i])){linkedPos++;idx=i;}}
     if(idx<0){return null;}
     var post=posts[idx];
     return {
@@ -10721,7 +10732,7 @@
           var isSelectedMode=b.modalita==="selected";
           var setupMissing=!isSelectedMode&&(!b.usatiConfermati||!(b.maxUtilizzi>0));
           var exhausted=!isSelectedMode&&b.maxUtilizzi>0&&bonusCurrentUses(b,mese.posts)>=b.maxUtilizzi&&!cb.checked;
-          cb.disabled=!!locked||!isValidPostLink(post.link)||exhausted;
+          cb.disabled=!!locked||!isValidPostLink(post.link)||isPostExcluded(post)||exhausted;
           cb.title=isSelectedMode?"Spuntato = questo post riceve il Bonus":(setupMissing?"Se mancano gli utilizzi dell’oggetto, l’Elfo te lo segnalerà al click":(exhausted?"Premio esaurito":"Spuntato = utilizzo del premio su questo post"));
           cb.addEventListener("change",function(){
             if(blockIfMonthReadOnly(mese)){renderAll();return;}
@@ -11127,8 +11138,7 @@
     p.appendChild(bonusBox);
 
     var postiDelMese = (Array.isArray(meseObj.posts)?meseObj.posts:[]).filter(function(p){return !isSpecialRolePost(p);});
-    var totFilled = 0;
-    for(var j=0;j<postiDelMese.length;j++){ if(isValidPostLink(postiDelMese[j].link)){ totFilled = totFilled + 1; } }
+    var totFilled = getValidPosts(postiDelMese).length;
     var totGBase = totFilled > 0 ? cumulativeG(totFilled) : 0;
     var totGEvento = eventBonusGaleoniTotal(meseObj, postiDelMese, postiDelMese.length);
     var totG = totGBase + totGEvento;
@@ -11245,20 +11255,24 @@
     for(var li=0; li<showUpToLive; li++){
       let lp = postiDelMese[li];
       if(!lp || !isValidPostLink(lp.link)){continue;}
-      localPostNo++;
+      var excludedPost=isPostExcluded(lp);
+      if(!excludedPost){localPostNo++;}
 
       var tr = el("tr");
+      if(excludedPost){tr.classList.add("post-row-excluded");}
       var isLatestCreditRow = !!(latestCredit && li===latestCredit.index);
       if(isLatestCreditRow){tr.classList.add("cb-latest-row");}
 
-      tr.appendChild(el("td",null,String(localPostNo)));
-      tr.appendChild(makeLinkCell(lp.link, "Apri il post"));
+      tr.appendChild(el("td",null,excludedPost?"—":String(localPostNo)));
+      var linkTd=makeLinkCell(lp.link, "Apri il post");
+      if(excludedPost){linkTd.appendChild(el("div","post-excluded-badge","⚠ Escluso dai conteggi"));if(String(lp.exclusionReason||"").trim()){linkTd.appendChild(el("div","post-excluded-note","Motivo: "+String(lp.exclusionReason).trim()));}}
+      tr.appendChild(linkTd);
 
       var linkedUpTo = 0;
       for(var gx=0; gx<=li; gx++){
-        if(isValidPostLink(postiDelMese[gx].link)){ linkedUpTo++; }
+        if(isProgressionPost(postiDelMese[gx])){ linkedUpTo++; }
       }
-      tr.appendChild(el("td","g-value",(cumulativeG(linkedUpTo) + eventBonusGaleoniTotal(meseObj, postiDelMese, li + 1)) + " G"));
+      tr.appendChild(el("td","g-value",excludedPost?"—":((cumulativeG(linkedUpTo) + eventBonusGaleoniTotal(meseObj, postiDelMese, li + 1)) + " G")));
 
       tr.appendChild(makeEventBonusExclusionCell(lp,meseObj,bonusLocked));
       if(staffTokenColumn){
