@@ -1,5 +1,5 @@
 
-<!-- elfo_studente_v268 — Esclusione Post: sync realtime + conteggi progressivi; 18/09/2026 -->
+<!-- elfo_studente_v267 — Esclusione Post Narratore: sync realtime legacy + ricalcolo progressioni; mantiene v266. 18/09/2026 -->
 <!-- elfo_studente_v266 — Coppa delle Case: riepilogo mensile arricchito con Stima reale, fascia e modificatore per post; mantiene il ponte compatto v265 senza nuove letture Firebase. 16/09/2026 -->
 
 <!-- elfo_studente_v264 — Colori Classificazione completi: intero specchietto operativo (header + corpo) di Piante, Creature e Pozioni in palette X–XXXXX; allineato anche Archivio. Mantiene integralmente v263. 13/09/2026 -->
@@ -4785,10 +4785,16 @@
     for(var rmi=0;rmi<remote.MESI.length;rmi++){
       var rm=remote.MESI[rmi]||{},lm=monthMap[String(rm.id)];if(!lm)continue;
       var targetPosts=Array.isArray(lm.posts)?lm.posts:[],remotePosts=Array.isArray(rm.posts)?rm.posts:[],postMap={};
-      for(var pi=0;pi<targetPosts.length;pi++){var tp=targetPosts[pi];if(tp&&tp.id!=null)postMap[String(tp.id)]=tp;}
+      function syncPostKey(post){
+        if(!post)return "";
+        if(post.id!=null&&String(post.id)!=="")return "id:"+String(post.id);
+        var gn=parseInt(post.globalNo,10);if(gn>0)return "g:"+String(gn);
+        var link=String(post.link||"").trim();return link?"u:"+link:"";
+      }
+      for(var pi=0;pi<targetPosts.length;pi++){var tp=targetPosts[pi],tk=syncPostKey(tp);if(tk)postMap[tk]=tp;}
       for(var rpi=0;rpi<remotePosts.length;rpi++){
-        var rp=remotePosts[rpi];if(!rp||rp.id==null)continue;
-        var lp=postMap[String(rp.id)];if(!lp)continue;
+        var rp=remotePosts[rpi],rk=syncPostKey(rp);if(!rk)continue;
+        var lp=postMap[rk];if(!lp)continue;
         var rex=rp.excludedFromProgression===true,rreason=String(rp.exclusionReason||"");
         if(lp.excludedFromProgression!==rex||String(lp.exclusionReason||"")!==rreason){lp.excludedFromProgression=rex;lp.exclusionReason=rex?rreason:"";changed=true;}
       }
