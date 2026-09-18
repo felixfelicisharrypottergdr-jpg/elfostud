@@ -1,4 +1,5 @@
 
+
 <!-- elfo_studente_v267 — Esclusione Post Narratore: sync realtime legacy + ricalcolo progressioni; mantiene v266. 18/09/2026 -->
 <!-- elfo_studente_v266 — Coppa delle Case: riepilogo mensile arricchito con Stima reale, fascia e modificatore per post; mantiene il ponte compatto v265 senza nuove letture Firebase. 16/09/2026 -->
 
@@ -11331,7 +11332,7 @@
 
       tr.appendChild(el("td",null,excludedPost?"—":String(localPostNo)));
       var linkTd=makeLinkCell(lp.link, "Apri il post");
-      if(excludedPost){linkTd.appendChild(el("div","post-excluded-badge","⚠ Escluso dai conteggi"));if(String(lp.exclusionReason||"").trim()){linkTd.appendChild(el("div","post-excluded-note","Motivo: "+String(lp.exclusionReason).trim()));}}
+      if(excludedPost){linkTd.appendChild(el("div","post-excluded-badge","⚠ Escluso dai conteggi"));linkTd.appendChild(el("div","post-excluded-note","Motivo: "+(String(lp.exclusionReason||"").trim()||"non specificato")));}
       tr.appendChild(linkTd);
 
       var linkedUpTo = 0;
