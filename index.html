@@ -5544,6 +5544,9 @@
         if(!confirm(msg)){restore.disabled=false;keep.disabled=false;return;}
         pending=cloneStateForSave(rec.state);
       }
+      /* Anche il ripristino manuale di una copia locale deve mantenere i flag
+         di esclusione presenti nella versione cloud appena letta. */
+      mergePostExclusionFlagsIntoState(pending,{MESI:cloneStateForSave(cloudNow.MESI||[])});
       pending._dbRevision=remote;
       applyState(pending);
       DB_REVISION=remote;PG_DOC_EXISTS=true;LAST_PERSISTED_STATE=keepPersisted;LAST_AUDITED_STATE=keepAudited;LAST_MODIFIED_AT=keepModifiedAt;LAST_MODIFIED_BY=keepModifiedBy;LAST_SESSION_ID=keepSession;
@@ -5578,7 +5581,12 @@
     var keepPersisted=LAST_PERSISTED_STATE?cloneHistoryState(LAST_PERSISTED_STATE):null;
     var keepAudited=LAST_AUDITED_STATE?cloneHistoryState(LAST_AUDITED_STATE):null;
     var keepModifiedAt=LAST_MODIFIED_AT,keepModifiedBy=LAST_MODIFIED_BY,keepSession=LAST_SESSION_ID;
-    var pending=cloneStateForSave(rec.state);pending._dbRevision=remote;
+    var cloudPostExclusionState={MESI:cloneStateForSave(MESI)};
+    var pending=cloneStateForSave(rec.state);
+    /* Le esclusioni decise dal Narratore sono autoritative: una copia locale più vecchia
+       non deve poterle cancellare quando viene recuperata automaticamente. */
+    mergePostExclusionFlagsIntoState(pending,cloudPostExclusionState);
+    pending._dbRevision=remote;
     applyState(pending);
     DB_REVISION=remote;PG_DOC_EXISTS=true;LAST_PERSISTED_STATE=keepPersisted;LAST_AUDITED_STATE=keepAudited;LAST_MODIFIED_AT=keepModifiedAt;LAST_MODIFIED_BY=keepModifiedBy;LAST_SESSION_ID=keepSession;
     DATA_DIRTY=true;FORCE_PERSIST_SAVE=true;fbStatusText="Modifica recuperata · salvataggio in corso";updateFbIndicator();
