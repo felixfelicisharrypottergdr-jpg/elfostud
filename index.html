@@ -1,3 +1,4 @@
+<!-- elfo_studente_v270 — Pozioni→Parametri immediati: digitando/selezionando il Nome Pozione l’Elfo riconosce subito il catalogo, aggiorna Classificazione, Parametri intaccati e Forza Standard senza rerender distruttivi. Mantiene v269. 20/09/2026 -->
 <!-- elfo_studente_v269 — Specie→Parametri immediati: digitando/selezionando la Specie in Cubicolo/Recinto l’Elfo riconosce subito il catalogo, aggiorna Classificazione (se consentita) e Parametri senza usare Link Specie e senza rerender distruttivi. Mantiene v268. 20/09/2026 -->
 
 
@@ -12584,10 +12585,47 @@
     var row1=el("div","row"); var dDataT=el("div"); dDataT.appendChild(el("label",null,"Data di creazione (GG/MM/AAAA)")); var iDataT=buildDateInput(postaz.dataTesto,function(v){postaz.dataTesto=v;}); dDataT.appendChild(iDataT); row1.appendChild(dDataT);
     var dDataL=el("div"); dDataL.appendChild(el("label",null,"Link della role")); var iDataL=el("input"); iDataL.type="text"; iDataL.value=postaz.dataLink; iDataL.addEventListener("input",function(){postaz.dataLink=iDataL.value;}); dDataL.appendChild(iDataL); row1.appendChild(dDataL); card.appendChild(row1);
 
-    var row2=el("div","row"); var dNome=el("div"); dNome.appendChild(el("label",null,"Nome Pozione")); var iNome=el("input"); iNome.type="text"; iNome.value=postaz.nomePozione; iNome.addEventListener("input",function(){postaz.nomePozione=iNome.value;}); iNome.addEventListener("change",function(){postaz.nomePozione=iNome.value;scheduleSave(80);}); dNome.appendChild(iNome); row2.appendChild(dNome);
-    var dClass=el("div"); dClass.appendChild(el("label",null,"Classificazione")); dClass.appendChild(buildSelect(CLASSI_STUD,postaz.classificazione,function(v){postaz.classificazione=v;renderAll();})); row2.appendChild(dClass);
+    var row2=el("div","row"); var dNome=el("div"); dNome.appendChild(el("label",null,"Nome Pozione")); var iNome=el("input"); iNome.type="text"; iNome.value=postaz.nomePozione; dNome.appendChild(iNome); row2.appendChild(dNome);
+    var dClass=el("div"); dClass.appendChild(el("label",null,"Classificazione")); var iClass=buildSelect(CLASSI_STUD,postaz.classificazione,function(v){postaz.classificazione=v;renderAll();}); dClass.appendChild(iClass); row2.appendChild(dClass);
     var dTipo=el("div"); dTipo.appendChild(el("label",null,"Tipologia")); dTipo.appendChild(buildSelect(TIPOLOGIE,postaz.tipologia,function(v){postaz.tipologia=v;})); row2.appendChild(dTipo); card.appendChild(row2);
     card.appendChild(buildPotionParametersDetails(postaz));
+
+    function syncPotionCatalogUi(saveAfter){
+      postaz.nomePozione=iNome.value;
+      var hit=elfoCatalogFind(ELFO_POTION_PARAM_CATALOG,postaz.nomePozione||"");
+      if(hit&&hit.data){
+        var autoClass=String(hit.data.c||"").trim();
+        if(autoClass&&CLASSI_STUD.indexOf(autoClass)!==-1){postaz.classificazione=autoClass;iClass.value=autoClass;}
+      }
+      ensurePotionParameterState(postaz);
+
+      var levels=["x","xx","xxx","xxxx","xxxxx"];
+      for(var ci=0;ci<levels.length;ci++){
+        work.classList.remove("potion-class-"+levels[ci]);
+        card.classList.remove("potion-class-"+levels[ci]);
+      }
+      var currentClass=String(postaz.classificazione||"").toLowerCase().replace(/\s+/g,"");
+      if(levels.indexOf(currentClass)!==-1){
+        work.classList.add("potion-class-"+currentClass);
+        card.classList.add("potion-class-"+currentClass);
+      }
+
+      var paramsOld=card.querySelector(".potion-parameters");
+      if(paramsOld){paramsOld.replaceWith(buildPotionParametersDetails(postaz));}
+
+      var titleNode=titleWrap.querySelector(".entity-title.potion-title");
+      if(titleNode){titleNode.textContent=postaz.nomePozione!==""?postaz.nomePozione:"Pozione da definire";}
+      var summaryNode=work.firstElementChild;
+      if(summaryNode&&summaryNode.tagName==="SUMMARY"){
+        var summaryName=postaz.nomePozione!==""?postaz.nomePozione:"Pozione da definire";
+        var summaryText=summaryName+" — Postazione n°"+postaz.numero+" · "+String(postaz.classificazione||"X");
+        if(isIllegalEntity(postaz)){summaryText+=" · ILLEGALE";}
+        summaryNode.textContent=summaryText;
+      }
+      if(saveAfter){scheduleSave(80);}
+    }
+    iNome.addEventListener("input",function(){syncPotionCatalogUi(false);});
+    iNome.addEventListener("change",function(){syncPotionCatalogUi(true);});
 
     var dOgg=el("div","entity-full-field"); dOgg.appendChild(el("label",null,"Calderone e/o Oggetti utilizzati")); var iOgg=el("input"); iOgg.type="text"; iOgg.value=postaz.calderoneOggetti; iOgg.addEventListener("input",function(){postaz.calderoneOggetti=iOgg.value;}); dOgg.appendChild(iOgg); card.appendChild(dOgg);
     card.appendChild(buildEntityLegalityBlock(postaz,"pozione"));
