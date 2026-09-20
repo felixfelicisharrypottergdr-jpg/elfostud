@@ -1,5 +1,6 @@
 
 
+<!-- elfo_studente_v268 — Coppa delle Case: ripubblicazione immediata del riepilogo quando il Narratore cambia le esclusioni Post; mantiene v267. 20/09/2026 -->
 <!-- elfo_studente_v267 — Esclusione Post Narratore: sync realtime legacy + ricalcolo progressioni; mantiene v266. 18/09/2026 -->
 <!-- elfo_studente_v266 — Coppa delle Case: riepilogo mensile arricchito con Stima reale, fascia e modificatore per post; mantiene il ponte compatto v265 senza nuove letture Firebase. 16/09/2026 -->
 
@@ -4830,6 +4831,10 @@
       fbStatusText="Conteggi Post aggiornati dal Narratore";
       DATA_DIRTY=!!(LAST_PERSISTED_STATE && stableComparableJson(persistenceComparableState(collectState()))!==stableComparableJson(LAST_PERSISTED_STATE));
       renderAll({skipAutoSave:true});
+      /* L'esclusione è già stata salvata dal Narratore nel documento PG: non serve
+         risalvare lo stato personale. Ripubblichiamo però subito il riepilogo compatto
+         della Coppa, così il feed annuale riflette il nuovo numero di Post validi. */
+      houseCupBridgePublishAfterSave();
     },function(){/* Il normale controllo revisione resta il fallback. */});
   }
 
@@ -10644,7 +10649,8 @@
   /* PONTE COPPA DELLE CASE                              */
   /* - usa i calcoli House Points già presenti nell'Elfo */
   /* - non effettua letture Firebase                     */
-  /* - scrive solo dopo un salvataggio personale riuscito*/
+  /* - scrive dopo un salvataggio personale riuscito o  */
+  /*   dopo nuove esclusioni ricevute dal Narratore      */
   /* - salta le scritture se il riepilogo non è cambiato */
   /* ==================================================== */
   var HOUSE_CUP_BRIDGE_PREFIX="ffgdr_house_cup_bridge_v1::";
