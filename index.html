@@ -1,3 +1,4 @@
+<!-- elfo_studente_v269 — Specie→Parametri immediati: digitando/selezionando la Specie in Cubicolo/Recinto l’Elfo riconosce subito il catalogo, aggiorna Classificazione (se consentita) e Parametri senza usare Link Specie e senza rerender distruttivi. Mantiene v268. 20/09/2026 -->
 
 
 <!-- elfo_studente_v268 — Coppa delle Case: ripubblicazione immediata del riepilogo quando il Narratore cambia le esclusioni Post; mantiene v267. 20/09/2026 -->
@@ -14620,9 +14621,47 @@
     var dData=el("div"); dData.appendChild(el("label",null,"Data ritrovamento/domesticazione (GG/MM/AAAA)")); var iData=buildDateInput(occupant.dataTesto,function(v){occupant.dataTesto=v;}); dData.appendChild(iData); row1.appendChild(dData);
     var dDataL=el("div"); dDataL.appendChild(el("label",null,"Link del ritrovamento/domesticazione")); var iDataL=el("input"); iDataL.type="text"; iDataL.value=occupant.dataLink||""; iDataL.placeholder="Incolla qui il link completo della role"; function syncDataLink(){occupant.dataLink=iDataL.value;scheduleSave();} iDataL.addEventListener("input",syncDataLink); iDataL.addEventListener("change",syncDataLink); iDataL.addEventListener("paste",function(){setTimeout(syncDataLink,0);}); dDataL.appendChild(iDataL); row1.appendChild(dDataL); card.appendChild(row1);
 
-    var row2=el("div","row"); var dClass=el("div"); dClass.appendChild(el("label",null,"Classificazione")); dClass.appendChild(buildSelect(CLASSI_STUD,occupant.classificazione,function(v){occupant.classificazione=v;renderAll();})); row2.appendChild(dClass);
+    var row2=el("div","row"); var dClass=el("div"); dClass.appendChild(el("label",null,"Classificazione")); var iClass=buildSelect(CLASSI_STUD,occupant.classificazione,function(v){occupant.classificazione=v;renderAll();}); dClass.appendChild(iClass); row2.appendChild(dClass);
     var dClassL=el("div"); dClassL.appendChild(el("label",null,"Link Classificazione")); var iClassL=el("input"); iClassL.type="text"; iClassL.value=occupant.classificazioneLink; iClassL.addEventListener("input",function(){occupant.classificazioneLink=iClassL.value;}); dClassL.appendChild(iClassL); row2.appendChild(dClassL);
-    var dSpecie=el("div"); dSpecie.appendChild(el("label",null,config.specieLabel)); var iSpecie=el("input"); iSpecie.type="text"; iSpecie.value=occupant.specieSesso; iSpecie.addEventListener("input",function(){occupant.specieSesso=iSpecie.value;}); dSpecie.appendChild(iSpecie); row2.appendChild(dSpecie);
+    var dSpecie=el("div"); dSpecie.appendChild(el("label",null,config.specieLabel)); var iSpecie=el("input"); iSpecie.type="text"; iSpecie.value=occupant.specieSesso;
+    function syncSpeciesCatalogUi(saveAfter){
+      occupant.specieSesso=iSpecie.value;
+      var hit=entityParamCatalogMatch(occupant,isPlant);
+      if(hit&&hit.data){
+        var autoClass=String(hit.data.c||"").trim();
+        if(autoClass&&CLASSI_STUD.indexOf(autoClass)!==-1){occupant.classificazione=autoClass;iClass.value=autoClass;}
+      }
+      var levels=["x","xx","xxx","xxxx","xxxxx"];
+      for(var ci=0;ci<levels.length;ci++){
+        work.classList.remove("entity-class-"+levels[ci]);
+        card.classList.remove((isPlant?"plant-class-":"creature-class-")+levels[ci]);
+      }
+      var currentClass=String(occupant.classificazione||"").toLowerCase().replace(/\s+/g,"");
+      if(levels.indexOf(currentClass)!==-1){
+        work.classList.add("entity-class-"+currentClass);
+        card.classList.add((isPlant?"plant-class-":"creature-class-")+currentClass);
+      }
+      var paramOld=card.querySelector(".entity-parameters");
+      if(paramOld){paramOld.replaceWith(buildEntityParametersDetails(occupant,config));}
+      var metaNow=[];
+      if(occupant.classificazione){metaNow.push("Classificazione "+occupant.classificazione);}
+      if(String(occupant.specieSesso||"").trim()){metaNow.push(String(occupant.specieSesso).trim());}
+      var metaNode=headingMain.querySelector(".entity-title-meta");
+      if(metaNode){metaNode.textContent=metaNow.join(" · ")||config.tipoLabel;}
+      var summaryNode=work.firstElementChild;
+      if(summaryNode&&summaryNode.tagName==="SUMMARY"){
+        var sumParts=metaNow.slice();
+        if(String(occupant.faseAttuale||"").trim()){sumParts.push(String(occupant.faseAttuale).trim());}
+        var sumText=titoloCard+(sumParts.length?" — "+sumParts.join(" · "):"");
+        
+        if(isIllegalEntity(occupant)){sumText+=" · ILLEGALE";}
+        summaryNode.textContent=sumText;
+      }
+      if(saveAfter){scheduleSave(80);}
+    }
+    iSpecie.addEventListener("input",function(){syncSpeciesCatalogUi(false);});
+    iSpecie.addEventListener("change",function(){syncSpeciesCatalogUi(true);});
+    dSpecie.appendChild(iSpecie); row2.appendChild(dSpecie);
     var dSpecieL=el("div"); dSpecieL.appendChild(el("label",null,"Link Specie")); var iSpecieL=el("input"); iSpecieL.type="text"; iSpecieL.value=occupant.specieLink; iSpecieL.addEventListener("input",function(){occupant.specieLink=iSpecieL.value;}); dSpecieL.appendChild(iSpecieL); row2.appendChild(dSpecieL);
     card.appendChild(row2);
     if(!isPlant){
