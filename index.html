@@ -1,3 +1,4 @@
+
 <!-- elfo_studente_v273 — Audit completo Parametri: Piante e Creature riallineate ai cataloghi correnti; regole Coltivatore aggiornate (durata/specifici), alias canonici e Nano escluso da Allevatore; Pozioni complete anche nei Parametri intaccati; cambio nome/specie sincronizza correttamente Parametri e modificazioni senza trascinare override della voce precedente. Mantiene v272. 20/09/2026 -->
 <!-- elfo_studente_v272 — Pozioni: completati i 21 valori di Forza mancanti nel catalogo interno; allineamento verificato con Pozionistica. Mantiene v271. 20/09/2026 -->
 <!-- elfo_studente_v271 — Parametri Piante corretti: catalogo interno riallineato integralmente ai Parametri della Guida Erbologia; 91 specie canoniche + alias compatibili. La Specie inserita a mano aggiorna subito Classificazione e Parametri; Link Specie resta solo un riferimento. Mantiene v270. 20/09/2026 -->
@@ -10658,7 +10659,38 @@
   /*   dopo nuove esclusioni ricevute dal Narratore      */
   /* - salta le scritture se il riepilogo non è cambiato */
   /* ==================================================== */
-  var HOUSE_CUP_BRIDGE_PREFIX="ffgdr_house_cup_bridge_v1::";
+  /* v274 — Ponte Coppa: pubblicazioni serializzate e prima verifica v2.
+     Evita che due salvataggi ravvicinati pubblichino prima 10 e poi 5 post. */
+  var HOUSE_CUP_BRIDGE_PREFIX="ffgdr_house_cup_bridge_v2::";
+  var HOUSE_CUP_PENDING=null,HOUSE_CUP_RUNNING=false,HOUSE_CUP_RETRIES=0,HOUSE_CUP_RETRY_TIMER=null;
+  function houseCupBridgeDrainQueue(){
+    if(HOUSE_CUP_RUNNING||!HOUSE_CUP_PENDING||!window.fbPublishHouseCupSummary)return;
+    HOUSE_CUP_RUNNING=true;
+    var snap=HOUSE_CUP_PENDING;HOUSE_CUP_PENDING=null;
+    var key=houseCupBridgeStorageKey(snap.pgId,snap.schoolYear),fingerprint=JSON.stringify(snap),last=null;
+    try{last=JSON.parse(localStorage.getItem(key)||"null");}catch(e){last=null;}
+    if(last&&last.fingerprint===fingerprint&&(Date.now()-(parseInt(last.at,10)||0))<7*24*60*60*1000){
+      HOUSE_CUP_RUNNING=false;houseCupBridgeDrainQueue();return;
+    }
+    window.fbPublishHouseCupSummary(snap.schoolYear,snap.pgId,snap).then(function(res){
+      if(!res||!res.ok)throw new Error(String(res&&res.code||"house-cup-sync-failed"));
+      HOUSE_CUP_RETRIES=0;
+      try{localStorage.setItem(key,JSON.stringify({fingerprint:fingerprint,at:Date.now()}));}catch(e){}
+    }).catch(function(err){
+      console.warn("Ponte Coppa: invio non riuscito; riepilogo conservato per riprova",err);
+      if(!HOUSE_CUP_PENDING)HOUSE_CUP_PENDING=snap;
+      if(HOUSE_CUP_RETRIES<3){
+        HOUSE_CUP_RETRIES++;
+        if(HOUSE_CUP_RETRY_TIMER)clearTimeout(HOUSE_CUP_RETRY_TIMER);
+        HOUSE_CUP_RETRY_TIMER=setTimeout(function(){HOUSE_CUP_RETRY_TIMER=null;houseCupBridgeDrainQueue();},30000);
+      }
+    }).finally(function(){
+      HOUSE_CUP_RUNNING=false;
+      /* Se nel frattempo il PG ha salvato altri post, l'ultimo riepilogo
+         ha sempre priorità rispetto a un vecchio retry. */
+      if(HOUSE_CUP_PENDING&&!HOUSE_CUP_RETRY_TIMER)houseCupBridgeDrainQueue();
+    });
+  }
   function houseCupCurrentYearStart(date){
     date=date instanceof Date?date:new Date();
     return date.getMonth()>=8?date.getFullYear():date.getFullYear()-1;
@@ -10693,13 +10725,9 @@
     try{
       if(!fbConnected||!EDIT_UNLOCKED||!window.fbPublishHouseCupSummary)return;
       var snap=houseCupBridgeSnapshot();if(!snap)return;
-      var key=houseCupBridgeStorageKey(snap.pgId,snap.schoolYear),fingerprint=JSON.stringify(snap),last=null;
-      try{last=JSON.parse(localStorage.getItem(key)||"null");}catch(e){last=null;}
-      var fresh=last&&last.fingerprint===fingerprint&&(Date.now()-(parseInt(last.at,10)||0))<7*24*60*60*1000;
-      if(fresh)return;
-      window.fbPublishHouseCupSummary(snap.schoolYear,snap.pgId,snap).then(function(res){
-        if(res&&res.ok){try{localStorage.setItem(key,JSON.stringify({fingerprint:fingerprint,at:Date.now()}));}catch(e){}}
-      }).catch(function(){});
+      HOUSE_CUP_PENDING=snap;
+      if(HOUSE_CUP_RETRY_TIMER){clearTimeout(HOUSE_CUP_RETRY_TIMER);HOUSE_CUP_RETRY_TIMER=null;HOUSE_CUP_RETRIES=0;}
+      houseCupBridgeDrainQueue();
     }catch(e){console.error("Ponte Coppa delle Case:",e);}
   }
 
