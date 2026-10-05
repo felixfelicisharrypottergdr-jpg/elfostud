@@ -1,3 +1,4 @@
+<!-- elfo_studente_v278 — Fix Mesi archiviati: per i Mesi già accreditati la transizione aperto→archiviato viene ora persistita senza riaprire il Mese al successivo salvataggio; restano protetti Post e Bonus e resta vietata la riapertura finché l'accredito non viene revocato. Mantiene integralmente v277. 05/10/2026 -->
 
 <!-- elfo_studente_v277 — Unificati gli avvisi dei Post: resta solo la guida a tre riquadri accanto ad Aggiungi post; il modulo Spin-off compare sotto i riquadri soltanto quando viene aperto. 24/09/2026 -->
 <!-- elfo_studente_v276 — Avvisi immediatamente sotto Crea Mese e accanto ad Aggiungi Post: Spin-off in corallo con registrazione link, stessa Casa in blu e Bonus in viola, accessi diretti ai rispettivi moduli; preserva logica e dati v275. 24/09/2026 -->
@@ -2718,9 +2719,18 @@
         var changedLocally=bm?!txAccreditedMonthEquivalent(bm,pm):!txAccreditedMonthEquivalent(rm,pm);
         var alreadyRemote=txAccreditedMonthEquivalent(rm,pm);
         if(changedLocally&&!alreadyRemote){throw new Error("accredited-month-conflict");}
-        /* Anche se la copia locale contiene vecchi default/migrazioni tecniche,
-           il Mese accreditato scritto nel documento resta quello già presente nel cloud. */
-        out[pidx]=rm;
+        /* Un Mese accreditato resta autoritativo per Post e Bonus, ma deve poter essere
+           archiviato dal Player. La sola transizione ammessa è aperto -> chiuso:
+           conserviamo quindi integralmente la copia remota e trasferiamo soltanto
+           chiuso/_archivedAt dalla proposta locale. La riapertura resta vietata. */
+        if(!rm.chiuso && pm.chiuso){
+          var archivedRemote=Object.assign({},rm);
+          archivedRemote.chiuso=true;
+          if(pm._archivedAt){archivedRemote._archivedAt=pm._archivedAt;}
+          out[pidx]=archivedRemote;
+        }else{
+          out[pidx]=rm;
+        }
       }else{
         /* Se la baseline conteneva il Mese ma la proposta no, è una vera rimozione locale. */
         if(bm){throw new Error("accredited-month-conflict");}
