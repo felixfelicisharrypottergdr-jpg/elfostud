@@ -1,3 +1,4 @@
+<!-- elfo_studente_v281: I tuoi Post contiene solo link, progressivi e gestione Role; Bonus e variabili restano esclusivamente nella Camera Blindata. Mantiene riconoscimento delle discussioni note e persistenza precedente. 10/10/2026 -->
 <!-- Aggiornamento 10/10/2026: classificazione automatica Role note, domanda per topic nuovi, Bonus successivi. -->
 <!-- Correzione v279: ripristino Bonus e variabili nei Post, avviso link non valido, aggiornamento della riga all’inserimento URL. 10/10/2026 -->
 <!-- elfo_studente_v278 — Fix Mesi archiviati: per i Mesi già accreditati la transizione aperto→archiviato viene ora persistita senza riaprire il Mese al successivo salvataggio; restano protetti Post e Bonus e resta vietata la riapertura finché l'accredito non viene revocato. Mantiene integralmente v277. 05/10/2026 -->
@@ -10266,7 +10267,7 @@
 
     var tbl = el("table", "posts");
     var showInlineGlobal = !mese.chiuso;
-    tbl.appendChild(el("tr", null, "<th>N.</th><th>Link al post</th>"+(showInlineGlobal?"<th>N. globale</th>":"")+"<th>Bonus e variabili</th><th></th>"));
+    tbl.appendChild(el("tr", null, "<th>N.</th><th>Link al post</th>"+(showInlineGlobal?"<th>N. globale</th>":"")+"<th></th>"));
     for(var i=0;i<mese.posts.length;i++){
       (function(post, idx){
         var tr = el("tr");
@@ -10314,8 +10315,8 @@
           syncHouseRoleBonusForPost(post,mese);
           scheduleSave(delay==null?0:delay);
           if(staffTokenIsUsed(post,mese)){syncStaffTokenReference(post,mese);}
-          /* Quando il link diventa valido (o cessa di esserlo), ricostruisci
-             le celle Bonus, le caselle Usi e i totali dipendenti dai Post. */
+          /* Quando il link diventa valido (o cessa di esserlo), aggiorna
+             i riepiloghi e i bonus gestiti nella Camera Blindata. */
           if(isValidPostLink(lastRenderedLinkValiditySource)!==isValidPostLink(candidate)){
             setTimeout(function(){renderAll();},0);
           }
@@ -10459,13 +10460,6 @@
           tdGlobal.appendChild(specialRewardSpan);
           tr.appendChild(tdGlobal); refreshInlineGlobal();
         }
-        /* Bonus del Mese direttamente in I tuoi Post: stessa logica e stessi
-           oggetti condivisi con Camera Blindata, senza duplicazione dei dati. */
-        var bonusTd=makeEventBonusExclusionCell(post,mese,contentLocked);
-        if(!isValidPostLink(post.link)){
-          bonusTd.appendChild(el("div","small-note","Incolla prima il link del Post per attivare gli utilizzi e compilare il risultato del Bonus."));
-        }
-        tr.appendChild(bonusTd);
         var tdRm = el("td");
         var rmBtn = el("button", "action danger small", "Rimuovi");
         rmBtn.type="button";
@@ -10529,7 +10523,7 @@
     /* Promemoria in prossimità del click decisivo: impossibile confonderlo con i dati secondari. */
     if(!mese.chiuso && !accreditato){
       var preflight=el("div","post-preflight");
-      preflight.appendChild(el("div","post-preflight-heading","Incolla il link del post: l’Elfo riconosce le Role già note e chiede solo per quelle nuove. Bonus e variabili si aggiungono dopo, nella riga del post."));
+      preflight.appendChild(el("div","post-preflight-heading","Incolla il link del post: l’Elfo riconosce le Role già note e chiede solo per quelle nuove. Bonus, dadi e variabili si gestiscono nella Camera Blindata."));
       var preflightGrid=el("div","post-preflight-grid");
 
 
