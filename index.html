@@ -1,3 +1,4 @@
+<!-- elfo_studente_v282 — 17/10/2026: salvataggio manuale irrobustito (backup locale immediato, verifica finale rileggendo Firebase e avviso prima di refresh/uscita con modifiche non consolidate); Taccuino FantaHogwarts con elenco Missioni completo e stato «già in corso/conclusa»; pulizia del codice/CSS residuo delle vecchie scorciatoie SPIN-OFF/STESSA CASA/BONUS in «I tuoi Post». Mantiene integralmente v281. -->
 <!-- elfo_studente_v281: I tuoi Post contiene solo link, progressivi e gestione Role; Bonus e variabili restano esclusivamente nella Camera Blindata. Mantiene riconoscimento delle discussioni note e persistenza precedente. 10/10/2026 -->
 <!-- Aggiornamento 10/10/2026: classificazione automatica Role note, domanda per topic nuovi, Bonus successivi. -->
 <!-- Correzione v279: ripristino Bonus e variabili nei Post, avviso link non valido, aggiornamento della riga all’inserimento URL. 10/10/2026 -->
@@ -2337,38 +2338,11 @@
   font-size:.89rem!important;min-height:43px;
 }
 .post-spin-off-panel .spin-off-register-btn:hover{background:#74102b!important;}
-.post-preflight-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:11px;}
-.post-setup-tile{
-  display:flex;flex-direction:column;align-items:flex-start;gap:7px;padding:13px 15px;
-  border-radius:9px;border:2px solid transparent;min-width:0;
-}
-.post-setup-tile-title{display:block;font-size:.94rem;letter-spacing:.025em;line-height:1.25;}
-.post-setup-tile p{margin:0;line-height:1.45;font-size:.81rem;flex:1;}
-.post-setup-tile .post-setup-link{
-  margin:4px 0 0!important;padding:9px 12px;border-radius:6px;
-  font-size:.8rem;font-weight:850;line-height:1.35;cursor:pointer;
-  min-height:39px;text-align:left;
-}
-.post-setup-link:disabled{opacity:.48;cursor:not-allowed;}
-.post-setup-spin{border-color:#ca3655;background:#ffe8ed;color:#71142b;}
-.post-setup-spin .post-setup-link{background:#9b2042;color:white;border:1px solid #861430;}
-.post-setup-spin .post-setup-link:hover:not(:disabled){background:#761332;}
-.post-setup-house{border-color:#4c7ea1;background:#e8f3fb;color:#21465f;}
-.post-setup-house .post-setup-link{background:#245b82;color:white;border:1px solid #174769;}
-.post-setup-house .post-setup-link:hover:not(:disabled){background:#173e61;}
-.post-setup-bonus{border-color:#9163aa;background:#f3e8fa;color:#513064;}
-.post-setup-bonus .post-setup-link{background:#664080;color:white;border:1px solid #4c2961;}
-.post-setup-bonus .post-setup-link:hover:not(:disabled){background:#4c2961;}
 .post-preflight{
   margin:17px 0 2px;padding:13px 14px 15px;
   border:1px solid rgba(69,61,50,.32);border-radius:10px;background:#f7f5f0;
 }
 .post-preflight-heading{font-size:.9rem;font-weight:900;color:#342d26;margin-bottom:11px;}
-.post-preflight-grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:9px;}
-.post-setup-tile.compact{padding:10px 11px;gap:6px;}
-.post-setup-tile.compact .post-setup-tile-title{font-size:.79rem;}
-.post-setup-tile.compact p{font-size:.75rem;line-height:1.4;}
-.post-setup-tile.compact .post-setup-link{font-size:.73rem;width:100%;min-height:38px;}
 .post-actions-primary{padding-top:13px!important;margin-top:10px!important;}
 .post-actions-primary>.action{min-height:42px;padding:10px 18px;font-size:.9rem;font-weight:850;}
 /* Nelle configurazioni effettive l'utente ritrova lo stesso colore della scorciatoia. */
@@ -2378,8 +2352,6 @@
 .post-bonus-target{border:2px solid #8f61a4!important;border-left:5px solid #8f61a4!important;background:#f7eef9!important;}
 .post-bonus-target>summary{font-size:1rem!important;color:#593769!important;background:#eddef4;padding:12px 10px!important;border-radius:6px;}
 .post-bonus-target[open]>summary{margin-bottom:12px;}
-@media(max-width:750px){.post-preflight-grid{grid-template-columns:1fr 1fr;}.post-preflight-grid>.post-setup-spin{grid-column:1 / -1;}}
-@media(max-width:540px){.post-preflight-grid{grid-template-columns:1fr;}.post-preflight-grid>.post-setup-spin{grid-column:auto;}}
 </style>
 
 </head>
@@ -5816,26 +5788,104 @@
     }
     return "Errore nel salvataggio, riprova";
   }
+  var MANUAL_SAVE_ACTIVE=false;
+
+  function verifyPersonalManualSave(expectedState){
+    if(!PG_ID||!window.fbLoadState){return Promise.resolve(true);}
+    return Promise.resolve(window.fbLoadState(PG_ID)).then(function(remote){
+      if(!remote){return false;}
+      var expected=persistenceComparableState(expectedState||collectState());
+      var actual=persistenceComparableState(remote);
+      return stableComparableJson(expected)===stableComparableJson(actual);
+    }).catch(function(e){
+      console.error("Verifica salvataggio manuale fallita",e);
+      return false;
+    });
+  }
+
   function manualSaveNow(btn){
     try{flushActiveEditableControlToState();}catch(e){console.error("Consolidamento campo attivo prima del Salva fallito",e);}
     try{flushGeneralPostInputsToState();}catch(e){console.error("Consolidamento Post prima del Salva fallito",e);}
+
+    function setManualSaveNote(msg){
+      if(!btn||!btn.parentElement)return;
+      var note=btn.parentElement.querySelector('.manual-save-inline-status');
+      if(!note){note=el('div','small-note manual-save-inline-status','');btn.parentElement.appendChild(note);}
+      note.textContent=String(msg||'');note.style.display=msg?'block':'none';
+    }
+
+    setManualSaveNote('');
     if(!fbConnected || !window.fbReady || !window.fbSaveState){
-      if(btn){ var old0=btn.textContent; btn.textContent="Connettiti prima"; setTimeout(function(){btn.textContent=old0;},1400); }
+      if(btn){var old0=btn.textContent;btn.textContent="Connettiti prima";setTimeout(function(){btn.textContent=old0;},1400);}
       return;
     }
-    if(fbSaveTimer){ clearTimeout(fbSaveTimer); fbSaveTimer=null; }
-    fbStatusText="Salvataggio in corso…"; updateFbIndicator();
-    var old=btn?btn.textContent:"Salva"; if(btn){btn.disabled=true;btn.textContent="Salvataggio…";}
-    var stateNow=collectState(), bytesNow=stateSizeBytes(stateNow);
-    if(bytesNow>900000){fbStatusText="Salvataggio troppo grande ("+sizeLabel(bytesNow)+"): archivia i dati vecchi con il Narratore";updateFbIndicator();if(btn){btn.disabled=false;btn.textContent="Troppi dati";}return;}
-    var cmpNow=persistenceComparableState(stateNow);
-    if(PG_DOC_EXISTS && LAST_PERSISTED_STATE && stableComparableJson(cmpNow)===stableComparableJson(LAST_PERSISTED_STATE) && !FORCE_PERSIST_SAVE){DATA_DIRTY=false;fbStatusText="Salvato";updateFbIndicator();if(btn){btn.disabled=false;btn.textContent="Già salvato";setTimeout(function(){btn.textContent=old;},1200);}return;}
-    serializedSaveLatest().then(function(ok){
-      if(!ok&&window.fbLastSaveError&&personalTransientSaveCode(window.fbLastSaveError.code)){personalHandleTransientFailure(window.fbLastSaveError.code,stateNow);}
-      fbStatusText=ok?"Salvato":saveErrorStatus();
+
+    if(fbSaveTimer){clearTimeout(fbSaveTimer);fbSaveTimer=null;}
+    fbStatusText="Salvataggio in corso…";updateFbIndicator();
+    var old=btn?btn.textContent:"Salva";
+    if(btn){btn.disabled=true;btn.textContent="Salvataggio…";}
+    MANUAL_SAVE_ACTIVE=true;
+
+    var stateNow=collectState(),bytesNow=stateSizeBytes(stateNow);
+    if(bytesNow>900000){
+      MANUAL_SAVE_ACTIVE=false;
+      fbStatusText="Salvataggio troppo grande ("+sizeLabel(bytesNow)+"): archivia i dati vecchi con il Narratore";
       updateFbIndicator();
-      if(btn){btn.disabled=false;btn.textContent=ok?"Salvato!":(window.fbLastSaveError&&personalTransientSaveCode(window.fbLastSaveError.code)?"Salvato localmente":"Riprova");setTimeout(function(){btn.textContent=old;},1600);}
-    }).catch(function(e){if(personalTransientSaveCode((e&&e.code)||"")){personalHandleTransientFailure(e.code,stateNow);fbStatusText=saveErrorStatus();}else{fbStatusText="Errore nel salvataggio, riprova";}updateFbIndicator();if(btn){btn.disabled=false;btn.textContent="Riprova";setTimeout(function(){btn.textContent=old;},1200);}});
+      if(btn){btn.disabled=false;btn.textContent="Troppi dati";}
+      return;
+    }
+
+    /* v282: prima della scrittura cloud conserviamo sincronicamente lo stato locale. */
+    try{
+      if(personalPgName()){personalPendingStore(stateNow,"manual-save");}
+    }catch(e){console.error("Backup locale prima del Salva fallito",e);}
+
+    var cmpNow=persistenceComparableState(stateNow);
+    var personalUnchanged=PG_DOC_EXISTS&&LAST_PERSISTED_STATE&&
+      stableComparableJson(cmpNow)===stableComparableJson(LAST_PERSISTED_STATE)&&
+      !FORCE_PERSIST_SAVE;
+    var personalJob=personalUnchanged?Promise.resolve(true):serializedSaveLatest();
+
+    personalJob.then(function(personalOk){
+      if(personalOk===false){return {personalOk:false,verified:false};}
+      var expected=collectState();
+      return verifyPersonalManualSave(expected).then(function(verified){
+        return {personalOk:true,verified:verified};
+      });
+    }).then(function(res){
+      var ok=!!res.personalOk&&res.verified!==false;
+      if(ok){
+        fbStatusText="Salvato";
+        setManualSaveNote("✓ Salvataggio verificato. Ora puoi aggiornare o chiudere la pagina.");
+      }else if(!res.personalOk){
+        fbStatusText=saveErrorStatus();
+        var personalCode=window.fbLastSaveError&&window.fbLastSaveError.code?String(window.fbLastSaveError.code):"errore sconosciuto";
+        if(personalTransientSaveCode(personalCode)){
+          personalHandleTransientFailure(personalCode,stateNow);
+          setManualSaveNote("Modifica conservata — salvataggio momentaneamente non disponibile ("+personalCode+"). Riprovo automaticamente.");
+        }else{
+          setManualSaveNote("Elfo personale non salvato — "+saveErrorStatus());
+        }
+      }else{
+        fbStatusText="Salvataggio non ancora verificato";
+        setManualSaveNote("Il server non restituisce ancora esattamente i dati appena salvati. La copia locale è protetta: attendi e premi di nuovo «Salva» prima di aggiornare.");
+      }
+
+      MANUAL_SAVE_ACTIVE=false;
+      updateFbIndicator();
+      if(btn){
+        btn.disabled=false;
+        if(ok){btn.textContent="Salvato!";setTimeout(function(){btn.textContent=old;},1600);}
+        else{btn.textContent="Riprova salvataggio";}
+      }
+    }).catch(function(e){
+      MANUAL_SAVE_ACTIVE=false;
+      console.error(e);
+      fbStatusText="Errore nel salvataggio, riprova";
+      updateFbIndicator();
+      setManualSaveNote("Errore nel salvataggio — "+String((e&&e.code)||((e&&e.message)||"error"))+". La copia locale resta disponibile.");
+      if(btn){btn.disabled=false;btn.textContent="Riprova salvataggio";}
+    });
   }
   function appendManualSave(container){
     if(!fbConnected || !EDIT_UNLOCKED){ return; }
@@ -7087,6 +7137,19 @@
     window.addEventListener("pagehide",function(){
       personalPendingFlushLocal();
       try{if(typeof flushSharedFacilitiesNow==="function"){Promise.resolve(flushSharedFacilitiesNow()).catch(function(e){console.error(e);});}}catch(e){console.error(e);}
+    });
+  }
+
+  if(!window.__ELFO_UNSAVED_BEFOREUNLOAD_V282){
+    window.__ELFO_UNSAVED_BEFOREUNLOAD_V282=true;
+    window.addEventListener("beforeunload",function(ev){
+      var personalDirty=false;
+      try{personalDirty=!!SAVE_IN_FLIGHT_PROMISE||!!DATA_DIRTY||personalHasUnpersistedNetChange();}catch(e){}
+      if(MANUAL_SAVE_ACTIVE||personalDirty){
+        ev.preventDefault();
+        ev.returnValue="";
+        return "";
+      }
     });
   }
 
@@ -8935,7 +8998,20 @@
     addPanel.appendChild(el("h4",null,"Aggiungi una Missione"));
     addPanel.appendChild(el("p","small-note","Aggiungi solo le Missioni che vuoi seguire. I progressi restano salvati anche se in seguito le togli dall'elenco in corso."));
     var row=el("div","tacc-grid-2"),selWrap=el("div");selWrap.appendChild(el("label",null,"Missione"));var sel=document.createElement("select");var blank=document.createElement("option");blank.value="";blank.textContent="Seleziona…";sel.appendChild(blank);
-    available.forEach(function(d){var o=document.createElement("option");o.value=d.id;o.textContent=d.name;sel.appendChild(o);});selWrap.appendChild(sel);row.appendChild(selWrap);
+    /* v282: le Missioni già in corso/concluse restano visibili nel menu, con stato. */
+    defs.forEach(function(d){
+      var s=taccMissionState(d.id),o=document.createElement("option");
+      o.value=d.id;
+      if(s.status==="active"){o.textContent=d.name+" — già in corso";o.disabled=true;}
+      else if(s.status==="completed"){o.textContent=d.name+" — già conclusa";o.disabled=true;}
+      else{o.textContent=d.name;}
+      sel.appendChild(o);
+    });
+    selWrap.appendChild(sel);
+    if(active.length||completed.length){
+      selWrap.appendChild(el("div","small-note","Le Missioni già in corso o concluse restano visibili qui con il loro stato, ma non possono essere aggiunte due volte: le trovi nelle sezioni qui sotto."));
+    }
+    row.appendChild(selWrap);
     var add=el("button","action","+ Aggiungi");add.type="button";add.style.alignSelf="end";add.disabled=!available.length;add.addEventListener(EV,function(){if(!sel.value){return;}var s=taccMissionState(sel.value);s.active=true;s.status="active";if(!s.startedAt){s.startedAt=taccToday();}taccSave();renderAll();});row.appendChild(add);addPanel.appendChild(row);container.appendChild(addPanel);
     addToggle.setAttribute("aria-expanded","false");addToggle.addEventListener(EV,function(){var show=addPanel.style.display==="none";addPanel.style.display=show?"block":"none";addToggle.setAttribute("aria-expanded",show?"true":"false");});
 
@@ -9999,63 +10075,8 @@
   }
 
   /* v276: scorciatoie visuali ai moduli già esistenti, senza duplicare i registri. */
-  function openPostsSpinOffManager(sourceButton){
-    var panel=document.getElementById("posts-spin-off-manager");
-    var slot=document.getElementById("posts-spin-off-slot");
-    if(!panel||!slot)return;
-    /* Il modulo esiste una sola volta. Si sposta sotto l'avviso scelto,
-       evitando un secondo riquadro ripetuto sotto «Crea un nuovo Mese». */
-    var preflight=sourceButton&&sourceButton.closest?sourceButton.closest(".post-preflight"):null;
-    if(preflight){preflight.appendChild(slot);}
-    slot.hidden=false;
-    panel.open=true;OPEN_DETAILS["posts:special-role-manager"]=true;
-    setTimeout(function(){
-      if(!document.body.contains(panel))return;
-      panel.scrollIntoView({behavior:"smooth",block:"nearest"});
-      var input=panel.querySelector(".spin-off-link-field input");
-      if(input&&!input.disabled){try{input.focus({preventScroll:true});}catch(e){input.focus();}}
-    },30);
-  }
-  function openPostsRelatedBlindata(which,mese){
-    if(!MESI.length){alert("Crea prima un Mese, poi registra il Bonus o la Role della stessa Casa.");return;}
-    var idx=mese?MESI.indexOf(mese):-1;
-    if(idx<0){for(var i=MESI.length-1;i>=0;i--){if(!MESI[i].chiuso){idx=i;break;}}}
-    if(idx<0)idx=MESI.length-1;
-    meseSelezionatoBlindataIdx=idx;
-    var id=which==="house"?"cb-house-role-manager":"cb-month-bonuses";
-    if(which==="house")OPEN_DETAILS["camera-blindata:house-role-bonus"]=true;
-    else OPEN_DETAILS["camera-blindata:bonus:"+String(MESI[idx].id)]=true;
-    currentStep="blindata";
-    renderAll({skipAutoSave:true});
-    setTimeout(function(){
-      var target=document.getElementById(id);
-      if(!target)return;
-      target.open=true;
-      target.scrollIntoView({behavior:"smooth",block:"start"});
-      var input=target.querySelector('input:not([disabled])');
-      if(input){try{input.focus({preventScroll:true});}catch(e){}}
-    },40);
-  }
-  function postSetupShortcut(kind,mese,compact){
-    var titles={spin:"⚠ SPIN-OFF",house:"STESSA CASA",bonus:"BONUS"};
-    var desc={
-      spin:"Trix Tristis, Giratempo o Linea dell’Età? Il link della Role va registrato <b>prima</b> di inserire i Post.",
-      house:"Free role con almeno altri 2 PG esclusivamente della tua Casa? Registra il link per il Bonus Casa.",
-      bonus:"Hai un premio da Evento, Trama o un altro Bonus? Configuralo nella Camera Blindata del Mese."
-    };
-    var buttonText={spin:"Registra link Spin-off →",house:"Registra Role stessa Casa →",bonus:"Imposta Bonus del Mese →"};
-    var tile=el("div","post-setup-tile post-setup-"+kind+(compact?" compact":""));
-    tile.appendChild(el("strong","post-setup-tile-title",titles[kind]));
-    tile.appendChild(el("p",null,desc[kind]));
-    var btn=el("button","post-setup-link elfo-readonly-safe",buttonText[kind]);btn.type="button";
-    if(kind!=="spin"&&!MESI.length){btn.disabled=true;btn.title="Crea prima un Mese";}
-    btn.addEventListener(EV,function(){
-      if(kind==="spin")openPostsSpinOffManager(btn);
-      else openPostsRelatedBlindata(kind,mese);
-    });
-    tile.appendChild(btn);
-    return tile;
-  }
+  /* v282: rimosse le vecchie scorciatoie SPIN-OFF / STESSA CASA / BONUS da «I tuoi Post».
+     Il riconoscimento delle Role avviene sul link; Bonus e Role stessa Casa restano in Camera Blindata. */
 
   function renderPostsStep(container){
     var p = el("div", "panel");
@@ -10091,9 +10112,8 @@
     monthCreateBox.appendChild(monthCreateActions);
     p.appendChild(monthCreateBox);
 
-    /* Il solo avviso visibile è quello accanto ad «Aggiungi post».
-       Il modulo Spin-off globale resta nel DOM ma nascosto: il relativo
-       pulsante lo sposta nella scheda del Mese e lo apre solo su richiesta. */
+    /* Registro Spin-off mantenuto nel DOM per compatibilità con i dati esistenti.
+       Il flusso corrente riconosce le Role dal link e chiede la sezione soltanto per topic nuovi. */
     var spinOffSlot=el("div","post-spin-off-panel");
     spinOffSlot.id="posts-spin-off-slot";
     spinOffSlot.hidden=true;
@@ -10524,11 +10544,6 @@
     if(!mese.chiuso && !accreditato){
       var preflight=el("div","post-preflight");
       preflight.appendChild(el("div","post-preflight-heading","Incolla il link del post: l’Elfo riconosce le Role già note e chiede solo per quelle nuove. Bonus, dadi e variabili si gestiscono nella Camera Blindata."));
-      var preflightGrid=el("div","post-preflight-grid");
-
-
-
-
       card.appendChild(preflight);
     }
     var postActions=el("div","month-post-actions post-actions-primary");
