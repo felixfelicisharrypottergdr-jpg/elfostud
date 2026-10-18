@@ -1,3 +1,4 @@
+<!-- elfo_studente_v284 — 18/10/2026: corretta la verifica del Salva manuale. Il controllo ora confronta solo i campi realmente gestiti dall’Elfo e la baseline effettivamente confermata da Firebase, ignorando metadati/chiavi legacy rimaste nel documento per effetto dei salvataggi merge. Ripulito anche il flag sporco residuo prima dell’avviso di chiusura, così Chrome non segnala modifiche non salvate quando lo stato netto coincide con quello confermato. Mantiene integralmente v283. -->
 <!-- elfo_studente_v283 — 18/10/2026: corretto il salvataggio manuale della v282: la verifica post-salvataggio usava per errore PG_ID, variabile presente nell’Elfo Adulto ma non nello Studente, causando «PG_ID is not defined» dopo il click su Salva. Ora usa personalPgName(), mantenendo integralmente backup locale, verifica Firebase, Missioni e cleanup Post della v282. -->
 <!-- elfo_studente_v282 — 17/10/2026: salvataggio manuale irrobustito (backup locale immediato, verifica finale rileggendo Firebase e avviso prima di refresh/uscita con modifiche non consolidate); Taccuino FantaHogwarts con elenco Missioni completo e stato «già in corso/conclusa»; pulizia del codice/CSS residuo delle vecchie scorciatoie SPIN-OFF/STESSA CASA/BONUS in «I tuoi Post». Mantiene integralmente v281. -->
 <!-- elfo_studente_v281: I tuoi Post contiene solo link, progressivi e gestione Role; Bonus e variabili restano esclusivamente nella Camera Blindata. Mantiene riconoscimento delle discussioni note e persistenza precedente. 10/10/2026 -->
@@ -5792,14 +5793,18 @@
   var MANUAL_SAVE_ACTIVE=false;
 
   function verifyPersonalManualSave(expectedState){
-    /* v283: nello Studente non esiste PG_ID (variabile dell’Elfo Adulto).
-       Usa l’identificativo canonico già impiegato da tutto il flusso personale. */
+    /* v284: Firestore usa merge:true, quindi il documento remoto può conservare
+       metadati o campi legacy che non fanno più parte dello stato corrente.
+       Confrontare l'intero documento produceva falsi negativi anche quando tutti
+       i dati visibili erano stati salvati correttamente. Verifichiamo invece la
+       baseline realmente confermata dall'ultima transazione, proiettando il remoto
+       sui soli campi gestiti dall'Elfo. */
     var pg=personalPgName();
     if(!pg||!window.fbLoadState){return Promise.resolve(true);}
     return Promise.resolve(window.fbLoadState(pg)).then(function(remote){
       if(!remote){return false;}
-      var expected=persistenceComparableState(expectedState||collectState());
-      var actual=persistenceComparableState(remote);
+      var expected=LAST_PERSISTED_STATE?cloneHistoryState(LAST_PERSISTED_STATE):persistenceComparableState(expectedState||collectState());
+      var actual=loadedPersistenceProjection(remote,expected);
       return stableComparableJson(expected)===stableComparableJson(actual);
     }).catch(function(e){
       console.error("Verifica salvataggio manuale fallita",e);
@@ -5860,6 +5865,10 @@
       var ok=!!res.personalOk&&res.verified!==false;
       if(ok){
         fbStatusText="Salvato";
+        try{
+          personalResetCloudBackoffIfSynced();
+          if(!personalHasUnpersistedNetChange()){DATA_DIRTY=false;personalPendingClear();}
+        }catch(e){console.error("Pulizia stato locale dopo verifica salvataggio fallita",e);}
         setManualSaveNote("✓ Salvataggio verificato. Ora puoi aggiornare o chiudere la pagina.");
       }else if(!res.personalOk){
         fbStatusText=saveErrorStatus();
@@ -7148,7 +7157,11 @@
     window.__ELFO_UNSAVED_BEFOREUNLOAD_V282=true;
     window.addEventListener("beforeunload",function(ev){
       var personalDirty=false;
-      try{personalDirty=!!SAVE_IN_FLIGHT_PROMISE||!!DATA_DIRTY||personalHasUnpersistedNetChange();}catch(e){}
+      try{
+        var netDirty=personalHasUnpersistedNetChange();
+        if(!netDirty&&!SAVE_IN_FLIGHT_PROMISE){DATA_DIRTY=false;}
+        personalDirty=!!SAVE_IN_FLIGHT_PROMISE||netDirty;
+      }catch(e){personalDirty=!!SAVE_IN_FLIGHT_PROMISE||!!DATA_DIRTY;}
       if(MANUAL_SAVE_ACTIVE||personalDirty){
         ev.preventDefault();
         ev.returnValue="";
