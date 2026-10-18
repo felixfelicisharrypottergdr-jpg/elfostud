@@ -1,3 +1,4 @@
+<!-- elfo_studente_v283 — 18/10/2026: corretto il salvataggio manuale della v282: la verifica post-salvataggio usava per errore PG_ID, variabile presente nell’Elfo Adulto ma non nello Studente, causando «PG_ID is not defined» dopo il click su Salva. Ora usa personalPgName(), mantenendo integralmente backup locale, verifica Firebase, Missioni e cleanup Post della v282. -->
 <!-- elfo_studente_v282 — 17/10/2026: salvataggio manuale irrobustito (backup locale immediato, verifica finale rileggendo Firebase e avviso prima di refresh/uscita con modifiche non consolidate); Taccuino FantaHogwarts con elenco Missioni completo e stato «già in corso/conclusa»; pulizia del codice/CSS residuo delle vecchie scorciatoie SPIN-OFF/STESSA CASA/BONUS in «I tuoi Post». Mantiene integralmente v281. -->
 <!-- elfo_studente_v281: I tuoi Post contiene solo link, progressivi e gestione Role; Bonus e variabili restano esclusivamente nella Camera Blindata. Mantiene riconoscimento delle discussioni note e persistenza precedente. 10/10/2026 -->
 <!-- Aggiornamento 10/10/2026: classificazione automatica Role note, domanda per topic nuovi, Bonus successivi. -->
@@ -5791,8 +5792,11 @@
   var MANUAL_SAVE_ACTIVE=false;
 
   function verifyPersonalManualSave(expectedState){
-    if(!PG_ID||!window.fbLoadState){return Promise.resolve(true);}
-    return Promise.resolve(window.fbLoadState(PG_ID)).then(function(remote){
+    /* v283: nello Studente non esiste PG_ID (variabile dell’Elfo Adulto).
+       Usa l’identificativo canonico già impiegato da tutto il flusso personale. */
+    var pg=personalPgName();
+    if(!pg||!window.fbLoadState){return Promise.resolve(true);}
+    return Promise.resolve(window.fbLoadState(pg)).then(function(remote){
       if(!remote){return false;}
       var expected=persistenceComparableState(expectedState||collectState());
       var actual=persistenceComparableState(remote);
